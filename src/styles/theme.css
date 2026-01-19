@@ -1,0 +1,80 @@
+/* mochi-style токены: палитры тем, базовые элементы, сетка приложения */
+
+/* фолбэки для авто-цветов из обложки, переопределяются через extractCoverColors */
+:root {
+  --accent-auto: #ff8aa3;
+  --accent-auto-dark: #4a3a3a;
+  --accent-auto-light: #fdf6ee;
+}
+
+/* ==== СВЕТЛАЯ ТЕМА ==== */
+[data-theme="light"] {
+  --bg: #fdf6ee;
+  --bg-soft: #faeede;
+  --bg-deep: #f0e0c8;
+  --surface: #ffffff;
+  --surface-2: #fdf6ee;
+  --border: rgba(74, 58, 58, 0.08);
+  --border-strong: rgba(74, 58, 58, 0.16);
+
+  --text-strong: #4a3a3a;
+  --text: #4a3a3a;
+  --text-soft: #8a7575;
+  --text-mute: #b8a8a8;
+
+  --pink: #ffb8c8;
+  --pink-deep: #ff8aa3;
+  --mint: #b8e6cb;
+  --mint-deep: #7dc99c;
+  --lavender: #d6c8f0;
+  --lavender-deep: #a890d8;
+  --butter: #fff0a8;
+  --butter-deep: #f5d97a;
+
+  --shadow-card: 0 6px 0 var(--bg-soft), 0 12px 32px rgba(74, 58, 58, 0.06);
+  --shadow-soft: 0 4px 0 var(--bg-soft);
+  --shadow-pop: 0 6px 24px rgba(74, 58, 58, 0.10);
+
+  --play-bg: #4a3a3a;
+  --play-fg: #fdf6ee;
+  --play-shadow: 0 5px 0 #2a1a1a, 0 10px 20px rgba(74, 58, 58, 0.3);
+  --like-bg: var(--bg-soft);
+
+  --aura-1: rgba(255, 212, 220, 0.5);
+  --aura-2: rgba(214, 200, 240, 0.4);
+
+  --vibe-bg: var(--mint);
+  --vibe-fg: var(--text-strong);
+  --vibe-shadow: 0 3px 0 var(--mint-deep);
+
+  --warn-bg: #ffd9a8;
+  --warn-fg: #6e3a14;
+  --warn-shadow: 0 3px 0 #e8b07a;
+
+  --surface-glass: rgba(255, 255, 255, 0.72);
+  --surface-glass-strong: rgba(255, 255, 255, 0.86);
+}
+
+/* ==== ТЁМНАЯ ТЕМА ==== */
+[data-theme="dark"] {
+  --bg: #1f1830;
+  --bg-soft: #2a2042;
+  --bg-deep: #1a1428;
+  --surface: #2d2447;
+  --surface-2: #1a1428;
+  --border: rgba(196, 168, 240, 0.12);
+  --border-strong: rgba(196, 168, 240, 0.22);
+
+  --text-strong: #f5e9d4;
+  --text: #f0e5d8;
+  --text-soft: #b8a8c8;
+  --text-mute: #7d6f8f;
+
+  --pink: #ff9eb8;
+  --pink-deep: #ffb8c8;
+  --mint: #8fdbb3;
+  --mint-deep: #5fb88a;
+  --lavender: #c4a8f0;
+  --lavender-deep: #9b7dd0;
+  --butter: rgba(255, 217, 122, 0.18);
+}
