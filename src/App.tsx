@@ -42,3 +42,49 @@ import {
 } from './components/ExportModal'
 
 import { VIZ_ITEMS, renderVisualizer, type VisualizerMode } from './vizItems'
+
+const ACCEPTED_EXT = ['.mp3', '.flac', '.wav']
+const ACCEPTED_MIME = ['audio/mpeg', 'audio/flac', 'audio/wav', 'audio/x-wav']
+const SKIP_SEC = 10
+
+const WORK_SIZES: Record<AspectKey, { w: number; h: number }> = {
+  '16:9': { w: 1600, h: 900 },
+  '9:16': { w: 600, h: 1067 },
+  '1:1': { w: 1000, h: 1000 },
+}
+
+const MOOD_RU: Record<VibeProfile['mood'], string> = {
+  neon: 'неон',
+  warm: 'тёплый',
+  cold: 'холодный',
+  dark: 'тёмный',
+}
+
+interface ExportProgress {
+  current: number
+  total: number
+  startedAt: number
+}
+
+function isAudioFile(file: File): boolean {
+  return (
+    ACCEPTED_MIME.includes(file.type) ||
+    ACCEPTED_EXT.some((ext) => file.name.toLowerCase().endsWith(ext))
+  )
+}
+
+function isLrcFile(file: File): boolean {
+  const n = file.name.toLowerCase()
+  return n.endsWith('.lrc') || file.type === 'application/x-lrc' || file.type === 'text/plain'
+}
+
+function describeVibe(p: VibeProfile): string {
+  let energyWord: string
+  if (p.energy > 0.6) energyWord = 'энергичный'
+  else if (p.energy >= 0.3) energyWord = 'средний'
+  else energyWord = 'спокойный'
+
+  let motionWord: string
+  if (p.motion > 0.7) motionWord = 'быстрый'
+  else if (p.motion >= 0.4) motionWord = 'ритмичный'
+}
