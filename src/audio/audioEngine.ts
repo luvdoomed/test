@@ -114,5 +114,21 @@ export class AudioEngine {
     this.source.buffer = this.buffer
     this.source.connect(this.gainNode)
     this.source.start(0, this.pauseOffset)
+
+    this.startedAt = this.audioContext.currentTime - this.pauseOffset
+    this.playing = true
+
+    this.source.onended = () => {
+      if (this.playing) this.stop()
+    }
+
+    useAudioStore.getState().setIsPlaying(true)
+    this.startLoop()
+  }
+
+  pause(): void {
+    if (!this.playing) return
+
+    this.pauseOffset = this.audioContext.currentTime - this.startedAt
 }}
 ]
