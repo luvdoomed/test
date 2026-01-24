@@ -8,3 +8,14 @@ interface TrackInfo {
   album: string
   cover: string
 }
+
+type Section = 'verse' | 'chorus' | 'bridge' | 'unknown'
+
+export interface SuggestedVisualizer {
+  id: string
+  distance: number
+}
+
+interface AudioState {
+  audioData: Float32Array
+}
