@@ -18,4 +18,14 @@ export interface SuggestedVisualizer {
 
 interface AudioState {
   audioData: Float32Array
+  beat: boolean
+  energy: number
+  section: Section
+  currentLyric: string
+  currentTime: number
+  trackInfo: TrackInfo
+  isPlaying: boolean
+  volume: number
+  autoMode: boolean
+  trackProfile: VibeProfile | null
 }
