@@ -77,4 +77,84 @@
   --lavender: #c4a8f0;
   --lavender-deep: #9b7dd0;
   --butter: rgba(255, 217, 122, 0.18);
+  --butter-deep: rgba(255, 217, 122, 0.4);
+
+  --shadow-card: 0 6px 0 rgba(0, 0, 0, 0.2), 0 12px 32px rgba(0, 0, 0, 0.25);
+  --shadow-soft: 0 4px 0 rgba(0, 0, 0, 0.15);
+  --shadow-pop: 0 8px 32px rgba(0, 0, 0, 0.4);
+
+  --play-bg: #f5e9d4;
+  --play-fg: #2a1f3d;
+  --play-shadow: 0 5px 0 #ebd9bc, 0 0 32px rgba(245, 233, 212, 0.35), 0 10px 20px rgba(0, 0, 0, 0.3);
+  --like-bg: var(--bg-deep);
+
+  --aura-1: rgba(196, 168, 240, 0.22);
+  --aura-2: rgba(255, 158, 184, 0.18);
+
+  --vibe-bg: rgba(143, 219, 179, 0.18);
+  --vibe-fg: var(--mint);
+  --vibe-shadow: inset 0 0 0 1px rgba(143, 219, 179, 0.3), 0 0 24px rgba(143, 219, 179, 0.15);
+
+  --warn-bg: rgba(255, 200, 124, 0.18);
+  --warn-fg: #ffd49a;
+  --warn-shadow: inset 0 0 0 1px rgba(255, 200, 124, 0.35);
+
+  --surface-glass: rgba(45, 36, 71, 0.55);
+  --surface-glass-strong: rgba(45, 36, 71, 0.78);
+}
+
+/* ==== СБРОС ==== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Nunito', system-ui, -apple-system, sans-serif;
+  font-weight: 500;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.5s ease, color 0.5s ease;
+}
+
+/* плавный переход всех тематических значений */
+html *, html *::before, html *::after {
+  transition:
+    background-color 0.5s ease,
+    color 0.5s ease,
+    border-color 0.5s ease,
+    box-shadow 0.5s ease,
+    fill 0.5s ease,
+    stroke 0.5s ease;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+input {
+  font-family: inherit;
+  color: inherit;
+}
+
+a { color: inherit; text-decoration: none; }
+
+/* ==== АУРЫ ==== */
+.aura {
+  position: fixed;
+  inset: 0;
 }
