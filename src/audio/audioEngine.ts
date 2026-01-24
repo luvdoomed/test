@@ -81,5 +81,22 @@ export class AudioEngine {
         artist: artist || '',
         album: album || '',
         cover,
+      })
+
+      const lyricsArr = metadata.common.lyrics
+      if (lyricsArr?.length) {
+        const raw = lyricsArr.filter(Boolean).join('\n')
+        if (raw.length > 0 && /\[\d{1,2}:\d{2}/.test(raw)) {
+          const parsed = parseLrc(raw)
+          if (parsed.length > 0) {
+            store.setLrcLines(parsed)
+          }
+        }
+      }
+    } catch {
+      store.setTrackInfo({
+        title: fallbackTitle,
+        artist: '',
 }}}}
 )
+]
