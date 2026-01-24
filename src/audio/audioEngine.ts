@@ -97,6 +97,22 @@ export class AudioEngine {
       store.setTrackInfo({
         title: fallbackTitle,
         artist: '',
-}}}}
-)
+        album: '',
+        cover: '',
+      })
+    }
+  }
+
+  play(): void {
+    if (!this.buffer || this.playing) return
+
+    if (this.audioContext.state === 'suspended') {
+      void this.audioContext.resume()
+    }
+
+    this.source = this.audioContext.createBufferSource()
+    this.source.buffer = this.buffer
+    this.source.connect(this.gainNode)
+    this.source.start(0, this.pauseOffset)
+}}
 ]
