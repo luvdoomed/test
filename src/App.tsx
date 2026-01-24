@@ -87,4 +87,50 @@ function describeVibe(p: VibeProfile): string {
   let motionWord: string
   if (p.motion > 0.7) motionWord = 'быстрый'
   else if (p.motion >= 0.4) motionWord = 'ритмичный'
+  else motionWord = 'медленный'
+
+  return `${energyWord} · ${MOOD_RU[p.mood]} · ${motionWord}`
 }
+
+export default function App() {
+  const title = useAudioStore((s) => s.trackInfo.title)
+  const artist = useAudioStore((s) => s.trackInfo.artist)
+  const cover = useAudioStore((s) => s.trackInfo.cover)
+  const currentTime = useAudioStore((s) => s.currentTime)
+  const isPlaying = useAudioStore((s) => s.isPlaying)
+  const volume = useAudioStore((s) => s.volume)
+  const autoMode = useAudioStore((s) => s.autoMode)
+  const trackProfile = useAudioStore((s) => s.trackProfile)
+
+  const theme = useThemeStore((s) => s.theme)
+  const togglePresetsDrawer = usePresetsStore((s) => s.toggleDrawer)
+  const setActivePresetVisualizer = usePresetsStore((s) => s.setActiveVisualizerId)
+
+  const [activeViz, setActiveViz] = useState<VisualizerMode>('cosmic')
+  const [dragging, setDragging] = useState(false)
+  const [exportModalOpen, setExportModalOpen] = useState(false)
+  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
+  const [profilingProgress, setProfilingProgress] = useState<{
+    current: number
+    total: number
+    label: string
+  } | null>(null)
+  const [autoProfiling, setAutoProfiling] = useState(false)
+  const [needsVisualizerProfiling, setNeedsVisualizerProfiling] = useState(false)
+  const [liked, setLiked] = useState(false)
+  const [isFullscreen, setIsFullscreen] = useState(false)
+
+  const exportCancelled = useRef(false)
+  const profilingRunning = useRef(false)
+  const profileTicket = useRef(0)
+  const autoMatchRunning = useRef(false)
+
+  const hasTrack = title !== ''
+  const duration = audioEngine.getDuration()
+
+  // проверка кэша профилей
+  useEffect(() => {
+    const cached = getAllCachedProfiles()
+    if (Object.keys(cached).length === 0) setNeedsVisualizerProfiling(true)
+}}
+)
