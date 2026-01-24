@@ -64,4 +64,22 @@ export class AudioEngine {
   private async extractTags(file: File): Promise<void> {
     const fallbackTitle = file.name.replace(/\.[^/.]+$/, '')
     const store = useAudioStore.getState()
-}}
+
+    try {
+      const metadata = await mm.parseBlob(file)
+      const { title, artist, album } = metadata.common
+      const picture = metadata.common.picture?.[0]
+      let cover = ''
+
+      if (picture) {
+        const blob = new Blob([picture.data], { type: picture.format })
+        cover = URL.createObjectURL(blob)
+      }
+
+      store.setTrackInfo({
+        title: title || fallbackTitle,
+        artist: artist || '',
+        album: album || '',
+        cover,
+}}}}
+)
