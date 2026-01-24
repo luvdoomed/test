@@ -15,4 +15,20 @@ export class AudioEngine {
   private originalBytes: Uint8Array | null = null
   private originalExt = ''
   private startedAt = 0
-}
+  private pauseOffset = 0
+  private playing = false
+  private rafId: number = 0
+
+  constructor() {
+    this.audioContext = new AudioContext()
+    this.gainNode = this.audioContext.createGain()
+    this.analyser = this.audioContext.createAnalyser()
+    this.analyser.fftSize = 2048
+    this.dataArray = new Float32Array(1024)
+    this.gainNode.connect(this.analyser)
+    this.analyser.connect(this.audioContext.destination)
+  }
+
+  private loop = (): void => {
+    this.tick()
+}}
