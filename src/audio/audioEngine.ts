@@ -31,4 +31,21 @@ export class AudioEngine {
 
   private loop = (): void => {
     this.tick()
+    this.rafId = requestAnimationFrame(this.loop)
+  }
+
+  startLoop(): void {
+    if (this.rafId) return
+    this.loop()
+  }
+
+  stopLoop(): void {
+    cancelAnimationFrame(this.rafId)
+    this.rafId = 0
+  }
+
+  async loadFile(file: File): Promise<void> {
+    const arrayBuffer = await file.arrayBuffer()
+    this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
+    this.originalExt = file.name.split('.').pop()?.toLowerCase() ?? ''
 }}
