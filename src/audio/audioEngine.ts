@@ -48,4 +48,20 @@ export class AudioEngine {
     const arrayBuffer = await file.arrayBuffer()
     this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
     this.originalExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+    this.buffer = await this.audioContext.decodeAudioData(arrayBuffer)
+
+    useAudioStore.getState().setLrcLines([])
+    useAudioStore.getState().setIsPlaying(false)
+    useAudioStore.getState().setCurrentTime(0)
+    this.pauseOffset = 0
+    this.playing = false
+
+    this.extractTags(file)
+
+    this.startLoop()
+  }
+
+  private async extractTags(file: File): Promise<void> {
+    const fallbackTitle = file.name.replace(/\.[^/.]+$/, '')
+    const store = useAudioStore.getState()
 }}
