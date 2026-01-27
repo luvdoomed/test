@@ -28,4 +28,14 @@ interface AudioState {
   volume: number
   autoMode: boolean
   trackProfile: VibeProfile | null
+  suggestedVisualizers: SuggestedVisualizer[]
+  /** Распарсенные строки .lrc (пусто, если текст не загружен). */
+  lrcLines: LrcLine[]
+
+  setAudioData: (data: Float32Array) => void
+  setBeat: (beat: boolean) => void
+  setEnergy: (energy: number) => void
+  setSection: (section: Section) => void
+  setCurrentLyric: (lyric: string) => void
+  setCurrentTime: (time: number) => void
 }
