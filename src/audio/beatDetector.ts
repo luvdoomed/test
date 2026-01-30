@@ -17,4 +17,14 @@ export class BeatDetector {
   private holdCounter = 0
 
   constructor(options: BeatDetectorOptions = {}) {
+    this.historySize = options.historySize ?? DEFAULT_HISTORY_SIZE
+    this.beatHold = options.beatHold ?? DEFAULT_BEAT_HOLD
+  }
+
+  detect(dataArray: Float32Array): boolean {
+    let bassEnergy = 0
+    for (let i = 0; i < BASS_BINS; i++) {
+      bassEnergy += dataArray[i]
+    }
+    bassEnergy /= BASS_BINS
 }}
