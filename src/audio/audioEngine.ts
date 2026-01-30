@@ -180,5 +180,20 @@ export class AudioEngine {
       this.source.buffer = this.buffer
       this.source.connect(this.gainNode)
       this.source.start(0, clamped)
-}}}
+      this.startedAt = this.audioContext.currentTime - clamped
+
+      this.source.onended = () => {
+        if (this.playing) this.stop()
+      }
+    } else {
+      this.pauseOffset = clamped
+    }
+
+    useAudioStore.getState().setCurrentTime(clamped)
+  }
+
+  getDuration(): number {
+    return this.buffer?.duration ?? 0
+  }
+}
 ]
