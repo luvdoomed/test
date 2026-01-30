@@ -163,5 +163,22 @@ export class AudioEngine {
   seek(time: number): void {
     if (!this.buffer) return
     const clamped = Math.max(0, Math.min(time, this.buffer.duration))
-}}
+
+    if (this.playing) {
+      if (this.source) {
+        // тогда stop и сброс трека
+        this.source.onended = null
+        try {
+          this.source.stop()
+        } catch {
+          /* уже остановлен */
+        }
+        this.source = null
+      }
+
+      this.source = this.audioContext.createBufferSource()
+      this.source.buffer = this.buffer
+      this.source.connect(this.gainNode)
+      this.source.start(0, clamped)
+}}}
 ]
