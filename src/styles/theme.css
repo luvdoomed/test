@@ -157,4 +157,83 @@ a { color: inherit; text-decoration: none; }
 .aura {
   position: fixed;
   inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.aura__blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(90px);
+}
+
+.aura__blob--1 {
+  width: 450px;
+  height: 450px;
+  background: var(--aura-1);
+  top: -100px;
+  right: 15%;
+  animation: aura-float-1 18s ease-in-out infinite;
+}
+
+.aura__blob--2 {
+  width: 400px;
+  height: 400px;
+  background: var(--aura-2);
+  bottom: 5%;
+  left: 10%;
+  animation: aura-float-2 22s ease-in-out infinite;
+}
+
+@keyframes aura-float-1 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-60px, 70px); }
+}
+
+@keyframes aura-float-2 {
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(70px, -50px); }
+}
+
+/* ==== ВИЗ-КОНТЕЙНЕР: карточка по умолчанию, разворачивается через framer-motion ==== */
+.visualizer-container {
+  isolation: isolate;
+  contain: layout paint;
+}
+
+/* ==== UI-ШЕЛЛ ПОВЕРХ ВИЗА ==== */
+.ui-shell {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  pointer-events: none;
+}
+
+.ui-shell > * { pointer-events: auto; }
+
+.main-column {
+  display: flex;
+  flex-direction: column;
+  padding: 16px 16px 16px 0;
+  gap: 12px;
+  min-width: 0;
+  pointer-events: none;
+}
+
+.main-column > * { pointer-events: auto; }
+
+.stage-spacer {
+  flex: 1;
+  pointer-events: none;
+  min-height: 0;
+}
+
+/* ==== САЙДБАР ==== */
+.sidebar {
+  background: var(--surface-glass);
+  backdrop-filter: blur(24px) saturate(1.5);
+  -webkit-backdrop-filter: blur(24px) saturate(1.5);
 }
