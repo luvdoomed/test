@@ -37,4 +37,14 @@ export class BeatDetector {
         weightedSum += this.energyHistory[i] * weight
         totalWeight += weight
       }
-}}}
+      const weightedAvg = weightedSum / totalWeight
+      if (bassEnergy > weightedAvg * this.threshold) {
+        this.holdCounter = this.beatHold
+      }
+    }
+
+    this.energyHistory.push(bassEnergy)
+    if (this.energyHistory.length > this.historySize) {
+      this.energyHistory.shift()
+    }
+}}
