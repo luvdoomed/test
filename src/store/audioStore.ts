@@ -57,5 +57,15 @@ export const useAudioStore = create<AudioState>((set) => ({
   trackInfo: { title: '', artist: '', album: '', cover: '' },
   isPlaying: false,
   volume: 1,
+  autoMode: false,
+  trackProfile: null,
+  suggestedVisualizers: [],
+  lrcLines: [],
+
+  setAudioData: (data) => set({ audioData: data }),
+  setBeat: (beat) => set({ beat }),
+  setEnergy: (energy) => set({ energy }),
+  setSection: (section) => set({ section }),
+  setCurrentLyric: (lyric) => set({ currentLyric: lyric }),
 }
 ))
