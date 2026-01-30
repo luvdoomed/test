@@ -147,5 +147,21 @@ export class AudioEngine {
 
   stop(): void {
     if (this.source) {
-}}}
+      this.source.onended = null
+      try { this.source.stop() } catch { /* уже остановлен */ }
+      this.source = null
+    }
+
+    this.pauseOffset = 0
+    this.playing = false
+
+    useAudioStore.getState().setIsPlaying(false)
+    useAudioStore.getState().setCurrentTime(0)
+    this.stopLoop()
+  }
+
+  seek(time: number): void {
+    if (!this.buffer) return
+    const clamped = Math.max(0, Math.min(time, this.buffer.duration))
+}}
 ]
