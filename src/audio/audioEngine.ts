@@ -130,5 +130,22 @@ export class AudioEngine {
     if (!this.playing) return
 
     this.pauseOffset = this.audioContext.currentTime - this.startedAt
-}}
+    if (this.source) {
+      this.source.onended = null
+      try {
+        this.source.stop()
+      } catch {
+        /* уже остановлен */
+      }
+      this.source = null
+    }
+    this.playing = false
+
+    useAudioStore.getState().setIsPlaying(false)
+    this.stopLoop()
+  }
+
+  stop(): void {
+    if (this.source) {
+}}}
 ]
