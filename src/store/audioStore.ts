@@ -38,4 +38,11 @@ interface AudioState {
   setSection: (section: Section) => void
   setCurrentLyric: (lyric: string) => void
   setCurrentTime: (time: number) => void
+  setTrackInfo: (info: TrackInfo) => void
+  setIsPlaying: (playing: boolean) => void
+  setVolume: (volume: number) => void
+  setAutoMode: (enabled: boolean) => void
+  setTrackProfile: (profile: VibeProfile | null) => void
+  setSuggestedVisualizers: (list: SuggestedVisualizer[]) => void
+  setLrcLines: (lines: LrcLine[]) => void
 }
