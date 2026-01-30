@@ -46,3 +46,16 @@ interface AudioState {
   setSuggestedVisualizers: (list: SuggestedVisualizer[]) => void
   setLrcLines: (lines: LrcLine[]) => void
 }
+
+export const useAudioStore = create<AudioState>((set) => ({
+  audioData: new Float32Array(),
+  beat: false,
+  energy: 0,
+  section: 'unknown',
+  currentLyric: '',
+  currentTime: 0,
+  trackInfo: { title: '', artist: '', album: '', cover: '' },
+  isPlaying: false,
+  volume: 1,
+}
+))
