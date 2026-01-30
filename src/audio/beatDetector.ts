@@ -8,4 +8,13 @@ export interface BeatDetectorOptions {
 }
 
 export class BeatDetector {
-}
+  energyHistory: number[] = []
+  threshold: number = 1.15
+
+  private readonly historySize: number
+  private readonly beatHold: number
+
+  private holdCounter = 0
+
+  constructor(options: BeatDetectorOptions = {}) {
+}}
