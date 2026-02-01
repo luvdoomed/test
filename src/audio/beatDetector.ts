@@ -47,4 +47,13 @@ export class BeatDetector {
     if (this.energyHistory.length > this.historySize) {
       this.energyHistory.shift()
     }
+
+    if (this.holdCounter > 0) {
+      this.holdCounter--
+      return true
+    }
+    return false
+  }
+
+  setThreshold(value: number): void {
 }}
