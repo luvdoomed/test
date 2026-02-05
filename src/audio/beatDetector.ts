@@ -56,4 +56,12 @@ export class BeatDetector {
   }
 
   setThreshold(value: number): void {
-}}
+    this.threshold = value
+  }
+
+  // сброс внутреннего состояния для повторного прогона на офлайн анализе
+  reset(): void {
+    this.energyHistory = []
+    this.holdCounter = 0
+  }
+}
