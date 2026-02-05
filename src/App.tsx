@@ -132,5 +132,50 @@ export default function App() {
   useEffect(() => {
     const cached = getAllCachedProfiles()
     if (Object.keys(cached).length === 0) setNeedsVisualizerProfiling(true)
+  }, [])
+
+  useEffect(() => {
+    setActivePresetVisualizer(activeViz)
+  }, [activeViz, setActivePresetVisualizer])
+
+  useEffect(() => {
+    if (!cover) {
+      applyCoverPalette(null)
+      return
+    }
+    let cancelled = false
+    void extractCoverColors(cover).then((palette) => {
+      if (!cancelled) applyCoverPalette(palette)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [cover])
+
+  // esc — выход из фуллскрина
+  useEffect(() => {
+    if (!isFullscreen) return
+    const handler = (e: KeyboardEvent) => {
+      if (e.code === 'Escape') setIsFullscreen(false)
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [isFullscreen])
+
+  const togglePlay = useCallback(() => {
+    if (isPlaying) audioEngine.pause()
+    else audioEngine.play()
+  }, [isPlaying])
+
+  const skipBackward = useCallback(() => {
+    if (audioEngine.getDuration() <= 0) return
+    const t = Math.max(0, useAudioStore.getState().currentTime - SKIP_SEC)
+    audioEngine.seek(t)
+  }, [])
+
+  const skipForward = useCallback(() => {
+    const d = audioEngine.getDuration()
+    if (d <= 0) return
+    const t = Math.min(d, useAudioStore.getState().currentTime + SKIP_SEC)
 }}
 )
