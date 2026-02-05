@@ -14,4 +14,24 @@ export function Welcome({ dragging, onPickAudio }: WelcomeProps) {
     if (file) onPickAudio(file)
     e.target.value = ''
   }
+
+  const klass = ['welcome__card', dragging || hover ? 'welcome__card--drag' : ''].filter(Boolean).join(' ')
+
+  return (
+    <div className="welcome" aria-label="Загрузить трек">
+      <div
+        className={klass}
+        role="button"
+        tabIndex={0}
+        onClick={() => inputRef.current?.click()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+        }}
+        onMouseEnter={() => setHover(true)}
+        onMouseLeave={() => setHover(false)}
+      >
+        <div className="welcome__icon" aria-hidden="true">♪</div>
+        <div className="welcome__title">Перетащи трек сюда</div>
+        <div className="welcome__hint">
 }
+)
