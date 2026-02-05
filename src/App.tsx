@@ -177,5 +177,49 @@ export default function App() {
     const d = audioEngine.getDuration()
     if (d <= 0) return
     const t = Math.min(d, useAudioStore.getState().currentTime + SKIP_SEC)
-}}
+    audioEngine.seek(t)
+  }, [])
+
+  const handleSeek = useCallback((time: number) => {
+    audioEngine.seek(time)
+  }, [])
+
+  const handleVolume = useCallback((value: number) => {
+    audioEngine.setVolume(value)
+  }, [])
+
+  const handleLrcFile = useCallback(async (file: File) => {
+    if (!isLrcFile(file)) return
+    const text = await file.text()
+    const lines = parseLrc(text)
+    useAudioStore.getState().setLrcLines(lines)
+  }, [])
+
+  const runAutoMatch = useCallback(async (reason: 'track-load' | 'user-toggle') => {
+    if (autoMatchRunning.current) return
+    const buffer = audioEngine.getAudioBuffer()
+    if (!buffer) return
+    const cached = getAllCachedProfiles()
+    if (Object.keys(cached).length === 0) {
+      setNeedsVisualizerProfiling(true)
+      return
+    }
+
+    const ticket = ++profileTicket.current
+    autoMatchRunning.current = true
+    setAutoProfiling(true)
+    try {
+      const profile = await profileTrack(buffer)
+      if (ticket !== profileTicket.current) return
+      const matches = matchVisualizers(profile, cached, 5)
+      const state = useAudioStore.getState()
+      state.setTrackProfile(profile)
+      state.setSuggestedVisualizers(matches)
+      console.log('[automode] reason=', reason, 'top:', matches.map((m) => `${m.id}:${m.distance.toFixed(3)}`).join(', '))
+      const { chosenId } = selectWeightedFromTop(matches)
+      if (!chosenId) return
+      setActiveViz(chosenId as VisualizerMode)
+      const item = VIZ_ITEMS.find((v) => v.key === chosenId)
+      const label = item?.label ?? chosenId
+}}}
 )
