@@ -195,5 +195,22 @@ export class AudioEngine {
   getDuration(): number {
     return this.buffer?.duration ?? 0
   }
+
+  getAudioBuffer(): AudioBuffer | null {
+    return this.buffer
+  }
+
+  getOriginalAudioBytes(): Uint8Array | null {
+    return this.originalBytes
+  }
+
+  getOriginalAudioExt(): string {
+    return this.originalExt
+  }
+
+  setVolume(value: number): void {
+    this.gainNode.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01)
+    useAudioStore.getState().setVolume(value)
+  }
 }
 ]
