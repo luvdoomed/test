@@ -221,5 +221,49 @@ export default function App() {
       setActiveViz(chosenId as VisualizerMode)
       const item = VIZ_ITEMS.find((v) => v.key === chosenId)
       const label = item?.label ?? chosenId
-}}}
-)
+      toast.success(`Авто выбрал: ${label}`, {
+        description: `вайб: ${MOOD_RU[profile.mood]} · энергия ${profile.energy.toFixed(2)} · движение ${profile.motion.toFixed(2)}`,
+      })
+    } catch (err) {
+      console.error('[automode] ошибка:', err)
+    } finally {
+      autoMatchRunning.current = false
+      setAutoProfiling(false)
+    }
+  }, [])
+
+  const handleAudioFile = useCallback(
+    async (file: File) => {
+      if (!isAudioFile(file)) return
+      profileTicket.current++
+      await audioEngine.loadFile(file)
+      audioEngine.play()
+
+      const state = useAudioStore.getState()
+      state.setTrackProfile(null)
+      state.setSuggestedVisualizers([])
+
+      const loadedTitle = state.trackInfo.title || file.name.replace(/\.[^.]+$/, '')
+      toast.success('Трек загружен', { description: loadedTitle })
+
+      if (state.autoMode) await runAutoMatch('track-load')
+    },
+    [runAutoMatch],
+  )
+
+  const handlePickAudio = useCallback(
+    async (file: File) => {
+      await handleAudioFile(file)
+    },
+    [handleAudioFile],
+  )
+
+  function onDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setDragging(true)
+  }
+
+  function onDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    if (e.currentTarget.contains(e.relatedTarget as Node)) return
+}}
