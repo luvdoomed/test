@@ -151,5 +151,57 @@ export function CircularVisualizer() {
       ctx.rotate(drift.rot + shake.rot)
       ctx.scale(beatScale, beatScale)
       ctx.translate(-cx + drift.x + shake.x + kickX, -cy + drift.y + shake.y + kickY)
-}}}
+
+      const atmGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, minDim * (400 / 1080))
+      atmGrad.addColorStop(0, 'rgba(0,255,120,0.08)')
+      atmGrad.addColorStop(0.5, 'rgba(0,180,80,0.04)')
+      atmGrad.addColorStop(1, 'rgba(0,0,0,0)')
+      ctx.fillStyle = atmGrad
+      ctx.fillRect(0, 0, W, H)
+
+      for (let r = 0; r < RING_CONFIGS.length; r++) {
+        const cfg = RING_CONFIGS[r]
+        const smArr = smoothed[r]
+
+        let start = 0, end = 128, mult = 1
+        if (cfg.band === 'bass') { start = 0; end = 32; mult = 1.2 }
+        if (cfg.band === 'mid') { start = 32; end = 80; mult = 1 }
+        if (cfg.band === 'high') { start = 80; end = 128; mult = 0.9 }
+
+        for (let i = 0; i < POINTS; i++) {
+          const dataIdx = start + Math.floor((i / POINTS) * (end - start))
+          const raw = (data[dataIdx] ?? 0) * mult
+          smArr[i] = smArr[i] * 0.5 + raw * 0.5
+        }
+
+        if (curIsPlaying) rotations[r] += cfg.rotSpeed * rotSpeedMul
+        const rot = rotations[r]
+
+        const pts: { x: number; y: number; amp: number }[] = []
+        for (let i = 0; i < POINTS; i++) {
+          const angle = (i / POINTS) * TWO_PI + rot
+          const amp = smArr[i]
+          const radius = (cfg.base * ringSizeMul + amp * cfg.displace * displaceMul) * sizeScale
+          pts.push({
+            x: cx + Math.cos(angle) * radius,
+            y: cy + Math.sin(angle) * radius,
+            amp,
+          })
+        }
+
+        let ringColor: string
+        if (cfg.band === 'bass') ringColor = `rgba(0,255,100,1)`
+        else if (cfg.band === 'mid') ringColor = `rgba(80,255,160,1)`
+        else ringColor = `rgba(180,255,220,1)`
+
+        ctx.save()
+        ctx.shadowBlur = 25 * glowMul
+        ctx.shadowColor = ringColor
+        ctx.strokeStyle = ringColor
+        ctx.lineWidth = cfg.lineW >= 3 ? cfg.lineW * sizeScale : cfg.lineW
+        ctx.beginPath()
+        for (let i = 0; i <= POINTS; i++) {
+          const p = pts[i % POINTS]
+          if (i === 0) ctx.moveTo(p.x, p.y)
+}}}}}
 )
