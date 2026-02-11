@@ -56,4 +56,63 @@ export function ParticlesVisualizer() {
   const prevBeatRef = useRef<boolean>(false)
   const pulseSizeRef = useRef<number>(1)
   const flashFramesRef = useRef<number>(0)
-}
+
+  const params = useVisualizerParams<ParticlesParams>('particles')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+
+  const { beat, audioData, energy } = useAudioStore()
+
+  const beatRef = useRef(beat)
+  const audioDataRef = useRef(audioData)
+  const energyRef = useRef(energy)
+  beatRef.current = beat
+  audioDataRef.current = audioData
+  energyRef.current = energy
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    function resize() {
+      if (!canvas) return
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      particlesRef.current = Array.from({ length: PARTICLE_COUNT }, () =>
+        spawnParticle(canvas.width, canvas.height),
+      )
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    let frameCount = 0
+
+    function draw() {
+      if (!canvas || !ctx) return
+
+      const beat = beatRef.current
+      const audioData = audioDataRef.current
+      const energy = energyRef.current
+
+      const W = canvas.width
+      const H = canvas.height
+      const cx = W / 2
+      const cy = H / 2
+      const minDim = Math.min(W, H)
+      const sizeScale = minDim / 1080
+      const shakeScale = minDim / 900
+
+      const pp = paramsRef.current
+      const desiredCount = Math.max(50, Math.min(1000, Math.floor(pp.particleCount)))
+      const speedMultParam = Math.max(0, pp.speed)
+      const trailLenParam = Math.max(0, Math.min(20, Math.floor(pp.trailLength)))
+      const connectionDistParam = Math.max(0, pp.connectionDist)
+      const hueShiftParam = pp.hueShift
+
+      while (particlesRef.current.length < desiredCount) {
+        particlesRef.current.push(spawnParticle(W, H))
+}}}}
+)
