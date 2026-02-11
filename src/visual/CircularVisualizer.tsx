@@ -49,4 +49,56 @@ export function CircularVisualizer() {
   const isPlayingRef = useRef(isPlaying)
   const trackInfoRef = useRef(trackInfo)
   beatRef.current = beat
-}
+  audioDataRef.current = audioData
+  energyRef.current = energy
+  isPlayingRef.current = isPlaying
+  trackInfoRef.current = trackInfo
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const smoothed = RING_CONFIGS.map(() => new Float32Array(POINTS))
+    const rotations = RING_CONFIGS.map(() => 0)
+
+    const sparks: Spark[] = []
+
+    const shake = { x: 0, y: 0, vx: 0, vy: 0, rot: 0, vr: 0, trauma: 0 }
+    let kickX = 0
+    let kickY = 0
+
+    const drift = { x: 0, y: 0, rot: 0 }
+    let timeFrame = 0
+
+    let beatScale = 1.0
+    let prevBeat = false
+
+    let trackOpacity = 0
+    let lastTitle = ''
+
+    function resize() {
+      if (!canvas) return
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    function draw() {
+      if (!canvas || !ctx) return
+
+      const W = canvas.width
+      const H = canvas.height
+      const cx = W / 2
+      const cy = H / 2
+      const minDim = Math.min(W, H)
+      const sizeScale = minDim / 1080
+      const shakeScale = minDim / 900
+      const data = audioDataRef.current
+      const curBeat = beatRef.current
+      const curEnergy = energyRef.current
+      const curIsPlaying = isPlayingRef.current
+}}}
+)
