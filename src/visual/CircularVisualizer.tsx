@@ -255,5 +255,54 @@ export function CircularVisualizer() {
 
       const vign = ctx.createRadialGradient(cx, cy, Math.min(W, H) * 0.3, cx, cy, Math.max(W, H) * 0.7)
       vign.addColorStop(0, 'rgba(0,0,0,0)')
-}}}
-)
+      vign.addColorStop(1, 'rgba(0,0,0,0.55)')
+      ctx.fillStyle = vign
+      ctx.fillRect(0, 0, W, H)
+
+      ctx.restore()
+
+      const hasTrack = trackInfoRef.current.title.length > 0
+      if (hasTrack && lastTitle !== trackInfoRef.current.title) {
+        trackOpacity = 0
+        lastTitle = trackInfoRef.current.title
+      }
+      if (hasTrack) trackOpacity = Math.min(1, trackOpacity + 0.02)
+      else trackOpacity = Math.max(0, trackOpacity - 0.02)
+
+      if (trackOpacity > 0.01) {
+        ctx.textAlign = 'center'
+        if (trackInfoRef.current.artist) {
+          ctx.font = `600 ${Math.round(minDim * 0.014)}px monospace`
+          ctx.letterSpacing = '3px'
+          ctx.fillStyle = `rgba(150,255,180,${0.6 * trackOpacity})`
+          ctx.fillText(trackInfoRef.current.artist.toUpperCase(), cx, H * 0.88)
+        }
+        ctx.font = `600 ${Math.round(minDim * 0.02)}px monospace`
+        ctx.letterSpacing = '0px'
+        ctx.fillStyle = `rgba(220,255,230,${trackOpacity})`
+        ctx.fillText(trackInfoRef.current.title, cx, H * 0.92)
+      }
+
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+      <canvas
+          ref={canvasRef}
+          style={{
+            position: 'fixed',
+            inset: 0,
+            display: 'block',
+            zIndex: 0,
+            background: '#040806',
+          }}
+      />
+  )
+}
