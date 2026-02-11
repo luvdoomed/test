@@ -203,5 +203,57 @@ export function CircularVisualizer() {
         for (let i = 0; i <= POINTS; i++) {
           const p = pts[i % POINTS]
           if (i === 0) ctx.moveTo(p.x, p.y)
-}}}}}
+          else ctx.lineTo(p.x, p.y)
+        }
+        ctx.closePath()
+        ctx.stroke()
+        ctx.restore()
+
+        // спавн искр на пиках деформации
+        if (curIsPlaying) {
+          for (let i = 0; i < POINTS; i += 4) {
+            if (pts[i].amp > 0.25 && Math.random() < 0.15 * sparkRateMul) {
+              const angle = (i / POINTS) * TWO_PI + rot
+              sparks.push({
+                x: pts[i].x,
+                y: pts[i].y,
+                vx: Math.cos(angle) * (1 + Math.random() * 2),
+                vy: Math.sin(angle) * (1 + Math.random() * 2),
+                size: 1 + Math.random() * 1.5,
+                life: 20 + Math.random() * 15,
+                maxLife: 35,
+              })
+            }
+          }
+        }
+      }
+
+      for (let i = sparks.length - 1; i >= 0; i--) {
+        const s = sparks[i]
+        s.x += s.vx
+        s.y += s.vy
+        s.vx *= 0.95
+        s.vy *= 0.95
+        s.life--
+        if (s.life <= 0) { sparks.splice(i, 1); continue }
+        const a = s.life / s.maxLife
+        const g = ctx.createRadialGradient(s.x, s.y, 0, s.x, s.y, s.size * 5)
+        g.addColorStop(0, `rgba(120,255,160,${a * 0.6})`)
+        g.addColorStop(1, 'rgba(0,255,100,0)')
+        ctx.fillStyle = g
+        ctx.fillRect(s.x - s.size * 5, s.y - s.size * 5, s.size * 10, s.size * 10)
+        ctx.beginPath()
+        ctx.arc(s.x, s.y, s.size * a, 0, TWO_PI)
+        ctx.fillStyle = `rgba(220,255,230,${a})`
+        ctx.fill()
+      }
+
+      ctx.fillStyle = 'rgba(0,255,100,0.02)'
+      for (let i = 0; i < 180; i++) {
+        ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1)
+      }
+
+      const vign = ctx.createRadialGradient(cx, cy, Math.min(W, H) * 0.3, cx, cy, Math.max(W, H) * 0.7)
+      vign.addColorStop(0, 'rgba(0,0,0,0)')
+}}}
 )
