@@ -229,5 +229,60 @@ export function ParticlesVisualizer() {
         const radius = Math.max(0.5,
           (p.size * (energy * 20 + 1) * pulseSizeRef.current + freqVal * 4) * sizeScale,
         )
-}}}}
-)
+
+        const alpha = p.opacity * p.life
+        const renderHue = (p.hue + hueShiftParam) % 360
+        const color = isFlash ? '255,255,255' : hslToRgbString(renderHue, 75, 62)
+
+        for (let t = 0; t < p.trail.length; t++) {
+          const ratio = (t + 1) / p.trail.length
+          const trailAlpha = alpha * ratio * 0.35
+          const trailRadius = Math.max(0.3, radius * ratio * 0.55)
+          ctx.beginPath()
+          ctx.arc(p.trail[t].x, p.trail[t].y, trailRadius, 0, Math.PI * 2)
+          ctx.fillStyle = `rgb(${color})`
+          ctx.globalAlpha = trailAlpha
+          ctx.fill()
+        }
+
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, radius, 0, Math.PI * 2)
+        ctx.fillStyle = `rgb(${color})`
+        ctx.globalAlpha = alpha
+        ctx.fill()
+      }
+
+      ctx.globalAlpha = 1
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'block',
+        zIndex: 0,
+        background: '#000000',
+      }}
+    />
+  )
+}
+
+function hslToRgbString(h: number, s: number, l: number): string {
+  const sn = s / 100
+  const ln = l / 100
+  const k = (n: number) => (n + h / 30) % 12
+  const a = sn * Math.min(ln, 1 - ln)
+  const f = (n: number) => ln - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))
+  return `${Math.round(f(0) * 255)},${Math.round(f(8) * 255)},${Math.round(f(4) * 255)}`
+}
