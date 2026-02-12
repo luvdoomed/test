@@ -114,5 +114,62 @@ export function ParticlesVisualizer() {
 
       while (particlesRef.current.length < desiredCount) {
         particlesRef.current.push(spawnParticle(W, H))
-}}}}
+      }
+
+      const connectionDist = connectionDistParam * sizeScale
+      const connectionDistSq = connectionDist * connectionDist
+
+      frameCount++
+      if (frameCount % 60 === 0) {
+        console.log('beat:', beat, 'energy:', energy)
+      }
+
+      ctx.fillStyle = 'rgba(0,0,0,0.15)'
+      ctx.fillRect(0, 0, W, H)
+
+      const beatFront = beat && !prevBeatRef.current
+      prevBeatRef.current = beat
+
+      if (beatFront) {
+        for (const p of particlesRef.current) {
+          p.vx = (Math.random() - 0.5) * 20 * shakeScale
+          p.vy = (Math.random() - 0.5) * 20 * shakeScale
+        }
+        for (let i = 0; i < 30; i++) {
+          particlesRef.current.push(spawnParticle(W, H, cx, cy))
+        }
+        pulseSizeRef.current = 3
+        flashFramesRef.current = 2
+        for (const p of particlesRef.current) {
+          if (Math.random() < 0.3) {
+            p.orbitDir = p.orbitDir === 1 ? -1 : 1
+          }
+        }
+      }
+
+      if (pulseSizeRef.current > 1) {
+        pulseSizeRef.current = Math.max(1, pulseSizeRef.current - (2 / PULSE_FRAMES))
+      }
+
+      const maxAllowed = desiredCount + 30
+      if (particlesRef.current.length > maxAllowed) {
+        particlesRef.current.splice(0, particlesRef.current.length - maxAllowed)
+      }
+
+      const isFlash = flashFramesRef.current > 0
+      if (flashFramesRef.current > 0) flashFramesRef.current--
+
+      const connCount = new Int32Array(particlesRef.current.length)
+      const ps = particlesRef.current
+
+      for (let i = 0; i < ps.length; i++) {
+        if (connCount[i] >= MAX_CONNECTIONS) continue
+        const a = ps[i]
+        for (let j = i + 1; j < ps.length; j++) {
+          if (connCount[i] >= MAX_CONNECTIONS) break
+          if (connCount[j] >= MAX_CONNECTIONS) continue
+          const dx = a.x - ps[j].x
+          const dy = a.y - ps[j].y
+          const distSq = dx * dx + dy * dy
+}}}}}
 )
