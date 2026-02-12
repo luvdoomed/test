@@ -47,5 +47,27 @@ export function Sidebar({ items, activeKey, onSelect, footer, isFullscreen = fal
                 key={item.key}
                 type="button"
                 className={`nav-item${activeKey === item.key ? ' nav-item--active' : ''}`}
-}}}
-)))))
+                onClick={() => onSelect(item.key)}
+              >
+                <span className="nav-item__icon">{item.icon}</span>
+                <span>{item.label}</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {footer}
+    </motion.aside>
+  )
+}
+
+function groupByCategory(items: VizItem[]): Map<string, VizItem[]> {
+  const map = new Map<string, VizItem[]>()
+  for (const item of items) {
+    const group = map.get(item.category) ?? []
+    group.push(item)
+    map.set(item.category, group)
+  }
+  return map
+}
