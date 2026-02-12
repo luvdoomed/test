@@ -171,5 +171,63 @@ export function ParticlesVisualizer() {
           const dx = a.x - ps[j].x
           const dy = a.y - ps[j].y
           const distSq = dx * dx + dy * dy
-}}}}}
+          if (distSq < connectionDistSq) {
+            const dist = Math.sqrt(distSq)
+            const lineAlpha = (1 - dist / connectionDist) * 0.35
+            ctx.beginPath()
+            ctx.moveTo(a.x, a.y)
+            ctx.lineTo(ps[j].x, ps[j].y)
+            ctx.strokeStyle = isFlash
+              ? `rgba(255,255,255,${lineAlpha})`
+              : `rgba(140,90,255,${lineAlpha})`
+            ctx.lineWidth = 0.5
+            ctx.globalAlpha = 1
+            ctx.stroke()
+            connCount[i]++
+            connCount[j]++
+          }
+        }
+      }
+
+      for (let i = ps.length - 1; i >= 0; i--) {
+        const p = ps[i]
+
+        const orbitAngle = (0.005 + energy * 0.5) * p.orbitDir
+        const cosA = Math.cos(orbitAngle)
+        const sinA = Math.sin(orbitAngle)
+        const rotVx = p.vx * cosA - p.vy * sinA
+        const rotVy = p.vx * sinA + p.vy * cosA
+        p.vx = rotVx
+        p.vy = rotVy
+
+        if (trailLenParam > 0) {
+          p.trail.push({ x: p.x, y: p.y })
+          while (p.trail.length > trailLenParam) p.trail.shift()
+        } else if (p.trail.length > 0) {
+          p.trail.length = 0
+        }
+
+        const speedMul = (energy * 50 + 1) * speedMultParam
+        p.x += p.vx * speedMul
+        p.y += p.vy * speedMul
+        p.vx *= 0.97
+        p.vy *= 0.97
+
+        p.hue = (p.hue + 0.5) % 360
+
+        p.life -= p.lifeSpeed
+        if (p.life <= 0) {
+          ps[i] = spawnParticle(W, H)
+          continue
+        }
+
+        const binIndex = Math.min(
+          Math.max(0, Math.floor((p.x / W) * audioData.length)),
+          audioData.length - 1,
+        )
+        const freqVal = audioData[binIndex] ?? 0
+        const radius = Math.max(0.5,
+          (p.size * (energy * 20 + 1) * pulseSizeRef.current + freqVal * 4) * sizeScale,
+        )
+}}}}
 )
