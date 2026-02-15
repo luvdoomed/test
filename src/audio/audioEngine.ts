@@ -212,5 +212,22 @@ export class AudioEngine {
     this.gainNode.gain.setTargetAtTime(value, this.audioContext.currentTime, 0.01)
     useAudioStore.getState().setVolume(value)
   }
-}
+
+  tick(): void {
+    this.analyser.getFloatFrequencyData(this.dataArray)
+
+    const normalized = new Float32Array(this.dataArray.length)
+    let sum = 0
+    for (let i = 0; i < this.dataArray.length; i++) {
+      // dbfs [-inf, 0] клип до [-100, 0] и норм в [0, 1]
+      const v = Math.max(0, (this.dataArray[i] + 100) / 100)
+      normalized[i] = v
+      sum += v
+    }
+
+    const energy = sum / this.dataArray.length
+    const beat = this.beatDetector.detect(normalized)
+
+    const store = useAudioStore.getState()
+}}
 ]
