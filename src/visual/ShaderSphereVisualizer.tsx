@@ -1,0 +1,60 @@
+import { useEffect, useRef } from 'react'
+import * as THREE from 'three'
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js'
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
+import { useAudioStore } from '../store/audioStore'
+
+const VERTEX_SHADER = /* glsl */ `
+  varying float vDisplacement;
+  varying vec3 vNormal;
+  varying vec3 vWorldPosition;
+  uniform float uTime;
+  uniform float uEnergy;
+  uniform float uBeat;
+  uniform float uBass;
+  uniform float uHigh;
+  uniform float uPointScale;
+
+  void main() {
+    vec3 pos = position;
+    float d1 = sin(pos.x * 3.0 + uTime) * cos(pos.y * 3.0 + uTime * 0.7) * sin(pos.z * 3.0 + uTime * 1.3);
+    float d2 = sin(pos.x * 7.0 - uTime * 0.5) * 0.3;
+    float displacement = d1 * (0.3 + uEnergy * 3.0 + uBass * 1.0) + d2 * uHigh * 2.0;
+    displacement += uBeat * 0.35;
+    pos += normal * displacement;
+
+    vDisplacement = displacement;
+    vNormal = normal;
+    vWorldPosition = pos;
+
+    vec4 mvPosition = modelViewMatrix * vec4(pos, 1.0);
+    gl_Position = projectionMatrix * mvPosition;
+    gl_PointSize = (0.5 + uEnergy * 3.0 + uHigh * 1.0) * uPointScale * (150.0 / -mvPosition.z);
+  }
+`
+
+const FRAGMENT_SHADER = /* glsl */ `
+  varying float vDisplacement;
+  varying vec3 vNormal;
+  varying vec3 vWorldPosition;
+  uniform float uTime;
+  uniform float uBeat;
+  uniform float uEnergy;
+
+  void main() {
+    float r = length(gl_PointCoord - vec2(0.5));
+    if (r > 0.5) discard;
+
+    vec3 colorA = vec3(0.25, 0.0, 0.6);  // фиолет
+    vec3 colorB = vec3(0.0, 0.5, 0.7);   // бирюза
+    vec3 colorC = vec3(0.7, 0.1, 0.35);  // розовый
+    vec3 colorHot = vec3(1.0, 0.8, 0.5); // тёплый блик
+
+    float t = vDisplacement * 2.0 + uTime * 0.2;
+    vec3 color = mix(colorA, colorB, sin(t) * 0.5 + 0.5);
+    color = mix(color, colorC, uBeat * 0.5);
+
+    vec3 viewDir = normalize(-vWorldPosition);
+}
