@@ -175,5 +175,64 @@ export function ShaderSphereVisualizer() {
     let beatScale = 1.0
     let prevBeat = false
     let beatIntensity = 0
-}}
+    let trackOpacity = 0
+    let lastTitle = ''
+    let frozenTime = 0
+
+    const clock = new THREE.Clock()
+    const baseCamPos = new THREE.Vector3(0, 0, 5.5)
+
+    function onResize() {
+      camera.aspect = window.innerWidth / window.innerHeight
+      camera.updateProjectionMatrix()
+      renderer.setSize(window.innerWidth, window.innerHeight)
+      composer.setSize(window.innerWidth, window.innerHeight)
+      bloomPass.setSize(window.innerWidth, window.innerHeight)
+    }
+    window.addEventListener('resize', onResize)
+
+    function animate() {
+      const elapsed = clock.getElapsedTime()
+      const curBeat = beatRef.current
+      const curEnergy = energyRef.current
+      const curAudioData = audioDataRef.current
+      const curIsPlaying = isPlayingRef.current
+
+      let bass = 0, high = 0
+      for (let i = 0; i < 14; i++) bass += Math.abs(curAudioData[i] ?? 0)
+      for (let i = 80; i < 120; i++) high += Math.abs(curAudioData[i] ?? 0)
+      bass /= 14
+      high /= 40
+
+      const beatHit = curBeat && !prevBeat && curIsPlaying
+      prevBeat = curBeat
+
+      if (beatHit) {
+        beatIntensity = 1.0
+        shake.trauma = Math.min(1, shake.trauma + (curEnergy > 0.05 ? 1.2 : 0.7))
+        const kickAngle = Math.random() * Math.PI * 2
+        const kickPower = curEnergy > 0.05 ? 0.3 : 0.15
+        kickX = Math.cos(kickAngle) * kickPower
+        kickY = Math.sin(kickAngle) * kickPower
+        beatScale = curEnergy > 0.05 ? 1.08 : 1.04
+      }
+      beatIntensity *= 0.88
+      beatScale += (1 - beatScale) * 0.12
+      kickX *= 0.7
+      kickY *= 0.7
+
+      if (curIsPlaying) {
+        shake.trauma *= 0.88
+        const tPow = shake.trauma * shake.trauma
+        const pt = performance.now() * 0.015
+        const tX = (Math.sin(pt * 2.1) + Math.sin(pt * 3.7)) * 0.5 * tPow * 0.4
+        const tY = (Math.sin(pt * 1.9) + Math.sin(pt * 3.3)) * 0.5 * tPow * 0.3
+        const tR = Math.sin(pt * 2.5) * tPow * 0.03
+        shake.vx += (tX - shake.x) * 0.4; shake.vx *= 0.55; shake.x += shake.vx
+        shake.vy += (tY - shake.y) * 0.4; shake.vy *= 0.55; shake.y += shake.vy
+        shake.vr += (tR - shake.rot) * 0.4; shake.vr *= 0.55; shake.rot += shake.vr
+      } else {
+        shake.x *= 0.9; shake.y *= 0.9
+        shake.vx *= 0.85; shake.vy *= 0.85
+}}}}
 )
