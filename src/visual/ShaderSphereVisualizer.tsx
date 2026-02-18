@@ -57,4 +57,63 @@ const FRAGMENT_SHADER = /* glsl */ `
     color = mix(color, colorC, uBeat * 0.5);
 
     vec3 viewDir = normalize(-vWorldPosition);
-}
+    float fresnel = pow(1.0 - max(dot(vNormal, viewDir), 0.0), 2.0);
+    color += colorHot * fresnel * (0.2 + uEnergy * 0.6);
+
+    color += vec3(0.08, 0.12, 0.2) * uEnergy * 0.6;
+
+    float alpha = 1.0 - r * 2.0;
+    gl_FragColor = vec4(color, alpha * 0.6);
+  }
+`
+
+export function ShaderSphereVisualizer() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef(0)
+
+  const beatRef = useRef(false)
+  const energyRef = useRef(0)
+  const audioDataRef = useRef<Float32Array>(new Float32Array(128))
+  const isPlayingRef = useRef(false)
+  const titleRef = useRef('')
+  const artistRef = useRef('')
+
+  const beat = useAudioStore((s) => s.beat)
+  const energy = useAudioStore((s) => s.energy)
+  const audioData = useAudioStore((s) => s.audioData)
+  const isPlaying = useAudioStore((s) => s.isPlaying)
+  const title = useAudioStore((s) => s.trackInfo.title)
+  const artist = useAudioStore((s) => s.trackInfo.artist)
+
+  beatRef.current = beat
+  energyRef.current = energy
+  audioDataRef.current = audioData
+  isPlayingRef.current = isPlaying
+  titleRef.current = title
+  artistRef.current = artist
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const scene = new THREE.Scene()
+    scene.background = new THREE.Color(0x02030a)
+    scene.fog = new THREE.FogExp2(0x04061a, 0.05)
+
+    const camera = new THREE.PerspectiveCamera(
+        70,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        100,
+    )
+    camera.position.set(0, 0, 5.5)
+    camera.lookAt(0, 0, 0)
+
+    const renderer = new THREE.WebGLRenderer({ antialias: true })
+    renderer.setSize(window.innerWidth, window.innerHeight)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    renderer.toneMapping = THREE.ACESFilmicToneMapping
+    renderer.toneMappingExposure = 0.7
+    container.appendChild(renderer.domElement)
+}}
+)
