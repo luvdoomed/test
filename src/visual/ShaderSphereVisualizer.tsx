@@ -115,5 +115,65 @@ export function ShaderSphereVisualizer() {
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.7
     container.appendChild(renderer.domElement)
+
+    const geometry = new THREE.IcosahedronGeometry(1, 5)
+    const material = new THREE.ShaderMaterial({
+      vertexShader: VERTEX_SHADER,
+      fragmentShader: FRAGMENT_SHADER,
+      uniforms: {
+        uTime: { value: 0 },
+        uEnergy: { value: 0 },
+        uBeat: { value: 0 },
+        uBass: { value: 0 },
+        uHigh: { value: 0 },
+        uPointScale: { value: 1.0 },
+      },
+      transparent: true,
+      depthWrite: false,
+    })
+    const points = new THREE.Points(geometry, material)
+    scene.add(points)
+
+    const starGeo = new THREE.BufferGeometry()
+    const starCount = 900
+    const starPos = new Float32Array(starCount * 3)
+    for (let i = 0; i < starCount; i++) {
+      const r = 15 + Math.random() * 50
+      const theta = Math.random() * Math.PI * 2
+      const phi = Math.acos(Math.random() * 2 - 1)
+      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+      starPos[i * 3 + 2] = r * Math.cos(phi)
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3))
+    const starMat = new THREE.PointsMaterial({
+      color: 0x8899ff,
+      size: 0.05,
+      transparent: true,
+      opacity: 0.6,
+      sizeAttenuation: true,
+    })
+    const stars = new THREE.Points(starGeo, starMat)
+    scene.add(stars)
+
+    const composer = new EffectComposer(renderer)
+    composer.addPass(new RenderPass(scene, camera))
+    const afterimagePass = new AfterimagePass(0.78)
+    composer.addPass(afterimagePass)
+    const bloomPass = new UnrealBloomPass(
+        new THREE.Vector2(window.innerWidth, window.innerHeight),
+        0.35,
+        0.4,
+        0.55,
+    )
+    composer.addPass(bloomPass)
+
+    const shake = { x: 0, y: 0, vx: 0, vy: 0, rot: 0, vr: 0, trauma: 0 }
+    const drift = { x: 0, y: 0, rot: 0 }
+    let kickX = 0
+    let kickY = 0
+    let beatScale = 1.0
+    let prevBeat = false
+    let beatIntensity = 0
 }}
 )
