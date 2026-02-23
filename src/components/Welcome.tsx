@@ -33,5 +33,19 @@ export function Welcome({ dragging, onPickAudio }: WelcomeProps) {
         <div className="welcome__icon" aria-hidden="true">♪</div>
         <div className="welcome__title">Перетащи трек сюда</div>
         <div className="welcome__hint">
+          MP3 · FLAC · WAV или нажми, чтобы выбрать
+          <br />
+          можно сразу выбрать аудио и .lrc файл
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept=".mp3,.flac,.wav,.lrc,text/plain"
+          multiple
+          className="hidden-input"
+          onChange={onChange}
+        />
+      </div>
+    </div>
+  )
 }
-)
