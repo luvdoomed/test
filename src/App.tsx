@@ -266,4 +266,49 @@ export default function App() {
   function onDragLeave(e: DragEvent<HTMLDivElement>) {
     e.preventDefault()
     if (e.currentTarget.contains(e.relatedTarget as Node)) return
+    setDragging(false)
+  }
+
+  async function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    setDragging(false)
+    const list = Array.from(e.dataTransfer.files)
+    if (list.length === 0) return
+    const audio = list.find(isAudioFile)
+    const lrc = list.find(isLrcFile)
+    if (audio) await handleAudioFile(audio)
+    if (lrc) await handleLrcFile(lrc)
+  }
+
+  function goBack() {
+    audioEngine.stop()
+    const s = useAudioStore.getState()
+    s.setTrackInfo({ title: '', artist: '', album: '', cover: '' })
+    s.setTrackProfile(null)
+    s.setSuggestedVisualizers([])
+    s.setLrcLines([])
+    profileTicket.current++
+  }
+
+  function toggleAutoMode() {
+    const s = useAudioStore.getState()
+    const next = !s.autoMode
+    s.setAutoMode(next)
+    if (next && audioEngine.getAudioBuffer()) void runAutoMatch('user-toggle')
+  }
+
+  async function onDebugAnalyze() {
+    const buffer = audioEngine.getAudioBuffer()
+    if (!buffer) {
+      console.warn('[debug] нет загруженного трека')
+      return
+    }
+    const result = await testOfflineAnalyzer(buffer)
+    const beatCount = result.beats.filter(Boolean).length
+    console.log('[debug] fps:', result.fps)
+    console.log('[debug] totalFrames:', result.totalFrames)
+    console.log('[debug] кадров с битом:', beatCount)
+  }
+
+  async function onProfileAll() {
 }}
