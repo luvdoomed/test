@@ -356,4 +356,47 @@ export default function App() {
           }
           try {
             const profile = await profileVisualizer(item.key, canvas, driver)
-}}}}}}
+            console.log(`[profiler] ${item.key}:`, profile)
+            setCachedProfile(item.key, profile)
+            results[item.key] = profile
+          } catch (err) {
+            console.error(`[profiler] ${item.key} упал:`, err)
+          }
+        } finally {
+          uninstallShim()
+          root.unmount()
+          wrapper.remove()
+        }
+
+        await new Promise<void>((r) => setTimeout(r, 40))
+      }
+
+      const sEnd = useAudioStore.getState()
+      sEnd.setIsPlaying(false)
+      sEnd.setAudioData(new Float32Array())
+      sEnd.setEnergy(0)
+      sEnd.setBeat(false)
+    } finally {
+      profilingRunning.current = false
+      setProfilingProgress(null)
+      setNeedsVisualizerProfiling(false)
+    }
+  }
+
+  async function runExport(settings: ExportSettings) {
+    const buffer = audioEngine.getAudioBuffer()
+    if (!buffer) {
+      console.warn('[export] нет загруженного трека')
+      return
+    }
+    const audioBytes = audioEngine.getOriginalAudioBytes()
+    if (!audioBytes) {
+      console.warn('[export] нет исходных байт аудио')
+      return
+    }
+    const audioExt = audioEngine.getOriginalAudioExt()
+    const { width, height, fps } = settings
+
+    const { trackInfo } = useAudioStore.getState()
+    const baseName = (trackInfo.title || 'visualization').replace(/[\\/:*?"<>|]/g, '_')
+}}
