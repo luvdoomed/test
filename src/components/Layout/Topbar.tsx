@@ -20,5 +20,24 @@ export function Topbar({ title, subtitle, onBack, actions, isFullscreen = false 
       transition={{ duration: 0.4, ease: 'easeInOut' }}
       style={{ pointerEvents: isFullscreen ? 'none' : 'auto' }}
     >
+      {onBack ? (
+        <button
+          type="button"
+          className="topbar__back"
+          onClick={onBack}
+          aria-label="Назад"
+          title="Назад"
+        >
+          ←
+        </button>
+      ) : null}
+
+      <div className="topbar__center">
+        <span className="topbar__title">{title ?? 'Music Visualizer'}</span>
+        {subtitle ? <span className="topbar__subtitle">{subtitle}</span> : null}
+      </div>
+
+      <div className="topbar__actions">{actions}</div>
+    </motion.header>
+  )
 }
-)
