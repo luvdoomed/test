@@ -311,4 +311,49 @@ export default function App() {
   }
 
   async function onProfileAll() {
-}}
+    if (profilingRunning.current) return
+    profilingRunning.current = true
+    audioEngine.stop()
+
+    const results: Record<string, VibeProfile> = {}
+    const total = VIZ_ITEMS.length
+
+    const driver = async (frame: ProfilerFrame) => {
+      const s = useAudioStore.getState()
+      s.setAudioData(frame.audioData)
+      s.setEnergy(frame.energy)
+      s.setBeat(frame.beat)
+      s.setIsPlaying(true)
+      await tickFrame(1000 / 60)
+    }
+
+    try {
+      for (let idx = 0; idx < VIZ_ITEMS.length; idx++) {
+        const item = VIZ_ITEMS[idx]
+        setProfilingProgress({ current: idx, total, label: item.label })
+
+        const s0 = useAudioStore.getState()
+        s0.setAudioData(new Float32Array(1024))
+        s0.setEnergy(0)
+        s0.setBeat(false)
+        s0.setIsPlaying(false)
+
+        const wrapper = document.createElement('div')
+        wrapper.style.cssText = 'position:fixed;inset:0;opacity:0;pointer-events:none;z-index:-10;'
+        document.body.appendChild(wrapper)
+        const root = createRoot(wrapper)
+        root.render(renderVisualizer(item.key as VisualizerMode))
+
+        await new Promise<void>((r) => setTimeout(r, 120))
+
+        installShim()
+        try {
+          await new Promise<void>((r) => setTimeout(r, 60))
+          const canvas = wrapper.querySelector('canvas') as HTMLCanvasElement | null
+          if (!canvas) {
+            console.warn(`[profiler] canvas не найден для ${item.key}`)
+            continue
+          }
+          try {
+            const profile = await profileVisualizer(item.key, canvas, driver)
+}}}}}}
