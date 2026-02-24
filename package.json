@@ -15,7 +15,8 @@
     "zustand": "^5.0.2",
     "music-metadata-browser": "^2.5.10",
     "fft.js": "^4.0.4",
-    "three": "^0.183.2"
+    "three": "^0.183.2",
+    "@radix-ui/react-slider": "^1.2.2"
   },
   "devDependencies": {
     "@types/react": "^19.0.0",
