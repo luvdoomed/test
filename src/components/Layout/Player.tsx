@@ -84,5 +84,32 @@ export function Player({
           <button type="button" className="ctrl" onClick={onSkipForward} aria-label="Вперёд на 10 секунд" title="+10 с">⏭</button>
           <button type="button" className="ctrl ctrl--small" aria-label="Повтор" title="Повтор">↺</button>
         </div>
+
+        <div className="player__progress">
+          <span className="time">{formatTime(currentTime)}</span>
+          <CustomSlider
+            value={progressRatio}
+            onValueChange={(r) => onSeek(r * (duration || 0))}
+            ariaLabel="Позиция воспроизведения"
+          />
+          <span className="time">{formatTime(duration)}</span>
+        </div>
+      </div>
+
+      <div className="player__right">
+        <button type="button" className="ctrl ctrl--small" aria-label="Очередь" title="Очередь">≡</button>
+        <div className="volume">
+          <span className="volume__icon" aria-hidden="true">{volume > 0.5 ? '🔊' : volume > 0 ? '🔉' : '🔈'}</span>
+          <CustomSlider value={volume} onValueChange={onVolume} variant="volume" ariaLabel="Громкость" />
+        </div>
+      </div>
+    </motion.footer>
+  )
 }
-)
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0) return '00:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
