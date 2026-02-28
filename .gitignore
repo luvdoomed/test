@@ -31,3 +31,35 @@ claude.md
 .cursor/
 .cursorrules
 .aider*
+.copilot/
+.windsurf/
+.windsurfrules
+.continue/
+.codeium/
+.tabnine_*
+.specstory/
+
+# ai prompts and notes
+PROMPTS.md
+prompts.md
+NOTES.md
+notes.md
+TODO.md
+todo.md
+PLAN.md
+plan.md
+ROADMAP.md
+roadmap.md
+SCRATCH.md
+scratch.md
+*.prompt.md
+.notes/
+.scratch/
+
+# transcripts
+transcripts/
+*.transcript.txt
+.chats/
+
+# mcp configs
+.mcp.json
