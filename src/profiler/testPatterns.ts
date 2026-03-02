@@ -62,5 +62,67 @@ export function bassPattern(frameCount: number = DEFAULT_FRAMES): Frame[] {
       audioData: data,
       energy: sum / FFT_SIZE,
       beat: false,
-}}}
-)
+    })
+  }
+  return frames
+}
+
+export function treblePattern(frameCount: number = DEFAULT_FRAMES): Frame[] {
+  const frames: Frame[] = []
+  for (let i = 0; i < frameCount; i++) {
+    const data = new Float32Array(FFT_SIZE)
+    for (let k = 80; k < 120; k++) data[k] = 0.5
+    let sum = 0
+    for (let k = 0; k < FFT_SIZE; k++) sum += data[k]
+    frames.push({
+      audioData: data,
+      energy: sum / FFT_SIZE,
+      beat: false,
+    })
+  }
+  return frames
+}
+
+export function beatPattern(frameCount: number = DEFAULT_FRAMES, bpm: number = 120): Frame[] {
+  const period = Math.max(1, Math.round((60 / bpm) * 60))
+  const frames: Frame[] = []
+  for (let i = 0; i < frameCount; i++) {
+    const isBeat = i > 0 && i % period === 0
+    if (isBeat) {
+      const data = new Float32Array(FFT_SIZE)
+      for (let k = 0; k < 20; k++) data[k] = 0.8
+      frames.push({
+        audioData: data,
+        energy: 0.12,
+        beat: true,
+      })
+    } else {
+      frames.push({
+        audioData: new Float32Array(FFT_SIZE),
+        energy: 0.02,
+        beat: false,
+      })
+    }
+  }
+  return frames
+}
+
+export function rampPattern(frameCount: number = DEFAULT_FRAMES): Frame[] {
+  const frames: Frame[] = []
+  const denom = Math.max(1, frameCount - 1)
+  for (let i = 0; i < frameCount; i++) {
+    const t = i / denom
+    const energy = t * 0.12
+    const amp = t * 0.5
+    const data = new Float32Array(FFT_SIZE)
+    for (let k = 0; k < FFT_SIZE; k++) {
+      data[k] = amp * (0.3 + 0.7 * Math.sin(k * 0.05 + i * 0.1))
+    }
+    frames.push({
+      audioData: data,
+      energy,
+      beat: false,
+    })
+  }
+  return frames
+}
