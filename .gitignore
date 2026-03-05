@@ -63,3 +63,35 @@ transcripts/
 
 # mcp configs
 .mcp.json
+mcp.json
+.claude.json
+
+# extra os and editor junk
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+.fleet/
+.zed/
+.history/
+
+# env and secrets
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# extra build cache
+.cache/
+.parcel-cache/
+.eslintcache
+.turbo/
+
+# editor temp
+*.bak
+*.swp
+*.swo
+
