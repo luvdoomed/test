@@ -104,5 +104,110 @@ function createVolumetricCloud(x: number, y: number): VolumetricCloud {
     layers.push({
       ox: (Math.random() - 0.5) * 60,
       oy: (Math.random() - 0.5) * 60,
-}}}
-)
+      z: (Math.random() - 0.5) * 100,
+      vx: (Math.random() - 0.5),
+      vy: (Math.random() - 0.5),
+      baseRadius: 40 + Math.random() * 80,
+      angle: Math.random() * Math.PI * 2,
+    })
+  }
+  layers.sort((a, b) => a.z - b.z)
+  return { x, y, layers, opacity: 0.6, age: 0 }
+}
+
+interface ShootingStar {
+  x: number
+  y: number
+  vx: number
+  vy: number
+  life: number
+  maxLife: number
+  trail: Array<{ x: number; y: number }>
+}
+
+function createShootingStar(lw: number, lh: number): ShootingStar {
+  const edge = Math.floor(Math.random() * 4)
+  let x: number, y: number, vx: number, vy: number
+  const speed = SHOOTING_STAR_SPEED * (0.8 + Math.random() * 0.4)
+  const angle = (Math.random() * 0.6 + 0.2) * Math.PI // диагональ
+
+  if (edge === 0) {
+    x = Math.random() * lw; y = -10
+    vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1)
+    vy = Math.abs(Math.sin(angle)) * speed
+  } else if (edge === 1) {
+    x = lw + 10; y = Math.random() * lh
+    vx = -Math.abs(Math.cos(angle)) * speed
+    vy = Math.sin(angle) * speed * (Math.random() > 0.5 ? 1 : -1)
+  } else if (edge === 2) {
+    x = Math.random() * lw; y = lh + 10
+    vx = Math.cos(angle) * speed * (Math.random() > 0.5 ? 1 : -1)
+    vy = -Math.abs(Math.sin(angle)) * speed
+  } else {
+    x = -10; y = Math.random() * lh
+    vx = Math.abs(Math.cos(angle)) * speed
+    vy = Math.sin(angle) * speed * (Math.random() > 0.5 ? 1 : -1)
+  }
+
+  return { x, y, vx, vy, life: 0, maxLife: 60 + Math.floor(Math.random() * 40), trail: [] }
+}
+
+interface Star {
+  x: number
+  y: number
+  z: number
+  prevScreenX: number
+  prevScreenY: number
+  colorType: StarColor
+  hue: number // для Bright
+  baseR: number
+  baseG: number
+  baseB: number
+  twinklePhase: number
+  twinkleSpeed: number
+}
+
+function createStar(spreadZ: boolean, w: number, h: number): Star {
+  const x = (Math.random() - 0.5) * w * 2.5
+  const y = (Math.random() - 0.5) * h * 2.5
+  const z = spreadZ ? Math.random() * MAX_DEPTH + 1 : MAX_DEPTH
+
+  const roll = Math.random()
+  let colorType: StarColor
+  let hue = 0
+  let baseR = 1, baseG = 1, baseB = 1
+
+  if (roll < 0.80) {
+    colorType = StarColor.White
+    const blue = Math.random() > 0.5
+    baseR = blue ? 0.75 : 1.0
+    baseG = blue ? 0.85 : 1.0
+    baseB = 1.0
+  } else if (roll < 0.95) {
+    colorType = StarColor.WarmYellow
+    baseR = 1.0
+    baseG = 0.85
+    baseB = 0.5
+  } else {
+    colorType = StarColor.Bright
+    hue = Math.random() * 360
+    baseR = 1
+    baseG = 1
+    baseB = 1
+  }
+
+  const screenX = (x - w / 2) * (FOCAL_LENGTH / z) + w / 2
+  const screenY = (y - h / 2) * (FOCAL_LENGTH / z) + h / 2
+
+  return {
+    x, y, z, prevScreenX: screenX, prevScreenY: screenY,
+    colorType, hue, baseR, baseG, baseB,
+    twinklePhase: Math.random() * Math.PI * 2,
+    twinkleSpeed: 0.02 + Math.random() * 0.06,
+  }
+}
+
+export function StarfieldVisualizer() {
+  const mountRef = useRef<HTMLCanvasElement>(null)
+  const params = useVisualizerParams<GalaxyParams>('galaxy')
+}
