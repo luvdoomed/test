@@ -315,5 +315,112 @@ export function StarfieldVisualizer() {
       shakeY *= SHAKE_DECAY
       beatFlash *= 0.9
       warpFlash *= WARP_FLASH_DECAY
-}}}
+
+      if (playing) {
+        nextShootingStarIn--
+        if (nextShootingStarIn <= 0) {
+          shootingStars.push(createShootingStar(lw, lh))
+          nextShootingStarIn = SHOOTING_STAR_MIN_INTERVAL + Math.floor(Math.random() * (SHOOTING_STAR_MAX_INTERVAL - SHOOTING_STAR_MIN_INTERVAL))
+        }
+        if (beatFront && Math.random() < 0.5) {
+          shootingStars.push(createShootingStar(lw, lh))
+          if (Math.random() < 0.3) shootingStars.push(createShootingStar(lw, lh))
+        }
+      }
+
+      globalHue = (globalHue + HUE_SHIFT_SPEED) % 360
+
+      const audioData = audioDataRef.current
+      const bandEnergies = new Float32Array(FREQ_BANDS)
+      if (audioData.length > 0) {
+        const bandSize = Math.floor(audioData.length / FREQ_BANDS)
+        for (let b = 0; b < FREQ_BANDS; b++) {
+          let sum = 0
+          const start = b * bandSize
+          for (let j = start; j < start + bandSize && j < audioData.length; j++) {
+            sum += Math.abs(audioData[j])
+          }
+          bandEnergies[b] = sum / bandSize
+        }
+      }
+
+      if (playing) {
+        driftTime++
+        camOffsetX = Math.sin(driftTime * 0.08) * 12 * shakeScl
+        camOffsetY = Math.cos(driftTime * 0.06) * 8 * shakeScl
+      }
+      const cx = lw / 2 + shakeX + camOffsetX
+      const cy = lh / 2 + shakeY + camOffsetY
+
+      const trailAlpha = Math.min(0.35, trailFadeBase + currentSpeed * 0.015)
+      ctx!.fillStyle = `rgba(0, 0, 0, ${trailAlpha})`
+      ctx!.fillRect(0, 0, lw, lh)
+
+      for (let ni = 0; ni < NEBULA_CLOUD_COUNT; ni++) {
+        const cloud = nebulaClouds[ni]
+        cloud.x += cloud.vx
+        cloud.y += cloud.vy
+        const maxR = 500
+        if (cloud.x > lw + maxR) cloud.x = -maxR
+        if (cloud.x < -maxR) cloud.x = lw + maxR
+        if (cloud.y > lh + maxR) cloud.y = -maxR
+        if (cloud.y < -maxR) cloud.y = lh + maxR
+
+        for (let gi = 0; gi < cloud.gradients.length; gi++) {
+          const g = cloud.gradients[gi]
+          const gx = cloud.x + g.offsetX
+          const gy = cloud.y + g.offsetY
+          const alpha = Math.min(0.08, g.baseAlpha + energy * 0.1) * nebulaMult
+          if (alpha <= 0) continue
+          const hRad = ((globalHue + userHueShift) % 360) * Math.PI / 180
+          const cosH = Math.cos(hRad), sinH = Math.sin(hRad)
+          const nr = Math.max(0, Math.min(255, Math.round(g.r * cosH - g.b * sinH * 0.3 + g.g * sinH * 0.3)))
+          const ng = Math.max(0, Math.min(255, Math.round(g.g * cosH - g.r * sinH * 0.3 + g.b * sinH * 0.3)))
+          const nb = Math.max(0, Math.min(255, Math.round(g.b * cosH - g.g * sinH * 0.3 + g.r * sinH * 0.3)))
+          const gr = g.radius * scl
+          const grad = ctx!.createRadialGradient(gx, gy, 0, gx, gy, gr)
+          grad.addColorStop(0, `rgba(${nr},${ng},${nb},${alpha})`)
+          grad.addColorStop(1, `rgba(${nr},${ng},${nb},0)`)
+          ctx!.fillStyle = grad
+          ctx!.fillRect(gx - gr, gy - gr, gr * 2, gr * 2)
+        }
+      }
+
+      const starScreenX = new Float32Array(activeStars)
+      const starScreenY = new Float32Array(activeStars)
+      const starVisible = new Uint8Array(activeStars)
+
+      for (let i = 0; i < activeStars; i++) {
+        const star = stars[i]
+
+        const prevSX = star.prevScreenX
+        const prevSY = star.prevScreenY
+
+        if (playing) {
+          star.z -= currentSpeed
+        }
+
+        if (star.z < 1) {
+          stars[i] = createStar(false, lw, lh)
+          continue
+        }
+
+        const normalX = (star.x - lw / 2) * (FOCAL_LENGTH / star.z) + cx
+        const normalY = (star.y - lh / 2) * (FOCAL_LENGTH / star.z) + cy
+
+        const screenX = normalX
+        const screenY = normalY
+
+        let size = Math.max(0.5, FOCAL_LENGTH / star.z * 2) * scl
+
+        if (warpFlash > 0.01) {
+          size *= 1 + warpFlash * 0.5
+        }
+
+        star.prevScreenX = screenX
+        star.prevScreenY = screenY
+        starScreenX[i] = screenX
+        starScreenY[i] = screenY
+        starVisible[i] = 1
+}}}}
 )
