@@ -210,4 +210,110 @@ function createStar(spreadZ: boolean, w: number, h: number): Star {
 export function StarfieldVisualizer() {
   const mountRef = useRef<HTMLCanvasElement>(null)
   const params = useVisualizerParams<GalaxyParams>('galaxy')
-}
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+
+  const { beat, audioData, energy, isPlaying } = useAudioStore()
+
+  const beatRef = useRef(beat)
+  const audioDataRef = useRef(audioData)
+  const energyRef = useRef(energy)
+  const isPlayingRef = useRef(isPlaying)
+  beatRef.current = beat
+  audioDataRef.current = audioData
+  energyRef.current = energy
+  isPlayingRef.current = isPlaying
+
+  useEffect(() => {
+    const canvas = mountRef.current
+    if (!canvas) return
+
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const dpr = window.devicePixelRatio || 1
+    let w = window.innerWidth * dpr
+    let h = window.innerHeight * dpr
+    canvas.width = w
+    canvas.height = h
+    canvas.style.width = window.innerWidth + 'px'
+    canvas.style.height = window.innerHeight + 'px'
+    ctx.scale(dpr, dpr)
+    let lw = window.innerWidth
+    let lh = window.innerHeight
+
+    ctx.fillStyle = '#000'
+    ctx.fillRect(0, 0, lw, lh)
+
+    const stars: Star[] = []
+    const initialCount = Math.max(500, Math.min(MAX_STAR_COUNT, Math.floor(paramsRef.current.starCount)))
+    for (let i = 0; i < initialCount; i++) {
+      stars.push(createStar(true, lw, lh))
+    }
+
+    const nebulaClouds: NebulaCloud[] = []
+    for (let i = 0; i < NEBULA_CLOUD_COUNT; i++) {
+      nebulaClouds.push(createNebulaCloud(lw, lh, i))
+    }
+
+    let prevBeat = false
+    let driftTime = 0
+    let shakeX = 0
+    let shakeY = 0
+    let beatFlash = 0
+    let warpFlash = 0
+    let currentSpeed = 0
+    let rafId = 0
+    const smokeClouds: VolumetricCloud[] = []
+    const shootingStars: ShootingStar[] = []
+    let nextShootingStarIn = SHOOTING_STAR_MIN_INTERVAL + Math.floor(Math.random() * (SHOOTING_STAR_MAX_INTERVAL - SHOOTING_STAR_MIN_INTERVAL))
+    let globalHue = 0
+    let camOffsetX = 0
+    let camOffsetY = 0
+
+    function animate(): void {
+      ctx!.clearRect(0, 0, lw, lh)
+      const energy = energyRef.current
+      const beat = beatRef.current
+      const playing = isPlayingRef.current
+      const minDim = Math.min(lw, lh)
+      const scl = minDim / 1080
+      const shakeScl = minDim / 900
+
+      const pp = paramsRef.current
+      const desiredStarCount = Math.max(500, Math.min(MAX_STAR_COUNT, Math.floor(pp.starCount)))
+      const speedMult = Math.max(0, pp.speed)
+      const userHueShift = pp.hueShift
+      const nebulaMult = Math.max(0, pp.nebulaIntensity)
+      const trailFadeBase = Math.max(0, pp.trailFade)
+
+      while (stars.length < desiredStarCount) stars.push(createStar(true, lw, lh))
+      if (stars.length > desiredStarCount) stars.length = desiredStarCount
+      const activeStars = stars.length
+
+      const beatFront = beat && !prevBeat
+      prevBeat = beat
+
+      if (playing) {
+        const targetSpeed = (BASE_SPEED + energy * MAX_ENERGY_SPEED) * speedMult
+        currentSpeed += (targetSpeed - currentSpeed) * 0.08
+      } else {
+        currentSpeed *= 0.95
+        if (currentSpeed < 0.01) currentSpeed = 0
+      }
+
+      if (beatFront && playing) {
+        shakeX = (Math.random() - 0.5) * 2 * SHAKE_STRENGTH * shakeScl
+        shakeY = (Math.random() - 0.5) * 2 * SHAKE_STRENGTH * shakeScl
+        beatFlash = 1
+        warpFlash = 1
+        currentSpeed += BEAT_SPEED_BURST
+        if (smokeClouds.length >= CLOUD_MAX_ACTIVE) smokeClouds.shift()
+        smokeClouds.push(createVolumetricCloud(Math.random() * lw, Math.random() * lh))
+      }
+      shakeX *= SHAKE_DECAY
+      shakeY *= SHAKE_DECAY
+      beatFlash *= 0.9
+      warpFlash *= WARP_FLASH_DECAY
+}}}
+)
