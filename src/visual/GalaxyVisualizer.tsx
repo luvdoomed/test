@@ -422,5 +422,112 @@ export function StarfieldVisualizer() {
         starScreenX[i] = screenX
         starScreenY[i] = screenY
         starVisible[i] = 1
-}}}}
+
+        const depthBrightness = Math.pow(1 - star.z / MAX_DEPTH, 1.5)
+
+        // температура цвета по скорости (далёкие — холодные, близкие — тёплые)
+        const speedFactor = currentSpeed / (BASE_SPEED + MAX_ENERGY_SPEED)
+        const depthFactor = 1 - star.z / MAX_DEPTH
+
+        let r: number, g: number, b: number
+
+        if (star.colorType === StarColor.Bright) {
+          const hRad = star.hue * Math.PI / 180
+          r = Math.max(0, Math.cos(hRad)) * 0.5 + 0.5
+          g = Math.max(0, Math.cos(hRad - 2.094)) * 0.5 + 0.5
+          b = Math.max(0, Math.cos(hRad + 2.094)) * 0.5 + 0.5
+        } else {
+          // холодные #aaccff (0.667, 0.8, 1.0) к тёплым #ffeecc (1.0, 0.933, 0.8)
+          const t = depthFactor * speedFactor
+          r = star.baseR * (0.667 + t * 0.333)
+          g = star.baseG * (0.8 + t * 0.133)
+          b = star.baseB * (1.0 - t * 0.2)
+        }
+
+        if (beatFlash > 0.01) {
+          r = r + (1 - r) * beatFlash
+          g = g + (1 - g) * beatFlash
+          b = b + (1 - b) * beatFlash
+        }
+
+        star.twinklePhase += star.twinkleSpeed
+        const twinkle = 0.7 + Math.sin(star.twinklePhase) * 0.3
+
+        const bandIdx = Math.min(FREQ_BANDS - 1, Math.floor((screenX / lw) * FREQ_BANDS))
+        const freqBoost = bandIdx >= 0 && bandIdx < FREQ_BANDS ? bandEnergies[bandIdx] * 2 : 0
+
+        const alpha = Math.min(1, (depthBrightness * 1.5 + 0.1) * twinkle + freqBoost)
+
+        const cr = Math.floor(r * 255)
+        const cg = Math.floor(g * 255)
+        const cb = Math.floor(b * 255)
+        const color = `rgba(${cr},${cg},${cb},${alpha})`
+
+        const dx = screenX - prevSX
+        const dy = screenY - prevSY
+        const trailLen = Math.sqrt(dx * dx + dy * dy)
+        const TAIL_DOTS = 5
+
+        if (trailLen > 1.5 && currentSpeed > 0.5) {
+          for (let d = 0; d < TAIL_DOTS; d++) {
+            const t = d / TAIL_DOTS
+            const dotX = prevSX + dx * t
+            const dotY = prevSY + dy * t
+            const dotSize = size * (0.2 + t * 0.6)
+            const dotAlpha = alpha * (0.1 + t * 0.8)
+            ctx!.beginPath()
+            ctx!.arc(dotX, dotY, dotSize, 0, Math.PI * 2)
+            ctx!.fillStyle = `rgba(${cr},${cg},${cb},${dotAlpha})`
+            ctx!.fill()
+          }
+        }
+
+        if (star.z < 200) {
+          ctx!.shadowBlur = size * 4
+          ctx!.shadowColor = `rgb(${cr},${cg},${cb})`
+        }
+
+        ctx!.beginPath()
+        ctx!.arc(screenX, screenY, size, 0, Math.PI * 2)
+        ctx!.fillStyle = color
+        ctx!.fill()
+
+        if (star.z < 200) {
+          ctx!.shadowBlur = 0
+        }
+      }
+
+      const lineAlpha = beatFlash > 0.01 ? 0.08 : 0.025
+      ctx!.strokeStyle = `rgba(180,200,255,${lineAlpha})`
+      ctx!.lineWidth = 0.4
+      ctx!.beginPath()
+      const constMax = 80 * scl
+      const constMaxSq = constMax * constMax
+      for (let i = 0; i < activeStars; i++) {
+        if (!starVisible[i]) continue
+        const sx = starScreenX[i]
+        const sy = starScreenY[i]
+        if (sx < -50 || sx > lw + 50 || sy < -50 || sy > lh + 50) continue
+        let links = 0
+        for (let j = i + 1; j < activeStars; j++) {
+          if (!starVisible[j] || links >= 2) break
+          const dx = starScreenX[j] - sx
+          const dy = starScreenY[j] - sy
+          if (Math.abs(dx) > constMax || Math.abs(dy) > constMax) continue
+          if (dx * dx + dy * dy > constMaxSq) continue
+          ctx!.moveTo(sx, sy)
+          ctx!.lineTo(starScreenX[j], starScreenY[j])
+          links++
+        }
+      }
+      ctx!.stroke()
+
+      if (smokeClouds.length > 0) {
+        ctx!.globalCompositeOperation = 'screen'
+        ctx!.filter = 'blur(8px)'
+
+        for (let si = smokeClouds.length - 1; si >= 0; si--) {
+          const cloud = smokeClouds[si]
+          cloud.age++
+}}}}}
 )
