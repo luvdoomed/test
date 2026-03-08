@@ -74,4 +74,77 @@ export async function profileTrack(audioBuffer: AudioBuffer): Promise<VibeProfil
     const snap = snapshots[f]
     let bass = 0
     let treble = 0
-}}
+    let cNum = 0
+    let cDen = 0
+    for (let k = 0; k < bins; k++) {
+      const v = snap[k]
+      cNum += v * k
+      cDen += v
+      if (k < bassBinCount) bass += v
+      if (k >= trebleLo && k < trebleHi) treble += v
+    }
+    const avgBass = bass / bassBinCount
+    const avgTreble = treble / trebleBinCount
+    const centroid = cDen > 0 ? cNum / cDen / bins : 0
+
+    bassSum += avgBass
+    trebleSum += avgTreble
+    centroidSum += centroid
+    bassEnv[f] = avgBass
+
+    const e = energies[f]
+    if (e < energyMin) energyMin = e
+    if (e > energyMax) energyMax = e
+
+    if (f > 0) {
+      const prev = snapshots[f - 1]
+      let flux = 0
+      for (let k = 0; k < bins; k++) flux += Math.abs(snap[k] - prev[k])
+      fluxSum += flux / bins
+
+      // транзиент: скачок общей энергии больше чем на 30%
+      if (energies[f - 1] > 0 && energies[f] > energies[f - 1] * TRANSIENT_JUMP) {
+        transientFrames++
+      }
+    }
+  }
+
+  const avgBassEnergy = bassSum / framesN
+  const avgTrebleEnergy = trebleSum / framesN
+  const spectralFlux = framesN > 1 ? fluxSum / (framesN - 1) : 0
+  const spectralCentroid = centroidSum / framesN
+  const loudnessDynamics = energyMax > energyMin ? energyMax - energyMin : 0
+  const bpm = estimateBpm(bassEnv, TRACK_FPS)
+
+  let bassVarSum = 0
+  for (let f = 0; f < framesN; f++) {
+    const d = bassEnv[f] - avgBassEnergy
+    bassVarSum += d * d
+  }
+  const bassVariance = Math.sqrt(bassVarSum / framesN)
+
+  const percussionRatio = framesN > 1 ? transientFrames / (framesN - 1) : 0
+
+  const energy = clamp01(avgBassEnergy * 1.5 + bassVariance * 2.0 + percussionRatio * 1.5)
+  const complexity = clamp01(spectralFlux * 2.5 + avgTrebleEnergy * 1.5 + percussionRatio * 1.0)
+  const motion = clamp01((bpm / MOTION_BPM_FULL) * 0.7 + percussionRatio * 0.3)
+
+  let mood: VibeProfile['mood']
+  if (loudnessDynamics > 0.6 && spectralCentroid < 0.4) mood = 'dark'
+  else if (bassVariance > 0.4 && spectralCentroid > 0.5) mood = 'neon'
+  else if (percussionRatio > 0.2 && spectralCentroid > 0.45) mood = 'warm'
+  else mood = 'cold'
+
+  const profile: VibeProfile = { energy, complexity, motion, mood }
+  console.log('[automode] track features:', {
+    avgBassEnergy: Number(avgBassEnergy.toFixed(4)),
+    bassVariance: Number(bassVariance.toFixed(4)),
+    trebleEnergy: Number(avgTrebleEnergy.toFixed(4)),
+    percussionRatio: Number(percussionRatio.toFixed(4)),
+    loudnessDynamics: Number(loudnessDynamics.toFixed(4)),
+    spectralCentroid: Number(spectralCentroid.toFixed(4)),
+    bpm: Number(bpm.toFixed(1)),
+  })
+  console.log('[automode] track profile:', profile)
+  return profile
+}
