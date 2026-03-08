@@ -88,4 +88,94 @@ function strokeSquare(
   glow: number,
   color = '#ffffff',
 ) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(rotation)
+  ctx.globalAlpha = opacity
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1
+  ctx.shadowBlur = glow
+  ctx.shadowColor = '#ffffff'
+  const s = size / 2
+  ctx.strokeRect(-s, -s, size, size)
+  ctx.restore()
+}
+
+function strokeCross(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  rotation: number,
+  opacity: number,
+  glow: number,
+  color = '#ffffff',
+) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(rotation)
+  ctx.globalAlpha = opacity
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1
+  ctx.shadowBlur = glow
+  ctx.shadowColor = '#ffffff'
+  const half = size / 2
+  ctx.strokeRect(-1, -half, 2, size)
+  ctx.strokeRect(-half, -1, size, 2)
+  ctx.restore()
+}
+
+function strokeTriangle(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  size: number,
+  rotation: number,
+  opacity: number,
+  glow: number,
+  color = '#ffffff',
+) {
+  ctx.save()
+  ctx.translate(x, y)
+  ctx.rotate(rotation)
+  ctx.globalAlpha = opacity
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1
+  ctx.shadowBlur = glow
+  ctx.shadowColor = '#ffffff'
+  const h = size / 2
+  ctx.beginPath()
+  ctx.moveTo(0, -h)
+  ctx.lineTo(-h, h)
+  ctx.lineTo(h, h)
+  ctx.closePath()
+  ctx.stroke()
+  ctx.restore()
+}
+
+function drawShape(
+  ctx: CanvasRenderingContext2D,
+  kind: ShapeKind,
+  x: number,
+  y: number,
+  size: number,
+  rotation: number,
+  opacity: number,
+  glow: number,
+  color = '#ffffff',
+) {
+  if (kind === 'square') {
+    strokeSquare(ctx, x, y, size, rotation, opacity, glow, color)
+  } else if (kind === 'diamond') {
+    strokeSquare(ctx, x, y, size, rotation + Math.PI / 4, opacity, glow, color)
+  } else if (kind === 'cross') {
+    strokeCross(ctx, x, y, size, rotation, opacity, glow, color)
+  } else {
+    strokeTriangle(ctx, x, y, size, rotation, opacity, glow, color)
+  }
+}
+
+export function GeometryVisualizer() {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  const rafRef = useRef(0)
 }
