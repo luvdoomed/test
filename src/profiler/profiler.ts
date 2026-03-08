@@ -256,4 +256,131 @@ async function runSinglePass(
 
       prev = img
     }
-}}
+
+    const n = Math.max(1, captured)
+    const dN = Math.max(1, diffCount)
+    return {
+      avgPixelDiff: diffSum / dN,
+      avgBrightness: brightSum / n,
+      brightnessStart: brightFirst,
+      brightnessEnd: brightLast,
+      peakPixelDiffOnBeat: peakBeatDiff,
+      avgEdgeDensity: edgeSum / n,
+      avgVarianceMag: varSum / n,
+    }
+  }
+
+  const patterns = buildPatterns(pass.measureFrames)
+  const timings: Record<string, number> = {}
+
+  const runTimed = async (name: string, frames: Frame[]): Promise<PatternStats> => {
+    const t = Date.now()
+    const r = await runPattern(frames)
+    timings[name] = Date.now() - t
+    return r
+  }
+
+  let silence: PatternStats | null = null
+  let noise: PatternStats | null = null
+  let treble: PatternStats | null = null
+  let bass: PatternStats
+  let beat: PatternStats
+  let ramp: PatternStats
+
+  if (pass.reducedPatterns) {
+    bass = await runTimed('bass', patterns.bass)
+    const bassReactivityEarly = clamp01(bass.avgBrightness)
+    if (bassReactivityEarly <= 0.05) {
+      silence = await runTimed('silence', patterns.silence)
+    }
+    beat = await runTimed('beat', patterns.beat)
+    ramp = await runTimed('ramp', patterns.ramp)
+  } else {
+    silence = await runTimed('silence', patterns.silence)
+    noise = await runTimed('noise', patterns.noise)
+    bass = await runTimed('bass', patterns.bass)
+    treble = await runTimed('treble', patterns.treble)
+    beat = await runTimed('beat', patterns.beat)
+    ramp = await runTimed('ramp', patterns.ramp)
+  }
+
+  const idleMotion = silence ? clamp01(silence.avgPixelDiff * 3) : 0
+  const noiseReactivity = noise ? clamp01(noise.avgPixelDiff * 2) : 0
+  const bassReactivity = clamp01(bass.avgBrightness)
+  const beatReactivity = clamp01(beat.peakPixelDiffOnBeat * 2)
+  const energySensitivity = clamp01(Math.abs(ramp.brightnessEnd - ramp.brightnessStart) * 3)
+
+  const all: PatternStats[] = [bass, beat, ramp]
+  if (silence) all.push(silence)
+  if (noise) all.push(noise)
+  if (treble) all.push(treble)
+  const avgEdge = all.reduce((s, p) => s + p.avgEdgeDensity, 0) / all.length
+  const avgVar = all.reduce((s, p) => s + p.avgVarianceMag, 0) / all.length
+
+  const energy = clamp01(beatReactivity * 0.5 + bassReactivity * 0.3 + energySensitivity * 0.2)
+  const complexity = clamp01((avgEdge + avgVar) / 2)
+  const motion = clamp01(idleMotion * 0.4 + noiseReactivity * 0.6)
+
+  const moods: Mood[] = ['warm', 'cold', 'neon', 'dark']
+  let bestMood: Mood = 'dark'
+  let bestCount = -1
+  for (const m of moods) {
+    if (moodVotes[m] > bestCount) {
+      bestCount = moodVotes[m]
+      bestMood = m
+    }
+  }
+
+  const profile: VibeProfile = { energy, complexity, motion, mood: bestMood }
+  return { profile, timings, sampleW: dims.w, sampleH: dims.h }
+}
+
+export async function profileVisualizer(
+  visualizerId: string,
+  canvas: HTMLCanvasElement,
+  onFrameDrive: (frame: Frame) => Promise<void>,
+): Promise<VibeProfile> {
+  const tVis0 = Date.now()
+
+  for (let idx = 0; idx < PASSES.length; idx++) {
+    const pass = PASSES[idx]
+    const tPass0 = Date.now()
+
+    // проверка что канвас вообще что-то рисует
+    const canvasReady = await waitForCanvasReady(canvas, onFrameDrive, pass.canvasReadyTimeoutMs)
+    if (!canvasReady) {
+      console.warn(`[profiler] ${visualizerId} (${pass.name}): канвас не заполнился за ${pass.canvasReadyTimeoutMs}мс, пробуем дальше`)
+    }
+
+    const queueReady = await waitForShimQueue(QUEUE_READY_TIMEOUT_MS)
+    if (!queueReady) {
+      console.warn(`[profiler] ${visualizerId} (${pass.name}): rAF не попал в очередь шима, переходим к следующему проходу`)
+      continue
+    }
+
+    let passResult: { profile: VibeProfile; timings: Record<string, number>; sampleW: number; sampleH: number }
+    try {
+      passResult = await runSinglePass(pass, canvas, onFrameDrive)
+    } catch (err) {
+      console.warn(`[profiler] ${visualizerId} (${pass.name}): проход упал, пробуем дальше`, err)
+      continue
+    }
+
+    const { profile, timings, sampleW, sampleH } = passResult
+    const passMs = Date.now() - tPass0
+
+    if (!isDegenerate(profile)) {
+      console.log(`[profiler] ${visualizerId}: OK (${pass.name}) за ${passMs}мс, всего ${Date.now() - tVis0}мс`, {
+        profile, timings, sample: `${sampleW}x${sampleH}`,
+      })
+      return profile
+    }
+
+    console.warn(`[profiler] ${visualizerId} (${pass.name}): профиль дегенеративен за ${passMs}мс, пробуем следующий проход`, {
+      profile, timings, sample: `${sampleW}x${sampleH}`,
+    })
+  }
+
+  console.warn(`[profiler] ${visualizerId}: FALLBACK (все проходы дегенеративны) за ${Date.now() - tVis0}мс`)
+  return { ...FALLBACK_PROFILE }
+}
