@@ -267,5 +267,95 @@ export function GeometryVisualizer() {
           const y = Math.random() * H
           const maxLife = Math.floor(Math.random() * 21) + 20
           sparks.push({
+            x,
+            y,
+            vx: (Math.random() - 0.5) * 1.0 * sizeScale,
+            vy: (Math.random() - 0.5) * 1.0 * sizeScale,
+            size: (Math.random() * 1.5 + 1.5) * sizeScale,
+            hue: Math.random() * 360,
+            life: maxLife,
+            maxLife,
+          })
+        }
+
+        // непрерывный спавн: треблдиапазон [232..929]
+        const freqPerBand = Math.floor(697 / SPARK_BANDS) // ~87 бинов на полосу
+        for (let b = 0; b < SPARK_BANDS; b++) {
+          const freqStart = 232 + b * freqPerBand
+          const freqEnd = Math.min(929, freqStart + freqPerBand - 1)
+          let bandAmp = 0
+          for (let f = freqStart; f <= freqEnd; f++) bandAmp += Math.abs(audioData[f])
+          bandAmp /= (freqEnd - freqStart + 1)
+          if (bandAmp > 0.04) {
+            const count = Math.random() < 0.5 ? 1 : 2
+            for (let k = 0; k < count; k++) spawnSpark()
+          }
+        }
+
+        // на бит: 6-8 искр в случайных полосах
+        if (beat) {
+          const beatCount = Math.floor(Math.random() * 3) + 6
+          for (let k = 0; k < beatCount; k++) {
+            spawnSpark()
+          }
+        }
+
+        for (let i = sparks.length - 1; i >= 0; i--) {
+          const sp = sparks[i]
+          sp.x += sp.vx
+          sp.y += sp.vy
+          sp.life *= 0.88
+          if (sp.life < 0.5) sparks.splice(i, 1)
+        }
+      }
+
+      const cx = W / 2
+      const cy = H / 2
+      const cameraX = Math.sin(sync.time * 0.015) * (40 + sync.energy * 60) * sizeScale
+      const cameraY = Math.cos(sync.time * 0.012) * (25 + sync.energy * 40) * sizeScale
+      const cameraScale = 1.0 + Math.sin(sync.time * 0.02) * 0.08 + sync.energy * 0.15 + sync.cameraScaleBurst
+      const cameraRotation = Math.sin(sync.time * 0.01) * 0.02
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(cameraRotation)
+      ctx.scale(cameraScale, cameraScale)
+      ctx.translate(-cx + cameraX, -cy + cameraY)
+
+      const lineOffsetY = sync.globalOffsetY * 0.3
+      const lineOffsetX = sync.globalOffsetX * 0.3
+
+      ctx.shadowBlur = 0
+      ctx.lineWidth = 1
+      ctx.strokeStyle = `rgba(255,255,255,${sync.lineBrightness.toFixed(3)})`
+      for (let y = 0; y < H + LINE_SPACING; y += LINE_SPACING) {
+        const ly = y + (lineOffsetY % LINE_SPACING)
+        ctx.beginPath()
+        ctx.moveTo(0, ly)
+        ctx.lineTo(W, ly)
+        ctx.stroke()
+      }
+
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)'
+      for (let x = 0; x < W + VLINE_SPACING; x += VLINE_SPACING) {
+        const lx = x + (lineOffsetX % VLINE_SPACING)
+        ctx.beginPath()
+        ctx.moveTo(lx, 0)
+        ctx.lineTo(lx, H)
+        ctx.stroke()
+      }
+
+      const shapes = shapesRef.current
+      const glow = sync.glitchTimer > 0 ? 30 : 10 + sync.energy * 40
+
+      if (sync.glitchTimer > 0) {
+        for (let i = 0; i < shapes.length; i++) {
+          const s = shapes[i]
+          const indX = Math.sin(sync.time * 0.05 + s.individualPhase) * 3 * sizeScale
+          const indY = Math.cos(sync.time * 0.04 + s.individualPhase + 1) * 2 * sizeScale
+          const x = s.baseX + sync.globalOffsetX + indX + 3 * sizeScale
+          const y = s.baseY + sync.globalOffsetY + indY
+          const drawSize = s.size * sync.beatScale * sizeScale
+          drawShape(ctx, s.kind, x, y, drawSize, s.rotation, 0.15, 0, 'rgba(255,255,255,1)')
+          if (s.nested && (s.kind === 'square' || s.kind === 'diamond')) {
 }}}}}}
-))
+)
