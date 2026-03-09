@@ -399,4 +399,50 @@ export default function App() {
 
     const { trackInfo } = useAudioStore.getState()
     const baseName = (trackInfo.title || 'visualization').replace(/[\\/:*?"<>|]/g, '_')
-}}
+
+    let path: string | null = null
+    try {
+      path = await save({
+        defaultPath: `${baseName}.mp4`,
+        filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
+      })
+    } catch (err) {
+      console.error('[export] ошибка диалога:', err)
+      return
+    }
+    if (!path) return
+
+    exportCancelled.current = false
+    const startedAt = Date.now()
+    setExportProgress({ current: 0, total: 1, startedAt })
+
+    const work = WORK_SIZES[settings.aspect]
+    const win = getCurrentWindow()
+    const scaleFactor = await win.scaleFactor()
+    const prevSize = await win.innerSize()
+    const prevLogical = prevSize.toLogical(scaleFactor)
+    let resized = false
+    try {
+      await win.setSize(new LogicalSize(work.w, work.h))
+      resized = true
+      await new Promise((r) => setTimeout(r, 400))
+
+      await runRecording({
+        audioBuffer: buffer,
+        fps,
+        width,
+        height,
+        audioBytes,
+        audioExtension: audioExt,
+        outputPath: path,
+        onProgress: (f, total) => {
+          if (exportCancelled.current) return
+          setExportProgress({ current: f, total, startedAt })
+        },
+      })
+    } catch (err) {
+      console.error('[export] упал:', err)
+      const msg = String(err)
+      if (msg.includes('ffmpeg не запустился') || msg.toLowerCase().includes('no such file')) {
+        alert('Требуется ffmpeg. Установите: brew install ffmpeg (Mac) или скачайте с ffmpeg.org (Windows)')
+}}}}
