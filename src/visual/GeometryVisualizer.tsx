@@ -178,4 +178,94 @@ function drawShape(
 export function GeometryVisualizer() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const rafRef = useRef(0)
-}
+  const shapesRef = useRef<GeoShape[]>([])
+  const sparksRef = useRef<Spark[]>([])
+  const syncRef = useRef<SyncState>({
+    globalOffsetX: 0,
+    globalOffsetY: 0,
+    beatScale: 1,
+    flashAlpha: 0,
+    beatFlash: 0,
+    beatFlashTimer: 0,
+    glitchTimer: 0,
+    lineBrightness: 0.08,
+    energy: 0,
+    time: 0,
+    cameraScaleBurst: 0,
+  })
+
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    function resize() {
+      if (!canvas) return
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+      shapesRef.current = createShapes(canvas.width, canvas.height)
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    function draw() {
+      if (!canvas || !ctx) return
+      const { beat, isPlaying, audioData } = useAudioStore.getState()
+      const W = canvas.width
+      const H = canvas.height
+      const sync = syncRef.current
+      const sizeScale = Math.min(W, H) / 900
+
+      let energy = 0
+      if (audioData.length > 0) {
+        for (let i = 0; i < audioData.length; i++) energy += Math.abs(audioData[i])
+        energy /= audioData.length
+      }
+      sync.energy += (energy - sync.energy) * 0.15
+
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, W, H)
+
+      if (isPlaying) {
+        sync.time += 1
+
+        sync.globalOffsetX += Math.sin(sync.time * 0.02) * 0.3
+        sync.globalOffsetY += Math.cos(sync.time * 0.015) * 0.15
+
+        if (beat) {
+          sync.globalOffsetX += (Math.random() - 0.5) * 40 * sizeScale
+          sync.globalOffsetY += (Math.random() - 0.5) * 20 * sizeScale
+          sync.beatScale = BEAT_SCALE
+          sync.flashAlpha = FLASH_ALPHA
+          sync.beatFlash = 1.0
+          sync.beatFlashTimer = 2
+          sync.glitchTimer = 6
+          sync.lineBrightness = 0.18
+          sync.cameraScaleBurst += 0.1
+        }
+
+        sync.globalOffsetX *= LERP_BACK
+        sync.globalOffsetY *= LERP_BACK
+
+        sync.beatScale = 1 + (sync.beatScale - 1) * SCALE_DECAY
+
+        sync.flashAlpha *= 0.92
+        sync.beatFlash *= 0.75
+        sync.cameraScaleBurst *= 0.92
+        if (sync.beatFlashTimer > 0) sync.beatFlashTimer--
+        if (sync.glitchTimer > 0) sync.glitchTimer--
+        sync.lineBrightness += (0.08 - sync.lineBrightness) * 0.06
+      }
+
+      if (isPlaying && audioData.length >= 128) {
+        const sparks = sparksRef.current
+
+        const spawnSpark = (): void => {
+          if (sparks.length >= SPARK_MAX) return
+          const x = Math.random() * W
+          const y = Math.random() * H
+          const maxLife = Math.floor(Math.random() * 21) + 20
+          sparks.push({
+}}}}}}
+))
