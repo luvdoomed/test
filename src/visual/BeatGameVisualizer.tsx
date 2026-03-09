@@ -59,4 +59,67 @@ export function BeatGameVisualizer() {
       combo: 0,
     }))
   }, [currentTime, beatTimes, duration])
-}
+
+  const onArenaClick = useCallback(() => {
+    if (duration <= 0 || beatTimes.length === 0) return
+
+    let best = -1
+    let bestD = Infinity
+    beatTimes.forEach((bt, i) => {
+      if (resolvedRef.current.has(i)) return
+      const d = Math.abs(currentTime - bt)
+      if (d < HIT_WINDOW_SEC && d < bestD) {
+        bestD = d
+        best = i
+      }
+    })
+
+    if (best >= 0) {
+      resolvedRef.current.add(best)
+      setStats((s) => {
+        const combo = s.combo + 1
+        return {
+          hits: s.hits + 1,
+          misses: s.misses,
+          combo,
+          maxCombo: Math.max(s.maxCombo, combo),
+        }
+      })
+      setFlash('hit')
+      window.setTimeout(() => setFlash(null), 140)
+    }
+  }, [beatTimes, currentTime, duration])
+
+  const interval = 60 / DEFAULT_BPM
+  let nextIdx = beatTimes.findIndex((t) => t > currentTime)
+  if (nextIdx === -1) nextIdx = beatTimes.length
+  const prevT = nextIdx === 0 ? 0 : beatTimes[nextIdx - 1]!
+  const nextT = nextIdx < beatTimes.length ? beatTimes[nextIdx]! : duration
+  const phase =
+    nextT > prevT ? Math.min(1, Math.max(0, (currentTime - prevT) / (nextT - prevT))) : 0
+
+  const totalResolved = stats.hits + stats.misses
+  const pending = beatTimes.length - totalResolved
+
+  return (
+    <div className="beat-game">
+      <div className="beat-game__hud">
+        <span>Попадания: {stats.hits}</span>
+        <span>Промахи: {stats.misses}</span>
+        <span>Комбо: {stats.combo}</span>
+        <span>Рекорд: {stats.maxCombo}</span>
+        <span className="beat-game__hint">BPM ~{DEFAULT_BPM} · окно ±{(HIT_WINDOW_SEC * 1000) | 0} мс</span>
+      </div>
+
+      {duration <= 0 ? (
+        <div className="beat-game__empty">Загрузите трек, затем нажмите Play</div>
+      ) : (
+        <>
+          <button
+            type="button"
+            className={`beat-game__arena${flash === 'hit' ? ' beat-game__arena--hit' : ''}${flash === 'miss' ? ' beat-game__arena--miss' : ''}`}
+            onClick={onArenaClick}
+            aria-label="Клик в такт"
+          >
+}}
+))
