@@ -121,5 +121,64 @@ export function BeatGameVisualizer() {
             onClick={onArenaClick}
             aria-label="Клик в такт"
           >
-}}
-))
+            <div className="beat-game__ring-wrap" aria-hidden>
+              <svg className="beat-game__ring" viewBox="0 0 100 100">
+                <circle
+                  className="beat-game__ring-bg"
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="none"
+                  strokeWidth="3"
+                />
+                <circle
+                  className="beat-game__ring-fg"
+                  cx="50"
+                  cy="50"
+                  r="42"
+                  fill="none"
+                  strokeWidth="3"
+                  strokeDasharray={`${phase * 264} 264`}
+                  transform="rotate(-90 50 50)"
+                />
+              </svg>
+            </div>
+            <p className="beat-game__title">Кликни мышью в такт</p>
+            <p className="beat-game__sub">
+              {isPlaying ? 'Пульс совпадает с ударами — жми на круг' : 'Запусти воспроизведение'}
+            </p>
+            {pending > 0 && (
+              <p className="beat-game__meta">
+                Осталось ударов: {pending} · ~{interval.toFixed(2)} с между ударами
+              </p>
+            )}
+          </button>
+
+          {showEnd && (
+            <div className="beat-game__end" role="dialog">
+              <div className="beat-game__end-card">
+                <h2 className="beat-game__end-title">Трек завершён</h2>
+                <p>
+                  Попадания: {stats.hits} · Промахи: {stats.misses}
+                </p>
+                <p>Лучшая серия: {stats.maxCombo}</p>
+                <button
+                  type="button"
+                  className="beat-game__end-btn"
+                  onClick={() => {
+                    audioEngine.seek(0)
+                    resolvedRef.current = new Set()
+                    setStats({ hits: 0, misses: 0, combo: 0, maxCombo: 0 })
+                    setShowEnd(false)
+                  }}
+                >
+                  Играть снова
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
