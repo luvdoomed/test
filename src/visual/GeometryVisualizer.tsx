@@ -357,5 +357,92 @@ export function GeometryVisualizer() {
           const drawSize = s.size * sync.beatScale * sizeScale
           drawShape(ctx, s.kind, x, y, drawSize, s.rotation, 0.15, 0, 'rgba(255,255,255,1)')
           if (s.nested && (s.kind === 'square' || s.kind === 'diamond')) {
-}}}}}}
-)
+            drawShape(ctx, s.kind, x, y, drawSize * 0.6, s.rotation, 0.1, 0, 'rgba(255,255,255,1)')
+          }
+        }
+      }
+
+      for (let i = 0; i < shapes.length; i++) {
+        const s = shapes[i]
+
+        let freqMult = 1
+        if (audioData.length > s.freqIndex) {
+          freqMult = 1 + Math.abs(audioData[s.freqIndex]) * 8
+        }
+        const drawSize = s.size * sync.beatScale * freqMult * sizeScale
+
+        const indX = Math.sin(sync.time * 0.05 + s.individualPhase) * 3 * sizeScale
+        const indY = Math.cos(sync.time * 0.04 + s.individualPhase + 1) * 2 * sizeScale
+        const x = s.baseX + sync.globalOffsetX + indX
+        const y = s.baseY + sync.globalOffsetY + indY
+
+        if (isPlaying) s.rotation += s.rotSpeed
+
+        drawShape(ctx, s.kind, x, y, drawSize, s.rotation, 0.9, glow)
+        if (s.nested && (s.kind === 'square' || s.kind === 'diamond')) {
+          drawShape(ctx, s.kind, x, y, drawSize * 0.6, s.rotation, 0.55, glow * 0.6)
+        }
+      }
+
+      ctx.restore()
+
+      for (const spark of sparksRef.current) {
+        const t = spark.life / spark.maxLife
+        const opacity = t * 0.7
+
+        const gradient = ctx.createRadialGradient(spark.x, spark.y, 0, spark.x, spark.y, spark.size * 4)
+        gradient.addColorStop(0, `hsla(${spark.hue}, 100%, 80%, ${opacity * 0.4})`)
+        gradient.addColorStop(1, `hsla(${spark.hue}, 100%, 60%, 0)`)
+        ctx.fillStyle = gradient
+        ctx.fillRect(spark.x - spark.size * 4, spark.y - spark.size * 4, spark.size * 8, spark.size * 8)
+
+        ctx.beginPath()
+        ctx.arc(spark.x, spark.y, spark.size * 1.2, 0, Math.PI * 2)
+        ctx.fillStyle = `hsla(${spark.hue}, 100%, 95%, ${opacity})`
+        ctx.shadowBlur = spark.size * 6
+        ctx.shadowColor = `hsl(${spark.hue}, 100%, 70%)`
+        ctx.fill()
+        ctx.shadowBlur = 0
+      }
+
+      if (sync.beatFlashTimer > 0) {
+        ctx.shadowBlur = 0
+        ctx.fillStyle = 'rgba(255,255,255,0.2)'
+        ctx.fillRect(0, 0, W, H)
+      }
+      if (sync.beatFlash > 0.005) {
+        const grad = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.6)
+        grad.addColorStop(0, `rgba(255,255,255,${(sync.beatFlash * 0.15).toFixed(4)})`)
+        grad.addColorStop(1, 'rgba(255,255,255,0)')
+        ctx.shadowBlur = 0
+        ctx.fillStyle = grad
+        ctx.fillRect(0, 0, W, H)
+      }
+      if (sync.flashAlpha > 0.001) {
+        ctx.fillStyle = `rgba(255,255,255,${sync.flashAlpha.toFixed(4)})`
+        ctx.fillRect(0, 0, W, H)
+      }
+
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'block',
+        zIndex: 0,
+      }}
+    />
+  )
+}
