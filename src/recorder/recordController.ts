@@ -85,5 +85,90 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
     canvasW: startCanvas.width,
     canvasH: startCanvas.height,
     canvasStyleW: startCanvas.style.width,
-}}
-)
+    canvasStyleH: startCanvas.style.height,
+    canvasCssW: startCanvas.getBoundingClientRect().width,
+    canvasCssH: startCanvas.getBoundingClientRect().height,
+    winInnerW: window.innerWidth,
+    winInnerH: window.innerHeight,
+    devicePixelRatio: window.devicePixelRatio,
+    canvasCount: allCanvases.length,
+    canvasSizes,
+  })
+
+  audioEngine.stop()
+
+  const realNow = performance.now.bind(performance)
+
+  const framePath = await beginFrameStream(captureWidth, captureHeight, fps)
+  let finalized = false
+  let writtenFrames = 0
+
+  // пинг-понг из двух буферов: пока один уезжает в ipc, второй принимает следующий кадр
+  const frameBytes = captureWidth * captureHeight * 4
+  const framePools = [new Uint8Array(frameBytes), new Uint8Array(frameBytes)]
+  let poolIdx = 0
+
+  let pendingWrite: Promise<void> | null = null
+
+  let cachedCanvas: HTMLCanvasElement | null = null
+  let cachedGL: WebGL2RenderingContext | WebGLRenderingContext | null = null
+  let pathLogged = false
+
+  let tickTotal = 0
+  let grabTotal = 0
+  let writeTotal = 0
+
+  try {
+    installShim()
+    try {
+      const total = analysis.totalFrames
+      const deltaMs = 1000 / fps
+
+      for (let f = 0; f < total; f++) {
+        store.setAudioData(analysis.snapshots[f])
+        store.setEnergy(analysis.energies[f])
+        store.setBeat(analysis.beats[f])
+        store.setCurrentTime(f / fps)
+        store.setIsPlaying(true)
+
+        const tTick0 = realNow()
+        await tickFrame(deltaMs)
+        tickTotal += realNow() - tTick0
+
+        const canvas = findMainCanvas()
+        if (!canvas) throw new Error('canvas визуализатора не найден в DOM')
+
+        if (f % 100 === 0) {
+          const rect = canvas.getBoundingClientRect()
+          console.log('[rec-diag] frame', f, {
+            outputW: width,
+            outputH: height,
+            captureW: captureWidth,
+            captureH: captureHeight,
+            canvasW: canvas.width,
+            canvasH: canvas.height,
+            canvasStyleW: canvas.style.width,
+            canvasStyleH: canvas.style.height,
+            canvasCssW: rect.width,
+            canvasCssH: rect.height,
+            canvasTransform: canvas.style.transform,
+            winInnerW: window.innerWidth,
+            winInnerH: window.innerHeight,
+            devicePixelRatio: window.devicePixelRatio,
+          })
+        }
+
+        if (canvas !== cachedCanvas) {
+          cachedCanvas = canvas
+          cachedGL = detectGL(canvas)
+        }
+
+        const canUseGL = cachedGL !== null && canvas.width === captureWidth && canvas.height === captureHeight
+
+        if (!pathLogged) {
+          pathLogged = true
+          const isGL2 = typeof WebGL2RenderingContext !== 'undefined'
+            && cachedGL instanceof WebGL2RenderingContext
+          const contextType = cachedGL === null ? '2d-or-none' : (isGL2 ? 'webgl2' : 'webgl')
+          const fallbackReason = cachedGL === null
+}}}}}
