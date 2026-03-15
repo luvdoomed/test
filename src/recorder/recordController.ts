@@ -171,4 +171,89 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
             && cachedGL instanceof WebGL2RenderingContext
           const contextType = cachedGL === null ? '2d-or-none' : (isGL2 ? 'webgl2' : 'webgl')
           const fallbackReason = cachedGL === null
-}}}}}
+            ? 'canvas без gl, идём через drawImage+getImageData'
+            : (canUseGL ? null : 'размеры canvas изменились после старта, остаёмся на 2d-drawImage')
+          console.log('[rec-grab] путь захвата', {
+            contextType,
+            willFlip: canUseGL,
+            fallbackReason,
+          })
+        }
+
+        const framePool = framePools[poolIdx]
+
+        const tGrab0 = realNow()
+        if (canUseGL) {
+          const gl = cachedGL as WebGL2RenderingContext | WebGLRenderingContext
+          gl.readPixels(0, 0, captureWidth, captureHeight, gl.RGBA, gl.UNSIGNED_BYTE, framePool)
+          flipRowsInPlace(framePool, captureWidth, captureHeight)
+        } else {
+          const bytes = capture.grab(canvas)
+          framePool.set(bytes)
+        }
+        grabTotal += realNow() - tGrab0
+
+        // ждём предыдущую запись уже после захвата, чтобы grab перекрывался с write,
+        if (pendingWrite) {
+          await pendingWrite
+          pendingWrite = null
+        }
+
+        const wStart = realNow()
+        pendingWrite = appendFrame(framePath, framePool).then(() => {
+          writeTotal += realNow() - wStart
+        })
+
+        poolIdx = 1 - poolIdx
+        writtenFrames++
+
+        if (onProgress && f % 30 === 0) onProgress(f, total)
+
+        if (f > 0 && f % 500 === 0) {
+          const n = f + 1
+          console.log('[rec-timing] кадр', f, {
+            avgTickMs: (tickTotal / n).toFixed(2),
+            avgGrabMs: (grabTotal / n).toFixed(2),
+            avgWriteMs: (writeTotal / n).toFixed(2),
+            avgTotalMs: ((tickTotal + grabTotal + writeTotal) / n).toFixed(2),
+          })
+        }
+      }
+
+      if (pendingWrite) {
+        await pendingWrite
+        pendingWrite = null
+      }
+
+      store.setIsPlaying(false)
+      if (onProgress) onProgress(total, total)
+
+      const n = Math.max(1, writtenFrames)
+      console.log('[rec-timing] итого', {
+        frames: writtenFrames,
+        tickMs: Math.round(tickTotal),
+        grabMs: Math.round(grabTotal),
+        writeMs: Math.round(writeTotal),
+        avgTickMs: (tickTotal / n).toFixed(2),
+        avgGrabMs: (grabTotal / n).toFixed(2),
+        avgWriteMs: (writeTotal / n).toFixed(2),
+        avgTotalMs: ((tickTotal + grabTotal + writeTotal) / n).toFixed(2),
+      })
+    } finally {
+      uninstallShim()
+    }
+
+    await finalizeVideo(framePath, captureWidth, captureHeight, width, height, fps, audioBytes, audioExtension, outputPath)
+    finalized = true
+  } finally {
+    if (!finalized) {
+      if (pendingWrite) {
+        try { await pendingWrite } catch { /* ignore */ }
+        pendingWrite = null
+      }
+      try { await cancelFrameStream(framePath) } catch { /* уже убит */ }
+    }
+  }
+
+  return { frameCount: writtenFrames, width, height, fps }
+}
