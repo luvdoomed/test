@@ -54,5 +54,61 @@ const ASPECTS: AspectOption[] = [
     caption: 'Квадрат · Instagram',
     defaultIdx: 1,
     resolutions: [
+      { label: '720p', sub: '720×720', width: 720, height: 720, perFrameMs: 25 },
+      { label: '1080p', sub: '1080×1080', width: 1080, height: 1080, perFrameMs: 45 },
+      { label: '1440p', sub: '1440×1440', width: 1440, height: 1440, perFrameMs: 80 },
+    ],
+  },
+]
+
+const FPS_OPTIONS = [30, 60]
+
+interface ExportModalProps {
+  isOpen: boolean
+  onClose: () => void
+  onStart: (settings: ExportSettings) => void
+  trackDurationSec: number
 }
-]]
+
+export function ExportModal({ isOpen, onClose, onStart, trackDurationSec }: ExportModalProps) {
+  const [aspectIdx, setAspectIdx] = useState(0)
+  const [resIdx, setResIdx] = useState(ASPECTS[0].defaultIdx)
+  const [fps, setFps] = useState(60)
+
+  const aspect = ASPECTS[aspectIdx]
+  const resolution = aspect.resolutions[resIdx] ?? aspect.resolutions[aspect.defaultIdx]
+
+  const estimatedSec = useMemo(() => {
+    if (trackDurationSec <= 0) return 0
+    const frames = trackDurationSec * fps
+    return Math.round((frames * resolution.perFrameMs) / 1000)
+  }, [trackDurationSec, fps, resolution])
+
+  if (!isOpen) return null
+
+  function pickAspect(i: number) {
+    setAspectIdx(i)
+    setResIdx(ASPECTS[i].defaultIdx)
+  }
+
+  function start() {
+    onStart({
+      width: resolution.width,
+      height: resolution.height,
+      fps,
+      aspect: aspect.key,
+    })
+  }
+
+  return (
+    <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="modal-card export-modal" onClick={(e) => e.stopPropagation()}>
+        <h2 className="export-modal__title">Экспорт видео</h2>
+        <p className="export-modal__sub">{`Длительность трека: ${formatTime(trackDurationSec)} · оценка рендера: ${formatEstimate(estimatedSec)}`}</p>
+
+        <div className="export-modal__group">
+          <div className="export-modal__group-title">Пропорция</div>
+          <div className="export-modal__opts">
+            {ASPECTS.map((a, i) => (
+}}
+)))
