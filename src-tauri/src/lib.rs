@@ -93,4 +93,100 @@ fn build_ffmpeg_args(
     frames_path: &str,
     audio_path: &str,
     output_path: &str,
-)
+) -> Vec<String> {
+    // захват уже в нужной пропорции, поэтому просто масштабируем в целевой размер
+    let vf = format!(
+        "scale={w}:{h}",
+        w = output_width,
+        h = output_height,
+    );
+
+    let mut args: Vec<String> = vec![
+        "-y".into(),
+        "-f".into(), "rawvideo".into(),
+        "-pix_fmt".into(), "rgba".into(),
+        "-s".into(), capture_size.into(),
+        "-framerate".into(), fps.into(),
+        "-i".into(), frames_path.into(),
+        "-i".into(), audio_path.into(),
+        "-c:v".into(), encoder.into(),
+        "-vf".into(), vf,
+    ];
+
+    // preset имеет смысл только для софтового libx264
+    if encoder == "libx264" {
+        args.push("-preset".into());
+        args.push("fast".into());
+    }
+
+    args.extend([
+        "-b:v".into(), "8M".into(),
+        "-pix_fmt".into(), "yuv420p".into(),
+        "-c:a".into(), "aac".into(),
+        "-b:a".into(), "192k".into(),
+        "-shortest".into(),
+        "-movflags".into(), "+faststart".into(),
+        output_path.into(),
+    ]);
+
+    args
+}
+
+// создаёт пустой временный .rgba файл, возвращает абсолютный путь
+#[tauri::command]
+async fn begin_frame_stream(width: u32, height: u32, fps: u32) -> Result<String, String> {
+    let _ = (width, height, fps);
+    let tmp_dir = std::env::temp_dir();
+
+    // чистим хвосты от прошлых сессий
+    cleanup_stale_frame_files(&tmp_dir);
+
+    let pid = std::process::id();
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
+    let path = tmp_dir.join(format!("mvapp_frames_{}_{}.rgba", pid, nanos));
+
+    std::fs::File::create(&path)
+        .map_err(|e| format!("не удалось создать временный файл кадров: {}", e))?;
+
+    let path_str = path.to_string_lossy().to_string();
+    println!("[begin_frame_stream] {}x{}@{} -> {}", width, height, fps, path_str);
+    Ok(path_str)
+}
+
+// удаляет файл кадров (вызывается при отмене/ошибке)
+#[tauri::command]
+fn cancel_frame_stream(frame_file_path: String) -> Result<(), String> {
+    let _ = std::fs::remove_file(&frame_file_path);
+    println!("[cancel_frame_stream] удалён {}", frame_file_path);
+    Ok(())
+}
+
+// пишет аудио во временный файл, запускает ffmpeg с аппаратным энкодером
+// (fallback на libx264), чистит временные файлы через Drop-гарды
+#[tauri::command]
+async fn finalize_video(
+    app: tauri::AppHandle,
+    frame_file_path: String,
+    capture_width: u32,
+    capture_height: u32,
+    output_width: u32,
+    output_height: u32,
+    fps: u32,
+    audio_bytes: Vec<u8>,
+    audio_extension: String,
+    output_path: String,
+) -> Result<(), String> {
+    // гард на файл кадров живёт до конца функции
+    let _frames_guard = TempFileGuard {
+        path: std::path::PathBuf::from(&frame_file_path),
+    };
+
+    let tmp_dir = std::env::temp_dir();
+    let pid = std::process::id();
+    let ts = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+}
