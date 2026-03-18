@@ -167,3 +167,57 @@ export function ExportModal({ isOpen, onClose, onStart, trackDurationSec }: Expo
     </div>
   )
 }
+
+interface ExportProgressOverlayProps {
+  current: number
+  total: number
+  startedAt: number
+  onCancel: () => void
+}
+
+export function ExportProgressOverlay({ current, total, startedAt, onCancel }: ExportProgressOverlayProps) {
+  const pct = total > 0 ? Math.floor((current / total) * 100) : 0
+  const elapsedSec = Math.floor((Date.now() - startedAt) / 1000)
+  const m = Math.floor(elapsedSec / 60)
+  const s = elapsedSec % 60
+
+  return (
+    <div className="overlay">
+      <div className="modal-card export-modal">
+        <h2 className="export-modal__title">Рендер идёт</h2>
+        <div className="export-modal__progress">
+          <div className="export-modal__progress-text">
+            <span>{`Кадр ${current} / ${total}`}</span>
+            <span>{`${m}м ${s}с`}</span>
+          </div>
+          <div className="export-modal__progress-bar">
+            <div className="export-modal__progress-fill" style={{ width: `${pct}%` }} />
+          </div>
+          <div className="export-modal__progress-text">
+            <span>{`${pct}%`}</span>
+          </div>
+        </div>
+        <div className="export-modal__actions">
+          <button type="button" className="btn btn--ghost" onClick={onCancel}>
+            Отмена
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function formatTime(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds <= 0) return '00:00'
+  const m = Math.floor(seconds / 60)
+  const s = Math.floor(seconds % 60)
+  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
+}
+
+function formatEstimate(sec: number): string {
+  if (sec <= 0) return '—'
+  if (sec < 60) return `примерно ${sec} сек`
+  const m = Math.floor(sec / 60)
+  const s = sec % 60
+  return s > 0 ? `${m} мин ${s} сек` : `${m} мин`
+}
