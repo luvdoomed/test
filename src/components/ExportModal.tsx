@@ -110,5 +110,60 @@ export function ExportModal({ isOpen, onClose, onStart, trackDurationSec }: Expo
           <div className="export-modal__group-title">Пропорция</div>
           <div className="export-modal__opts">
             {ASPECTS.map((a, i) => (
-}}
-)))
+              <button
+                key={a.key}
+                type="button"
+                className={`opt-btn${i === aspectIdx ? ' opt-btn--active' : ''}`}
+                onClick={() => pickAspect(i)}
+                title={a.caption}
+              >
+                {a.title}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="export-modal__group">
+          <div className="export-modal__group-title">{`Разрешение · ${aspect.caption}`}</div>
+          <div className="export-modal__opts">
+            {aspect.resolutions.map((r, i) => (
+              <button
+                key={r.label}
+                type="button"
+                className={`opt-btn${i === resIdx ? ' opt-btn--active' : ''}`}
+                onClick={() => setResIdx(i)}
+              >
+                {r.label} · {r.sub}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="export-modal__group">
+          <div className="export-modal__group-title">FPS</div>
+          <div className="export-modal__opts">
+            {FPS_OPTIONS.map((f) => (
+              <button
+                key={f}
+                type="button"
+                className={`opt-btn${f === fps ? ' opt-btn--active' : ''}`}
+                onClick={() => setFps(f)}
+              >
+                {f}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="export-modal__actions">
+          <button type="button" className="btn btn--ghost" onClick={onClose}>
+            Отмена
+          </button>
+          <button type="button" className="btn btn--primary" onClick={start}>
+            Начать рендер
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
