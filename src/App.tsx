@@ -445,4 +445,50 @@ export default function App() {
       const msg = String(err)
       if (msg.includes('ffmpeg не запустился') || msg.toLowerCase().includes('no such file')) {
         alert('Требуется ffmpeg. Установите: brew install ffmpeg (Mac) или скачайте с ffmpeg.org (Windows)')
-}}}}
+      } else {
+        alert(`Ошибка экспорта: ${msg}`)
+      }
+    } finally {
+      setExportProgress(null)
+      if (resized) {
+        try {
+          await win.setSize(new LogicalSize(prevLogical.width, prevLogical.height))
+        } catch (e) {
+          console.error('[export] не удалось восстановить размер окна:', e)
+        }
+      }
+    }
+  }
+
+  function onStartExport(settings: ExportSettings) {
+    setExportModalOpen(false)
+    void runExport(settings)
+  }
+
+  function cancelExport() {
+    exportCancelled.current = true
+    setExportProgress(null)
+  }
+
+  const lrcInputRef = useRef<HTMLInputElement>(null)
+  function onLrcChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) void handleLrcFile(file)
+    e.target.value = ''
+  }
+
+  const sidebarFooter: ReactNode = needsVisualizerProfiling ? (
+    <button
+      type="button"
+      className="sidebar__cta"
+      disabled={profilingProgress !== null}
+      onClick={() => {
+        void (async () => {
+          await onProfileAll()
+          if (useAudioStore.getState().autoMode && audioEngine.getAudioBuffer()) {
+            await runAutoMatch('user-toggle')
+          }
+        })()
+      }}
+}
+)
