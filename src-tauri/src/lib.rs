@@ -189,4 +189,97 @@ async fn finalize_video(
     let ts = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let ext = if audio_extension.is_empty() { "bin".to_string() } else { audio_extension };
+    let audio_path = tmp_dir.join(format!("mvapp_audio_{}_{}.{}", pid, ts, ext));
+
+    std::fs::write(&audio_path, &audio_bytes)
+        .map_err(|e| format!("не удалось записать временное аудио: {}", e))?;
+
+    // гард на аудио файл после успешной записи
+    let _audio_guard = TempFileGuard {
+        path: audio_path.clone(),
+    };
+
+    let capture_size = format!("{}x{}", capture_width, capture_height);
+    let fps_str = fps.to_string();
+    let audio_str = audio_path.to_string_lossy().to_string();
+
+    let encoder = primary_encoder();
+    println!(
+        "[finalize_video] {}, capture {}x{} -> output {}x{} @ {}, энкодер {}",
+        frame_file_path, capture_width, capture_height, output_width, output_height, fps, encoder,
+    );
+
+    let args = build_ffmpeg_args(
+        encoder, &capture_size, output_width, output_height, &fps_str,
+        &frame_file_path, &audio_str, &output_path,
+    );
+    let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
+
+    let first = app
+        .shell()
+        .command("ffmpeg")
+        .args(&str_args)
+        .output()
+        .await
+        .map_err(|e| {
+            format!(
+                "ffmpeg не запустился (проверьте что он установлен и доступен в PATH): {}",
+                e,
+            )
+        })?;
+
+    if first.status.success() {
+        return Ok(());
+    }
+
+    let first_stderr = String::from_utf8_lossy(&first.stderr).to_string();
+    eprintln!("[finalize_video] {} упал:\n{}", encoder, first_stderr);
+
+    // fallback libx264 для windows без nvenc и прочих случаев
+    if encoder == "libx264" {
+        return Err(format!("ffmpeg завершился с ошибкой:\n{}", first_stderr));
+    }
+
+    eprintln!("[finalize_video] пробую libx264");
+    let fb_args = build_ffmpeg_args(
+        "libx264", &capture_size, output_width, output_height, &fps_str,
+        &frame_file_path, &audio_str, &output_path,
+    );
+    let fb_str_args: Vec<&str> = fb_args.iter().map(|s| s.as_str()).collect();
+    let fb = app
+        .shell()
+        .command("ffmpeg")
+        .args(&fb_str_args)
+        .output()
+        .await
+        .map_err(|e| format!("fallback libx264 не запустился: {}", e))?;
+
+    if fb.status.success() {
+        Ok(())
+    } else {
+        let fb_stderr = String::from_utf8_lossy(&fb.stderr);
+        Err(format!(
+            "ffmpeg не справился ни с {}, ни с libx264.\n{} stderr:\n{}\nlibx264 stderr:\n{}",
+            encoder, encoder, first_stderr, fb_stderr,
+        ))
+    }
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    tauri::Builder::default()
+        .plugin(tauri_plugin_shell::init())
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
+        .invoke_handler(tauri::generate_handler![
+            greet,
+            begin_frame_stream,
+            cancel_frame_stream,
+            finalize_video
+        ])
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
 }
