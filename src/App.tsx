@@ -490,5 +490,49 @@ export default function App() {
           }
         })()
       }}
+      title="Прогон тестовых паттернов через каждую сцену"
+    >
+      {profilingProgress
+        ? `Профилирование… ${profilingProgress.current + 1}/${profilingProgress.total}`
+        : '⚠ Профилировать сцены'}
+    </button>
+  ) : null
+
+  const subtitle = autoProfiling
+    ? 'Вайб: анализ…'
+    : trackProfile
+      ? `Вайб: ${describeVibe(trackProfile)}`
+      : artist || ''
+
+  const titleNode: ReactNode = hasTrack ? (
+    <>
+      {title}
+      {artist ? <span style={{ opacity: 0.7 }}>{` · ${artist}`}</span> : null}
+    </>
+  ) : (
+    'Загрузи трек, чтобы начать'
+  )
+
+  const actions: ReactNode = (
+    <>
+      <button
+        type="button"
+        className={`chip${autoMode ? ' chip--accent' : ''}`}
+        onClick={toggleAutoMode}
+        title="Авто-выбор визуализатора по вайбу трека"
+      >
+        {autoMode ? 'АВТО ✓' : 'АВТО'}
+      </button>
+      <button
+        type="button"
+        className="chip"
+        onClick={() => lrcInputRef.current?.click()}
+        title="Загрузить .lrc"
+      >
+        ✎ LRC
+      </button>
+      <button
+        type="button"
+        className="chip"
 }
 )
