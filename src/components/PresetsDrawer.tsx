@@ -109,3 +109,57 @@ export function PresetsDrawer() {
     </aside>
   )
 }
+
+interface ParamControlProps {
+  schema: ParamSchema
+  value: ParamValue
+  onChange: (v: ParamValue) => void
+}
+
+function ParamControl({ schema, value, onChange }: ParamControlProps) {
+  if (schema.type === 'toggle') {
+    const checked = Boolean(value)
+    return (
+      <label className="param-row">
+        <span className="param-row__label">{schema.label}</span>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.checked)}
+        />
+      </label>
+    )
+  }
+
+  if (schema.type === 'color') {
+    const v = typeof value === 'string' ? value : '#ffffff'
+    return (
+      <label className="param-row">
+        <span className="param-row__label">{schema.label}</span>
+        <input
+          type="color"
+          value={v}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+        />
+      </label>
+    )
+  }
+
+  const numeric = typeof value === 'number' ? value : Number(schema.default)
+  return (
+    <label className="param-row param-row--range">
+      <span className="param-row__label">
+        {schema.label}
+        <span className="param-row__value">{numeric.toFixed(2)}</span>
+      </span>
+      <input
+        type="range"
+        min={schema.min ?? 0}
+        max={schema.max ?? 1}
+        step={schema.step ?? 0.01}
+        value={numeric}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(parseFloat(e.target.value))}
+      />
+    </label>
+  )
+}
