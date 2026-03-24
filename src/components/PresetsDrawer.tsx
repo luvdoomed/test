@@ -53,5 +53,59 @@ export function PresetsDrawer() {
                     onChange={(v) => setParam(activeVisualizerId, p.id, v)}
                   />
                 ))}
-}}
-))
+              </div>
+              <button
+                type="button"
+                className="chip"
+                onClick={() => resetParams(activeVisualizerId)}
+                style={{ marginTop: 8 }}
+              >
+                ↺ Сбросить параметры
+              </button>
+            </div>
+
+            <div className="presets-drawer__section">
+              <div className="presets-drawer__section-title">Сохранить пресет</div>
+              <div className="presets-drawer__save-row">
+                <input
+                  type="text"
+                  placeholder="Название"
+                  value={presetName}
+                  onChange={(e) => setPresetName(e.target.value)}
+                  className="presets-drawer__input"
+                />
+                <button type="button" className="chip chip--accent" onClick={handleSave}>
+                  Сохранить
+                </button>
+              </div>
+            </div>
+
+            {presetsForViz.length > 0 ? (
+              <div className="presets-drawer__section">
+                <div className="presets-drawer__section-title">Мои пресеты</div>
+                <div className="presets-drawer__presets">
+                  {presetsForViz.map((p) => (
+                    <div key={p.id} className="preset-row">
+                      <button type="button" className="preset-row__name" onClick={() => loadPreset(p)}>
+                        {p.name}
+                      </button>
+                      <button
+                        type="button"
+                        className="preset-row__del"
+                        onClick={() => deletePreset(p.id)}
+                        aria-label="Удалить"
+                        title="Удалить"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+          </>
+        )}
+      </div>
+    </aside>
+  )
+}
