@@ -534,5 +534,50 @@ export default function App() {
       <button
         type="button"
         className="chip"
+        onClick={togglePresetsDrawer}
+        title="Параметры визуализатора"
+      >
+        ⚙ Пресеты
+      </button>
+      {hasTrack ? (
+        <button
+          type="button"
+          className="chip"
+          onClick={() => setExportModalOpen(true)}
+          title="Экспорт в mp4"
+        >
+          ⇩ Экспорт
+        </button>
+      ) : null}
+      {import.meta.env.DEV ? (
+        <>
+          <button
+            type="button"
+            className="chip chip--debug"
+            onClick={onDebugAnalyze}
+            title="Тест offline analyzer"
+          >
+            ANALYZER
+          </button>
+          <button
+            type="button"
+            className="chip chip--debug"
+            disabled={profilingProgress !== null}
+            onClick={() => void onProfileAll()}
+            title="Прогон профайлера по всем сценам"
+          >
+            {profilingProgress ? `${profilingProgress.current + 1}/${profilingProgress.total}` : 'PROFILE'}
+          </button>
+        </>
+      ) : null}
+    </>
+  )
+
+  return (
+    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} style={{ width: '100%', height: '100%' }}>
+      <Toaster
+        position="top-right"
+        theme={theme}
+        richColors
 }
 )
