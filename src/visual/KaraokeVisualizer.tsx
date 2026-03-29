@@ -169,5 +169,87 @@ export function KaraokeVisualizer() {
           <p
             style={{
               flex: 1,
-}}}}
-))
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'rgba(255,255,255,0.42)',
+              fontSize: 'clamp(15px, 2.2vw, 20px)',
+              textAlign: 'center',
+              maxWidth: 520,
+              lineHeight: 1.5,
+              margin: '0 auto',
+              padding: '0 12px',
+              pointerEvents: 'none',
+            }}
+          >
+            Загрузите текст: вместе с треком в одном окне выбора, отдельный .lrc, перетаскивание
+            файлов или встроенный LRC в тегах аудио — если он есть.
+          </p>
+        ) : (
+          <div
+            onScroll={onScrollContainer}
+            style={{
+              pointerEvents: 'auto',
+              flex: 1,
+              minHeight: 0,
+              overflowY: 'auto',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch',
+              padding: '28vh 0 12px',
+              boxSizing: 'border-box',
+              scrollbarWidth: 'thin',
+            }}
+          >
+            {lrcLines.map((line, globalIdx) => {
+              const isActive = globalIdx === idx
+              const dist = idx >= 0 ? Math.abs(globalIdx - idx) : 6
+              const opacity = isActive ? 1 : Math.max(0.2, 0.55 - dist * 0.07)
+              const scale = isActive ? (beat ? 1.05 : 1.02) : 0.96
+
+              return (
+                <div
+                  key={`${line.time}-${globalIdx}`}
+                  ref={(el) => {
+                    lineRefs.current[globalIdx] = el
+                  }}
+                  role="button"
+                  tabIndex={0}
+                  title="Перейти к этой строке"
+                  onClick={() => onLineActivate(line.time)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      onLineActivate(line.time)
+                    }
+                  }}
+                  style={{
+                    color: isActive ? '#f2f0ff' : 'rgba(230, 228, 255, 0.42)',
+                    fontSize: isActive ? 'clamp(22px, 3.8vw, 40px)' : 'clamp(16px, 2.4vw, 24px)',
+                    fontWeight: isActive ? 700 : 500,
+                    opacity,
+                    transform: `scale(${scale})`,
+                    transition:
+                      'opacity 0.38s ease, transform 0.1s ease, color 0.35s ease, font-size 0.35s ease',
+                    margin: 'clamp(8px, 1.2vh, 14px) auto',
+                    textAlign: 'center',
+                    maxWidth: 'min(92vw, 900px)',
+                    lineHeight: 1.35,
+                    textShadow: isActive
+                      ? '0 0 28px rgba(160, 120, 255, 0.35), 0 2px 12px rgba(0,0,0,0.6)'
+                      : '0 2px 8px rgba(0,0,0,0.45)',
+                    cursor: 'pointer',
+                    userSelect: 'none',
+                    borderRadius: 8,
+                    padding: '6px 10px',
+                  }}
+                >
+                  {line.text}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
