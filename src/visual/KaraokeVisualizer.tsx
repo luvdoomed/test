@@ -82,5 +82,92 @@ export function KaraokeVisualizer() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
     let raf = 0
-}}
-)
+
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const draw = () => {
+      const { energy, beat: b } = useAudioStore.getState()
+      const w = canvas.width
+      const h = canvas.height
+      const pulse = b ? 0.18 : 0
+      const e = Math.min(1, energy)
+      const base = 0.12 + e * 0.42 + pulse
+      const g = ctx.createRadialGradient(
+        w * 0.5,
+        h * 0.34,
+        0,
+        w * 0.5,
+        h * 0.34,
+        Math.max(w, h) * 0.58,
+      )
+      g.addColorStop(0, `rgba(130, 70, 210, ${0.28 + base * 0.55})`)
+      g.addColorStop(0.42, `rgba(40, 120, 200, ${0.12 + base * 0.2})`)
+      g.addColorStop(0.72, `rgba(14, 10, 28, ${0.9 + base * 0.06})`)
+      g.addColorStop(1, '#030206')
+      ctx.fillStyle = g
+      ctx.fillRect(0, 0, w, h)
+      raf = requestAnimationFrame(draw)
+    }
+    draw()
+
+    return () => {
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  useEffect(() => () => clearIdleTimer(), [clearIdleTimer])
+
+  const idx = findActiveIndex(lrcLines, currentTime)
+
+  useEffect(() => {
+    setManualScroll(false)
+    clearIdleTimer()
+  }, [lrcLines, clearIdleTimer])
+
+  useEffect(() => {
+    if (manualScroll || lrcLines.length === 0 || idx < 0) return
+    const el = lineRefs.current[idx]
+    if (!el) return
+    ignoreProgrammaticScroll.current = true
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const t = window.setTimeout(() => {
+      ignoreProgrammaticScroll.current = false
+    }, 450)
+    return () => clearTimeout(t)
+  }, [idx, manualScroll, lrcLines.length])
+
+  const onScrollContainer = useCallback(() => {
+    if (ignoreProgrammaticScroll.current) return
+    setManualScroll(true)
+    scheduleSnapBack()
+  }, [scheduleSnapBack])
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 0 }}>
+      <canvas
+        ref={canvasRef}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+      />
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          pointerEvents: 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 'min(5vh, 40px) min(6vw, 32px) 0',
+          boxSizing: 'border-box',
+        }}
+      >
+        {lrcLines.length === 0 ? (
+          <p
+            style={{
+              flex: 1,
+}}}}
+))
