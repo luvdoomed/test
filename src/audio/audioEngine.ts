@@ -229,5 +229,19 @@ export class AudioEngine {
     const beat = this.beatDetector.detect(normalized)
 
     const store = useAudioStore.getState()
-}}
-]
+    store.setAudioData(normalized)
+    store.setEnergy(energy)
+    store.setBeat(beat)
+
+    if (this.playing) {
+      store.setCurrentTime(this.audioContext.currentTime - this.startedAt)
+    }
+  }
+
+  destroy(): void {
+    this.stop()
+    void this.audioContext.close()
+  }
+}
+
+export const audioEngine = new AudioEngine()
