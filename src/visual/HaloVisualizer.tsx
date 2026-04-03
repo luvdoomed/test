@@ -127,5 +127,28 @@ export function HaloVisualizer() {
         >
           <Blob />
         </Float>
+
+        <EffectComposer>
+          <Bloom
+            intensity={2.5}
+            luminanceThreshold={0.1}
+            luminanceSmoothing={0.9}
+            mipmapBlur
+          />
+          <ChromaticAberration
+            offset={CHROMATIC_OFFSET}
+            blendFunction={BlendFunction.NORMAL}
+            radialModulation={false}
+            modulationOffset={0}
+          />
+          <Noise
+            premultiply
+            blendFunction={BlendFunction.ADD}
+            opacity={0.05}
+          />
+          <Vignette darkness={0.7} offset={0.1} />
+        </EffectComposer>
+      </Canvas>
+    </div>
+  )
 }
-)
