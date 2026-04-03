@@ -101,5 +101,31 @@ function Blob() {
         />
         {/* @ts-ignore */}
         <Fresnel
+          mode="add"
+          color={FRESNEL_COLOR}
+          alpha={FRESNEL_ALPHA}
+          power={FRESNEL_POWER}
+          intensity={FRESNEL_INTENSITY}
+        />
+      </LayerMaterial>
+    </mesh>
+  )
+}
+
+export function HaloVisualizer() {
+  return (
+    <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
+      <Canvas camera={CAMERA_CONFIG}>
+        <color attach="background" args={BG_COLOR_ARGS} />
+        <ambientLight intensity={1} />
+
+        <Float
+          speed={1.2}
+          rotationIntensity={0}
+          floatIntensity={2.5}
+          floatingRange={FLOATING_RANGE}
+        >
+          <Blob />
+        </Float>
 }
 )
