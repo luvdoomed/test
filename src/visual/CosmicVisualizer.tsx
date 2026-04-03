@@ -183,5 +183,48 @@ function CosmicScene() {
     if (beat) beatPulseRef.current = 1
     const decayK = Math.pow(0.01, delta)
     beatPulseRef.current *= decayK
-}}
-)
+
+    matRef.current.iTime += delta
+    matRef.current.iResolution.set(size.width, size.height)
+    matRef.current.iAudioBass = smoothedBassRef.current
+    matRef.current.iAudioBeatPulse = beatPulseRef.current
+    matRef.current.iAudioTreble = smoothedTrebleRef.current
+    matRef.current.iAudioRMS = smoothedRMSRef.current
+    matRef.current.iRotationStep = rotationStepRef.current
+    matRef.current.iPaletteIndex = paletteIndexRef.current
+  })
+
+  return (
+    <mesh>
+      <planeGeometry args={[PLANE_SIZE, PLANE_SIZE]} />
+      {/* @ts-ignore */}
+      <cosmicMaterial ref={matRef} />
+    </mesh>
+  )
+}
+
+export function CosmicVisualizer() {
+  return (
+    <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
+      <Canvas camera={CAMERA}>
+        <color attach="background" args={[BG_COLOR]} />
+        <CosmicScene />
+        <EffectComposer>
+          <Bloom
+            intensity={1.2}
+            luminanceThreshold={0.4}
+            luminanceSmoothing={0.9}
+            mipmapBlur
+          />
+          <ChromaticAberration
+            offset={CHROMATIC_OFFSET}
+            blendFunction={BlendFunction.NORMAL}
+            radialModulation={false}
+            modulationOffset={0}
+          />
+          <Vignette darkness={0.4} offset={0.15} />
+        </EffectComposer>
+      </Canvas>
+    </div>
+  )
+}
