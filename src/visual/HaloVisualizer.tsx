@@ -76,5 +76,30 @@ function Blob() {
       const scaleTarget =
         1 + beatPulseRef.current * 0.15 + smoothedBassRef.current * 0.08
       const scaleK = 1 - Math.pow(0.001, delta)
-}}}
+      const currentScale = meshRef.current.scale.x
+      meshRef.current.scale.setScalar(
+        currentScale + (scaleTarget - currentScale) * scaleK
+      )
+
+      const driftT = tRef.current * 0.4
+      meshRef.current.position.x = Math.sin(driftT) * 0.5
+    }
+  })
+
+  return (
+    <mesh ref={meshRef}>
+      <icosahedronGeometry args={BLOB_GEOM_ARGS} />
+      {/* @ts-ignore */}
+      <LayerMaterial lighting="standard" color={BLOB_BASE_COLOR}>
+        {/* @ts-ignore */}
+        <Displace
+          ref={displaceRef}
+          strength={DISPLACE_STRENGTH}
+          scale={DISPLACE_SCALE}
+          type="perlin"
+          offset={DISPLACE_OFFSET_INIT}
+        />
+        {/* @ts-ignore */}
+        <Fresnel
+}
 )
