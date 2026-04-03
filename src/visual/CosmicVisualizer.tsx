@@ -44,4 +44,49 @@ const FRAGMENT_SHADER = /* glsl */ `
     if (idx < 3.5) return vec3(0.5, 1.5, 3.0);
     if (idx < 4.5) return vec3(2.0, 4.0, 5.0);
     return vec3(4.0, 0.5, 2.5);
-}
+  }
+
+  void main() {
+    vec2 fragCoord = vUv * iResolution;
+    vec4 O = vec4(0.0);
+
+    float blackHoleRadius = 4.0 + iAudioBass * 6.0 + iAudioBeatPulse * 2.0;
+
+    float z = 0.0;
+    for (float i = 0.0; i < 14.0; i++) {
+      vec3 p = z * normalize(
+        vec3(fragCoord + fragCoord, 0.0)
+          - vec3(iResolution.x, iResolution.y, iResolution.x)
+      ) + 0.1;
+
+      float angle = atan(p.y / 0.2, p.x) * 2.0 + iRotationStep;
+
+      float c = cos(iRotationStep);
+      float s = sin(iRotationStep);
+      vec2 rotatedXY = vec2(
+        p.x * c - p.y * s,
+        p.x * s + p.y * c
+      );
+      float rawAngle = atan(rotatedXY.y, rotatedXY.x);
+
+      p = vec3(
+        angle,
+        p.z / 3.0,
+        length(p.xy) - blackHoleRadius - z * 0.2
+      );
+
+      float d = 0.0;
+      for (float j = 0.0; j < 5.0; j++) {
+        d += 1.0;
+        p += sin(p.yzx * d + iTime + 0.3 * i) / d;
+      }
+
+      d = length(vec4(0.4 * cos(p) - 0.4, p.z));
+      z += d;
+
+      float angularBoost = pow(abs(cos(rawAngle)), 8.0);
+
+      vec3 palette = getPalette(iPaletteIndex);
+      vec4 phases = vec4(palette, 0.0);
+      vec4 baseColor = (1.0 + cos(p.x + i * 0.4 + z + phases + iAudioTreble * 3.0)) / d;
+}}
