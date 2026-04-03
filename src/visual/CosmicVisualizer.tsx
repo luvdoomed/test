@@ -136,4 +136,52 @@ function CosmicScene() {
   const rotationStepRef = useRef(0)
   const lastBeatRef = useRef(false)
   const paletteIndexRef = useRef(0)
-}
+
+  const { size } = useThree()
+
+  useFrame((_, delta) => {
+    if (!matRef.current) return
+
+    const state = useAudioStore.getState()
+    const audioData = state.audioData
+    const beat = state.beat
+
+    let bassRaw = 0
+    if (audioData && audioData.length > 0) {
+      for (let i = 0; i < 20; i++) bassRaw += audioData[i] ?? 0
+      bassRaw /= 20
+    }
+
+    let trebleRaw = 0
+    if (audioData && audioData.length > 100) {
+      const end = Math.min(200, audioData.length)
+      for (let i = 100; i < end; i++) trebleRaw += audioData[i] ?? 0
+      trebleRaw /= end - 100
+    }
+
+    let rmsRaw = 0
+    if (audioData && audioData.length > 0) {
+      for (let i = 0; i < audioData.length; i++) rmsRaw += audioData[i] ?? 0
+      rmsRaw /= audioData.length
+    }
+
+    // сглаживание не зависит от fps
+    const smoothK = 1 - Math.pow(0.0001, delta)
+    smoothedBassRef.current += (bassRaw - smoothedBassRef.current) * smoothK
+    smoothedTrebleRef.current += (trebleRaw - smoothedTrebleRef.current) * smoothK
+    smoothedRMSRef.current += (rmsRaw - smoothedRMSRef.current) * smoothK
+
+    rotationStepRef.current += delta * 0.15
+
+    // на бит: импульс 15° и сдвиг палитры
+    if (beat && !lastBeatRef.current) {
+      rotationStepRef.current += Math.PI / 12
+      paletteIndexRef.current = (paletteIndexRef.current + 1) % PALETTE_COUNT
+    }
+    lastBeatRef.current = beat
+
+    if (beat) beatPulseRef.current = 1
+    const decayK = Math.pow(0.01, delta)
+    beatPulseRef.current *= decayK
+}}
+)
