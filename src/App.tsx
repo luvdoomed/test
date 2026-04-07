@@ -579,5 +579,49 @@ export default function App() {
         position="top-right"
         theme={theme}
         richColors
+        closeButton
+        toastOptions={{
+          style: {
+            background: 'var(--surface-glass)',
+            backdropFilter: 'blur(20px)',
+            color: 'var(--text)',
+            border: '1px solid var(--border)',
+          },
+        }}
+      />
+
+      <input
+        ref={lrcInputRef}
+        type="file"
+        accept=".lrc,text/plain"
+        className="hidden-input"
+        onChange={onLrcChange}
+      />
+
+      <AuraBackground />
+
+      {/* виз с трансформом из карточки в полноэкранный режим */}
+      <motion.div
+        className="visualizer-container"
+        layout
+        transition={{ layout: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }}
+        onClick={() => hasTrack && setIsFullscreen((prev) => !prev)}
+        style={{
+          position: 'fixed',
+          top: isFullscreen ? 0 : 16,
+          left: isFullscreen ? 0 : 272,
+          right: isFullscreen ? 0 : 16,
+          bottom: isFullscreen ? 0 : 112,
+          borderRadius: isFullscreen ? 0 : 24,
+          zIndex: isFullscreen ? 100 : 1,
+          overflow: 'hidden',
+          cursor: hasTrack ? 'pointer' : 'default',
+          willChange: 'transform',
+          background: 'var(--bg)',
+          boxShadow: isFullscreen ? 'none' : 'var(--shadow-card)',
+        }}
+      >
+        {hasTrack ? renderVisualizer(activeViz) : null}
+      </motion.div>
 }
 )
