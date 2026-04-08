@@ -458,5 +458,119 @@ export function VibeVisualizer() {
     let t = 0
     let bassSm = 0, midSm = 0, trebleSm = 0
     let kick = 0
-}}
+    let palette = 0, glowSm = 1
+    let zoomSm = 1
+    let caSm = 0, bloomSm = 1
+    let exposureSm = 0.5
+    let titleScaleSm = 1
+    const shake = { x: 0, y: 0 }
+    let trebleCam = 0
+    let zoomKick = 0
+    let trauma = 0
+    const traumaPos = { x: 0, y: 0, r: 0 }
+    const traumaVel = { x: 0, y: 0, r: 0 }
+    let pauseGate = 1
+    let lastFrameT = 0
+    let lowFpsFrames = 0
+    let motionSamples = 4
+    let trailPhase = 0
+    let sceneTime = 0
+
+    function resize() {
+      W = window.innerWidth
+      H = window.innerHeight
+      renderer.setSize(W, H)
+      sceneRT.setSize(Math.round(W * dpr), Math.round(H * dpr))
+      bloomA.setSize(bW(), bH())
+      bloomB.setSize(bW(), bH())
+      sceneMat.uniforms.uAspect.value = W / H
+      finalMat.uniforms.uResolution.value.set(W * dpr, H * dpr)
+      retitle(lastTitle)
+    }
+    window.addEventListener('resize', resize)
+
+    function tick() {
+      const { audioData, energy, beat, trackInfo, isPlaying } = useAudioStore.getState()
+      const pp = paramsRef.current
+      t++
+
+      const nowT = performance.now()
+      if (lastFrameT > 0) {
+        const fps = 1000 / (nowT - lastFrameT)
+        if (fps < 50) lowFpsFrames++
+        else lowFpsFrames = 0
+        if (motionSamples === 4 && lowFpsFrames > 100) {
+          motionSamples = 2
+          console.log('[Vibe] motion blur samples: 4 → 2 (low fps)')
+        }
+      }
+      lastFrameT = nowT
+
+      if (trackInfo.title !== lastTitle) retitle(trackInfo.title)
+
+      if (audioData.length >= TREBLE_END) {
+        let bs = 0, ms = 0, tr = 0
+        for (let i = 0; i < BASS_END; i++) bs += audioData[i]
+        for (let i = BASS_END; i < MID_END; i++) ms += audioData[i]
+        for (let i = MID_END; i < TREBLE_END; i++) tr += audioData[i]
+        const bass = bs / BASS_END
+        const mid = (ms / (MID_END - BASS_END)) * 1.2
+        const treble = (tr / (TREBLE_END - MID_END)) * 1.6
+
+        const BAND_LO = BASS_END
+        const logLo = Math.log(BAND_LO)
+        const logHi = Math.log(TREBLE_END)
+        const raw = new Array<number>(BANDS)
+        for (let i = 0; i < BANDS; i++) {
+          const binStart = Math.floor(Math.exp(logLo + ((logHi - logLo) * i) / BANDS))
+          let binEnd = Math.floor(Math.exp(logLo + ((logHi - logLo) * (i + 1)) / BANDS))
+          if (binEnd <= binStart) binEnd = binStart + 1
+          let s = 0
+          for (let j = binStart; j < binEnd; j++) s += audioData[j] || 0
+          const avg = s / (binEnd - binStart)
+          const tilt = 0.6 + 0.4 * (i / BANDS)
+          raw[i] = Math.min(0.9, avg * tilt * 1.3)
+        }
+        const sp = new Array<number>(BANDS)
+        for (let i = 0; i < BANDS; i++) {
+          const pv = raw[(i - 1 + BANDS) % BANDS]
+          const nx = raw[(i + 1) % BANDS]
+          sp[i] = (pv + raw[i] + nx) / 3
+        }
+        for (let i = 0; i < BANDS; i++) {
+          const pv = sp[(i - 1 + BANDS) % BANDS]
+          const nx = sp[(i + 1) % BANDS]
+          const avgN = Math.max(0.05, (pv + nx) * 0.5)
+          const clamped = Math.min(sp[i], avgN * 1.5)
+          if (isPlaying) bandsSm[i] = bandsSm[i] * 0.80 + clamped * 0.20
+          else bandsSm[i] *= 0.92
+          bands[i] = bandsSm[i]
+        }
+
+        const gate = isPlaying ? 1 : 0.05
+        bassSm = bassSm * 0.85 + bass * 0.15 * gate
+        midSm = midSm * 0.75 + mid * 0.25 * gate
+        trebleSm = trebleSm * 0.7 + treble * 0.3 * gate
+      }
+
+      const energyN = Math.min(1, Math.max(0, energy / 0.12))
+
+      if (beat && isPlaying) {
+        kick = 1
+        zoomKick = 1
+        trauma = Math.min(1, trauma + 1.0)
+      }
+      kick *= 0.9
+      zoomKick *= 0.82
+      trauma *= 0.88
+
+      pauseGate = isPlaying ? pauseGate * 0.85 + 0.15 : pauseGate * 0.95
+      sceneTime += 0.016 * pauseGate
+
+      const dolly = 1 - bassSm * 0.06 * pauseGate - Math.sin(t * 0.06) * 0.015 * pauseGate
+      zoomSm = zoomSm * 0.88 + dolly * 0.12
+
+      const driftX = (Math.sin(t * 0.011) * 20 + Math.cos(t * 0.027) * 10) * pauseGate
+      const driftY = (Math.cos(t * 0.011) * 15 + Math.sin(t * 0.027) * 8) * pauseGate
+}}}
 )
