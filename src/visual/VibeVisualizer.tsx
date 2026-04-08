@@ -342,3 +342,121 @@ function bakeTitle(canvas: HTMLCanvasElement, text: string, w: number, h: number
   }
   ctx.fillText(t, w / 2, h / 2)
 }
+
+export function VibeVisualizer() {
+  const containerRef = useRef<HTMLDivElement>(null)
+  const rafRef = useRef(0)
+
+  const params = useVisualizerParams<VibeParams>('vibe')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    let W = window.innerWidth
+    let H = window.innerHeight
+    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
+    console.log('[Vibe] maskHeight:', Math.round(H * MASK_HEIGHT_RATIO), 'px |', 'canvas:', W, 'x', H, '| ratio:', MASK_HEIGHT_RATIO, '| factor:', MASK_FACTOR.toFixed(3))
+
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false })
+    renderer.setSize(W, H)
+    renderer.setPixelRatio(dpr)
+    container.appendChild(renderer.domElement)
+
+    const quadGeom = new THREE.PlaneGeometry(2, 2)
+    const cam = new THREE.Camera()
+    const qScene = new THREE.Scene()
+
+    function makeRT(w: number, h: number) {
+      return new THREE.WebGLRenderTarget(w, h, {
+        minFilter: THREE.LinearFilter,
+        magFilter: THREE.LinearFilter,
+        format: THREE.RGBAFormat,
+        type: THREE.UnsignedByteType,
+      })
+    }
+    let sceneRT = makeRT(Math.round(W * dpr), Math.round(H * dpr))
+    const bW = () => Math.max(2, Math.round(W * dpr * BLOOM_SCALE))
+    const bH = () => Math.max(2, Math.round(H * dpr * BLOOM_SCALE))
+    const bloomA = makeRT(bW(), bH())
+    const bloomB = makeRT(bW(), bH())
+
+    const titleCanvas = document.createElement('canvas')
+    const titleTex = new THREE.CanvasTexture(titleCanvas)
+    titleTex.minFilter = THREE.LinearFilter
+    titleTex.magFilter = THREE.LinearFilter
+    titleTex.wrapS = THREE.ClampToEdgeWrapping
+    titleTex.wrapT = THREE.ClampToEdgeWrapping
+    let lastTitle = ''
+    let titleOpacity = 0
+    function retitle(text: string) {
+      bakeTitle(titleCanvas, text, Math.round(W * dpr), Math.round(H * dpr))
+      titleTex.needsUpdate = true
+      lastTitle = text
+      titleOpacity = 0
+    }
+    retitle('')
+
+    const bands = new Float32Array(BANDS)
+    const bandsSm = new Float32Array(BANDS)
+
+    const sceneMat = new THREE.ShaderMaterial({
+      vertexShader: VS_QUAD,
+      fragmentShader: FS_SCENE,
+      uniforms: {
+        uTime: { value: 0 },
+        uAspect: { value: W / H },
+        uShake: { value: new THREE.Vector2() },
+        uZoom: { value: 1 },
+        uShakeRot: { value: 0 },
+        uBass: { value: 0 },
+        uMid: { value: 0 },
+        uTreble: { value: 0 },
+        uBeatKick: { value: 0 },
+        uPalette: { value: 0 },
+        uGlow: { value: 1 },
+        uTitleScale: { value: 1 },
+        uTitleOpacity: { value: 0 },
+        uTrailPhase: { value: 0 },
+        uTrailEnergy: { value: 0 },
+        uBands: { value: bands },
+        uTitle: { value: titleTex },
+      },
+    })
+
+    const blurMat = new THREE.ShaderMaterial({
+      vertexShader: VS_QUAD,
+      fragmentShader: FS_BLUR,
+      uniforms: {
+        uTex: { value: null },
+        uDir: { value: new THREE.Vector2() },
+        uThreshold: { value: 0 },
+      },
+    })
+
+    const finalMat = new THREE.ShaderMaterial({
+      vertexShader: VS_QUAD,
+      fragmentShader: FS_FINAL,
+      uniforms: {
+        uScene: { value: null },
+        uBloom: { value: null },
+        uResolution: { value: new THREE.Vector2(W * dpr, H * dpr) },
+        uTime: { value: 0 },
+        uRadial: { value: 0 },
+        uSamples: { value: 4 },
+        uCA: { value: 0 },
+        uBloomStr: { value: 1 },
+        uExposure: { value: 1.0 },
+      },
+    })
+
+    const quad = new THREE.Mesh(quadGeom, sceneMat)
+    qScene.add(quad)
+
+    let t = 0
+    let bassSm = 0, midSm = 0, trebleSm = 0
+    let kick = 0
+}}
+)
