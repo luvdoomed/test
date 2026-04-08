@@ -228,4 +228,117 @@ void main() {
   float w[9];
   w[0] = 0.05; w[1] = 0.09; w[2] = 0.12; w[3] = 0.15; w[4] = 0.18;
   w[5] = 0.15; w[6] = 0.12; w[7] = 0.09; w[8] = 0.05;
+  vec3 c = vec3(0.0);
+  for (int i = 0; i < 9; i++) {
+    vec2 o = uDir * (float(i) - 4.0);
+    vec3 s = texture2D(uTex, vUv + o).rgb;
+    if (uThreshold > 0.0) {
+      float m = max(s.r, max(s.g, s.b));
+      s *= max(0.0, m - uThreshold);
+    }
+    c += s * w[i];
+  }
+  gl_FragColor = vec4(c, 1.0);
+}
+`
+
+const FS_FINAL = `
+precision highp float;
+varying vec2 vUv;
+uniform sampler2D uScene;
+uniform sampler2D uBloom;
+uniform vec2 uResolution;
+uniform float uTime;
+uniform float uRadial;
+uniform float uSamples;
+uniform float uCA;
+uniform float uBloomStr;
+uniform float uExposure;
+
+float hash(vec2 p) {
+  return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
+}
+
+void main() {
+  vec2 dir = vUv - 0.5;
+
+  vec3 scene = vec3(0.0);
+  if (uRadial > 0.001) {
+    float w[4];
+    w[0] = 0.4; w[1] = 0.3; w[2] = 0.2; w[3] = 0.1;
+    int mx = int(uSamples);
+    float denom = max(float(mx) - 1.0, 1.0);
+    float wsum = 0.0;
+    for (int i = 0; i < 4; i++) {
+      if (i < mx) {
+        float tt = float(i) / denom;
+        vec2 su = vUv - dir * tt * uRadial;
+        scene += texture2D(uScene, su).rgb * w[i];
+        wsum += w[i];
+      }
+    }
+    scene /= max(wsum, 0.001);
+  } else {
+    scene = texture2D(uScene, vUv).rgb;
+  }
+
+  vec2 caOff = dir * uCA;
+  float rCh = texture2D(uScene, vUv + caOff).r;
+  float bCh = texture2D(uScene, vUv - caOff).b;
+  scene.r = mix(scene.r, rCh, 0.45);
+  scene.b = mix(scene.b, bCh, 0.45);
+
+  vec3 bloom = texture2D(uBloom, vUv).rgb;
+  vec3 col = scene + bloom * uBloomStr;
+  col *= uExposure;
+
+  col += (hash(vUv * uResolution + uTime) - 0.5) * 0.035;
+
+  float vig = 1.0 - smoothstep(0.50, 1.15, length(dir) * 1.25);
+  col *= 0.45 + vig * 0.55;
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`
+
+function bakeTitle(canvas: HTMLCanvasElement, text: string, w: number, h: number) {
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return
+  ctx.clearRect(0, 0, w, h)
+  let t = (text || 'MUSIC').toUpperCase().trim()
+  const font = (px: number) => `900 ${px}px "Arial Black", "Helvetica Neue", system-ui, sans-serif`
+  ctx.fillStyle = '#ffffff'
+  ctx.textAlign = 'center'
+  ctx.textBaseline = 'middle'
+  if ('letterSpacing' in ctx) (ctx as unknown as { letterSpacing: string }).letterSpacing = '-1px'
+  const maxW = w * 0.10
+  let fs = Math.max(10, h * MASK_HEIGHT_RATIO * 0.09)
+  ctx.font = font(fs)
+  while (ctx.measureText(t).width > maxW && fs > 10) {
+    fs = Math.max(10, fs - 2)
+    ctx.font = font(fs)
+  }
+  if (ctx.measureText(t).width > maxW && t.includes(' ')) {
+    const words = t.split(' ')
+    const splitIdx = Math.floor(words.length / 2)
+    const bestLine1 = words.slice(0, splitIdx).join(' ')
+    const bestLine2 = words.slice(splitIdx).join(' ')
+    const line1W = ctx.measureText(bestLine1).width
+    const line2W = ctx.measureText(bestLine2).width
+    if (line1W <= maxW && line2W <= maxW) {
+      const lineH = fs * 1.1
+      ctx.fillText(bestLine1, w / 2, h / 2 - lineH * 0.5)
+      ctx.fillText(bestLine2, w / 2, h / 2 + lineH * 0.5)
+      return
+    }
+  }
+  if (ctx.measureText(t).width > maxW) {
+    while (ctx.measureText(t + '\u2026').width > maxW && t.length > 1) {
+      t = t.slice(0, -1).trimEnd()
+    }
+    t = t + '\u2026'
+  }
+  ctx.fillText(t, w / 2, h / 2)
 }
