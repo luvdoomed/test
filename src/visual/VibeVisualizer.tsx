@@ -572,5 +572,119 @@ export function VibeVisualizer() {
 
       const driftX = (Math.sin(t * 0.011) * 20 + Math.cos(t * 0.027) * 10) * pauseGate
       const driftY = (Math.cos(t * 0.011) * 15 + Math.sin(t * 0.027) * 8) * pauseGate
-}}}
-)
+
+      const tSec = t * 0.016
+      trebleCam += (trebleSm - trebleCam) * 0.15
+      const targetTX = Math.sin(tSec * 11.3) * trebleCam * 18 * pauseGate
+      const targetTY = Math.cos(tSec * 9.7) * trebleCam * 14 * pauseGate
+      shake.x += (targetTX - shake.x) * 0.18
+      shake.y += (targetTY - shake.y) * 0.18
+      const trebleRot = Math.sin(tSec * 7.1) * trebleCam * 0.015
+
+      const pt = performance.now() * 0.015
+      const t2 = trauma * trauma
+      const targetCX = (Math.sin(pt * 2.1) + Math.sin(pt * 3.7)) * 0.5 * t2 * 40
+      const targetCY = (Math.sin(pt * 1.9) + Math.sin(pt * 3.3)) * 0.5 * t2 * 32
+      const targetCR = Math.sin(pt * 2.5) * t2 * 0.04
+      traumaVel.x = (traumaVel.x + (targetCX - traumaPos.x) * 0.25) * 0.6
+      traumaVel.y = (traumaVel.y + (targetCY - traumaPos.y) * 0.25) * 0.6
+      traumaVel.r = (traumaVel.r + (targetCR - traumaPos.r) * 0.25) * 0.6
+      traumaPos.x += traumaVel.x
+      traumaPos.y += traumaVel.y
+      traumaPos.r += traumaVel.r
+
+      let finalX = (driftX + (shake.x + traumaPos.x) * pp.shakeIntensity) * pauseGate
+      let finalY = (driftY + (shake.y + traumaPos.y) * pp.shakeIntensity) * pauseGate
+      let finalRot = (trebleRot + traumaPos.r * pp.shakeIntensity) * pauseGate
+      finalX = Math.max(-45, Math.min(45, finalX))
+      finalY = Math.max(-45, Math.min(45, finalY))
+      finalRot = Math.max(-0.06, Math.min(0.06, finalRot))
+
+      palette = palette * 0.78 + Math.min(1, bassSm + kick) * 0.22
+      glowSm = glowSm * 0.8 + (0.8 + bassSm * 1.4 + kick * 1.2) * 0.2
+      titleScaleSm = titleScaleSm * 0.85 + (1 + bassSm * 0.45 + kick * 0.15) * 0.15
+      titleOpacity = Math.min(1, titleOpacity + 0.02)
+
+      const motion = trauma < 0.05 && zoomKick < 0.05
+          ? 0
+          : Math.min(0.08, (trauma + zoomKick) * 0.02)
+      caSm = caSm * 0.7 + Math.min(1.0, trebleSm * 1.2 + kick * 0.6) * 0.3
+      bloomSm = bloomSm * 0.8 + (0.8 + energyN * 0.6) * 0.2
+
+      const exposureTarget = isPlaying
+        ? 0.35 + energyN * 0.55 + trebleSm * 0.05 + Math.min(bassSm, 0.7) * 0.65 + kick * 0.45
+        : 0.25
+      exposureSm += (exposureTarget - exposureSm) * 0.05
+
+      const su = sceneMat.uniforms
+      su.uTime.value = sceneTime
+      su.uShake.value.set(finalX / W, finalY / H)
+      su.uZoom.value = zoomSm - zoomKick * 0.08 * pauseGate
+      su.uShakeRot.value = finalRot
+      su.uBass.value = bassSm
+      su.uMid.value = midSm
+      su.uTreble.value = trebleSm
+      su.uBeatKick.value = kick
+      su.uPalette.value = Math.min(1, palette)
+      su.uGlow.value = glowSm * pp.glow
+      su.uTitleScale.value = titleScaleSm
+      su.uTitleOpacity.value = titleOpacity
+      trailPhase += (0.015 + bassSm * 0.05) * pauseGate
+      su.uTrailPhase.value = trailPhase
+      su.uTrailEnergy.value = Math.min(1, midSm + bassSm * 0.5) * pauseGate
+
+      const fu = finalMat.uniforms
+      fu.uTime.value = sceneTime
+      fu.uRadial.value = motion
+      fu.uSamples.value = motionSamples
+      fu.uCA.value = caSm * 0.003 * pp.chromaShift
+      fu.uBloomStr.value = bloomSm * pp.bloomStrength
+      fu.uExposure.value = exposureSm * pp.exposure
+
+      quad.material = sceneMat
+      renderer.setRenderTarget(sceneRT)
+      renderer.render(qScene, cam)
+
+      quad.material = blurMat
+      blurMat.uniforms.uTex.value = sceneRT.texture
+      blurMat.uniforms.uDir.value.set(1 / bW(), 0)
+      blurMat.uniforms.uThreshold.value = 0.75
+      renderer.setRenderTarget(bloomA)
+      renderer.render(qScene, cam)
+
+      blurMat.uniforms.uTex.value = bloomA.texture
+      blurMat.uniforms.uDir.value.set(0, 1 / bH())
+      blurMat.uniforms.uThreshold.value = 0
+      renderer.setRenderTarget(bloomB)
+      renderer.render(qScene, cam)
+
+      quad.material = finalMat
+      finalMat.uniforms.uScene.value = sceneRT.texture
+      finalMat.uniforms.uBloom.value = bloomB.texture
+      renderer.setRenderTarget(null)
+      renderer.render(qScene, cam)
+
+      rafRef.current = requestAnimationFrame(tick)
+    }
+    tick()
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+      sceneMat.dispose()
+      blurMat.dispose()
+      finalMat.dispose()
+      quadGeom.dispose()
+      sceneRT.dispose()
+      bloomA.dispose()
+      bloomB.dispose()
+      titleTex.dispose()
+      renderer.dispose()
+      if (renderer.domElement.parentNode) {
+        renderer.domElement.parentNode.removeChild(renderer.domElement)
+      }
+    }
+  }, [])
+
+  return <div ref={containerRef} style={{ width: '100%', height: '100%' }} />
+}
