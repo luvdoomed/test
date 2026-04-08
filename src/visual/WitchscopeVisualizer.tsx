@@ -284,5 +284,147 @@ export function WitchscopeVisualizer() {
           ctx.lineTo(cx1, y1)
           ctx.globalAlpha = opacity * 0.2
           ctx.lineWidth = beam.width * 3 * lineScl
-}}}}}
+          ctx.stroke()
+
+          ctx.beginPath()
+          ctx.moveTo(cx0, y0)
+          ctx.lineTo(cx1, y1)
+          ctx.globalAlpha = opacity * 1.0
+          ctx.lineWidth = 1.5
+          ctx.stroke()
+        }
+
+        ctx.shadowBlur = 0
+
+        const ringY = cy
+        const beamAtRingX = x0 + (ringY - y0) / (y1 - y0) * (x1 - x0)
+        const distToCenter = Math.abs(beamAtRingX - cx)
+        const flareR = 20 * lineScl
+        if (distToCenter < ringRadiusLocal + 10 * lineScl && distToCenter > ringRadiusLocal - 30 * lineScl) {
+          const flareGrad = ctx.createRadialGradient(
+            beamAtRingX, ringY, 0,
+            beamAtRingX, ringY, flareR,
+          )
+          flareGrad.addColorStop(0, `rgba(255,255,255,${opacity * 0.9})`)
+          flareGrad.addColorStop(0.4, `rgba(255,255,255,${opacity * 0.3})`)
+          flareGrad.addColorStop(1, 'rgba(255,255,255,0)')
+          ctx.globalAlpha = 1
+          ctx.fillStyle = flareGrad
+          ctx.beginPath()
+          ctx.arc(beamAtRingX, ringY, flareR, 0, TWO_PI)
+          ctx.fill()
+        }
+      }
+
+      ctx.restore()
+    }
+
+    function drawVHSNoise(ctx: CanvasRenderingContext2D, W: number, H: number) {
+      const startY = H * 0.88
+      ctx.save()
+
+      for (let i = 0; i < 4; i++) {
+        const y = startY + i * ((H - startY) / 4) + (Math.random() - 0.5) * 3
+        const alpha = 0.05 + Math.random() * 0.15
+        ctx.fillStyle = `rgba(255,255,255,${alpha})`
+        ctx.fillRect(0, y, W, 1)
+      }
+
+      const noiseY = startY + Math.random() * (H - startY) * 0.3
+      ctx.fillStyle = `rgba(255,255,255,${0.3 + Math.random() * 0.2})`
+      ctx.fillRect(0, noiseY, W, 1)
+
+      for (let x = 0; x < W; x += 2) {
+        if (Math.random() > 0.7) {
+          const alpha = Math.random() * 0.15
+          ctx.fillStyle = `rgba(255,255,255,${alpha})`
+          ctx.fillRect(x, startY + Math.random() * (H - startY), 2, 1)
+        }
+      }
+
+      ctx.restore()
+    }
+
+    function drawScanLines(ctx: CanvasRenderingContext2D, W: number, H: number) {
+      ctx.save()
+      ctx.fillStyle = 'rgba(0,0,0,0.12)'
+      for (let y = 0; y < H; y += 3) {
+        ctx.fillRect(0, y, W, 1)
+      }
+      ctx.restore()
+    }
+
+    function triggerGlitch(H: number, lineScl: number) {
+      const sliceCount = 3 + Math.floor(Math.random() * 3)
+      const slices: GlitchSlice[] = []
+      const maxDx = Math.max(1, Math.round(21 * lineScl))
+      const maxH = Math.max(3, Math.round(11 * lineScl))
+      for (let i = 0; i < sliceCount; i++) {
+        slices.push({
+          y: Math.floor(Math.random() * H),
+          h: Math.round(5 * lineScl) + Math.floor(Math.random() * maxH),
+          dx: (Math.random() > 0.5 ? 1 : -1) * Math.floor(Math.random() * maxDx),
+          frames: 2 + Math.floor(Math.random() * 2),
+        })
+      }
+      glitchRef.current = slices
+    }
+
+    function applyGlitch(ctx: CanvasRenderingContext2D, W: number) {
+      const slices = glitchRef.current
+      if (slices.length === 0) return
+
+      for (let i = slices.length - 1; i >= 0; i--) {
+        const s = slices[i]
+        const imgData = ctx.getImageData(0, s.y, W, s.h)
+        ctx.putImageData(imgData, s.dx, s.y)
+        s.frames--
+        if (s.frames <= 0) slices.splice(i, 1)
+      }
+    }
+
+    function drawGrain(ctx: CanvasRenderingContext2D, W: number, H: number, energy: number) {
+      ctx.save()
+      const count = 400 + Math.floor(energy * 600)
+      ctx.fillStyle = 'rgba(255,255,255,0.03)'
+      for (let i = 0; i < count; i++) {
+        const x = Math.random() * W
+        const y = Math.random() * H
+        ctx.fillRect(x, y, 1, 1)
+      }
+      ctx.restore()
+    }
+
+    function drawColorBleed(ctx: CanvasRenderingContext2D, canvas: HTMLCanvasElement, lineScl: number) {
+      ctx.save()
+      ctx.globalAlpha = 0.08
+      const off = Math.max(1, 2 * lineScl)
+      ctx.drawImage(canvas, off, 0)
+      ctx.drawImage(canvas, -off, 0)
+      ctx.globalAlpha = 1.0
+      ctx.restore()
+    }
+
+    function drawParticles(
+      ctx: CanvasRenderingContext2D,
+      W: number, H: number,
+      energy: number,
+    ) {
+      const particles = particlesRef.current
+      ctx.save()
+
+      for (const p of particles) {
+        const energyBoost = 1 + energy * 4
+        p.x += p.vx * energyBoost
+        p.y += p.vy * energyBoost
+
+        if (p.x < 0) p.x = W
+        if (p.x > W) p.x = 0
+        if (p.y < 0) p.y = H
+        if (p.y > H) p.y = 0
+
+        ctx.globalAlpha = p.opacity
+        ctx.fillStyle = '#00ff44'
+        ctx.beginPath()
+}}}}
 )
