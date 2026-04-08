@@ -426,5 +426,148 @@ export function WitchscopeVisualizer() {
         ctx.globalAlpha = p.opacity
         ctx.fillStyle = '#00ff44'
         ctx.beginPath()
-}}}}
+        ctx.arc(p.x, p.y, p.size, 0, TWO_PI)
+        ctx.fill()
+      }
+
+      ctx.restore()
+    }
+
+    function drawShockwaves(ctx: CanvasRenderingContext2D) {
+      const waves = shockwaveRef.current
+      ctx.save()
+      ctx.globalCompositeOperation = 'screen'
+
+      for (let i = waves.length - 1; i >= 0; i--) {
+        const sw = waves[i]
+        const t = 1 - sw.life / sw.maxLife
+        const expand = 1 + t * 1.8
+        const alpha = (1 - t) * 0.35
+
+        for (const p of sw.puffs) {
+          const px = sw.x + p.ax * expand
+          const py = sw.y + p.ay * expand
+          const pr = p.ar * expand
+          const grad = ctx.createRadialGradient(px, py, 0, px, py, pr)
+          grad.addColorStop(0, `rgba(255,255,255,${alpha * 0.6})`)
+          grad.addColorStop(0.5, `rgba(255,255,255,${alpha * 0.2})`)
+          grad.addColorStop(1, `rgba(255,255,255,0)`)
+          ctx.fillStyle = grad
+          ctx.fillRect(px - pr, py - pr, pr * 2, pr * 2)
+        }
+
+        sw.life--
+        if (sw.life <= 0) waves.splice(i, 1)
+      }
+
+      ctx.restore()
+    }
+
+    function drawVignette(ctx: CanvasRenderingContext2D, W: number, H: number) {
+      const cx = W / 2
+      const cy = H / 2
+      const r = Math.max(W, H) * 0.7
+      const grad = ctx.createRadialGradient(cx, cy, r * 0.4, cx, cy, r)
+      grad.addColorStop(0, 'rgba(0,0,0,0)')
+      grad.addColorStop(1, 'rgba(0,0,0,0.7)')
+      ctx.save()
+      ctx.fillStyle = grad
+      ctx.fillRect(0, 0, W, H)
+      ctx.restore()
+    }
+
+    function draw() {
+      if (!canvas || !ctx) return
+      const W = canvas.width
+      const H = canvas.height
+      const cx = W / 2
+      const cy = H / 2
+      const minDim = Math.min(W, H)
+      const scl = minDim / 1080
+      const shakeScl = minDim / 900
+      const pp = paramsRef.current
+      const ringRadius = RING_RADIUS * scl * pp.ringSize
+
+      const { audioData, beat, isPlaying, energy, trackInfo, currentTime } =
+        useAudioStore.getState()
+
+      ctx.fillStyle = `rgba(0,0,0,${pp.trailFade})`
+      ctx.fillRect(0, 0, W, H)
+
+      if (isPlaying) {
+        progressRef.current += (0.004 + energy * 0.02) * pp.scanSpeed
+        if (progressRef.current >= TWO_PI) progressRef.current = 0
+      }
+
+      if (isPlaying && beat) {
+        triggerGlitch(H, scl)
+        ringPulseRef.current = 40 * scl
+        progressRef.current += 0.15
+        if (progressRef.current >= TWO_PI) progressRef.current = 0
+        shakeStateRef.current.trauma = Math.min(1, shakeStateRef.current.trauma + 0.6)
+        if (energy > 0.08) {
+          shakeStateRef.current.trauma = Math.min(1, shakeStateRef.current.trauma + 0.8)
+        }
+        // ударная волна на сильном бите, максимум две активные
+        if (energy > 0.06 && shockwaveRef.current.length < 2) {
+          const ang = progressRef.current
+          shockwaveRef.current.push({
+            x: cx + Math.cos(ang) * ringRadius,
+            y: cy + Math.sin(ang) * ringRadius,
+            life: 25,
+            maxLife: 25,
+            puffs: Array.from({ length: 5 }, () => ({
+              ax: (Math.random() - 0.5) * 30 * scl,
+              ay: (Math.random() - 0.5) * 30 * scl,
+              ar: (8 + Math.random() * 12) * scl,
+            })),
+          })
+        }
+      }
+
+      {
+        const s = shakeStateRef.current
+        s.trauma *= 0.92
+        const shake = s.trauma * s.trauma
+        const t = performance.now() * 0.015
+        const targetX = (Math.sin(t * 2.1) + Math.sin(t * 3.7)) * 0.5 * shake * 12 * shakeScl
+        const targetY = (Math.sin(t * 1.9) + Math.sin(t * 3.3)) * 0.5 * shake * 10 * shakeScl
+        const targetRot = Math.sin(t * 2.5) * shake * 0.015
+        const stiffness = 0.25
+        const damping = 0.6
+        s.vx += (targetX - s.x) * stiffness
+        s.vy += (targetY - s.y) * stiffness
+        s.vr += (targetRot - s.rot) * stiffness
+        s.vx *= damping
+        s.vy *= damping
+        s.vr *= damping
+        s.x += s.vx
+        s.y += s.vy
+        s.rot += s.vr
+      }
+
+      if (ringPulseRef.current > 0) {
+        ringPulseRef.current *= 0.85
+        if (ringPulseRef.current < 0.5) ringPulseRef.current = 0
+      }
+
+      const energyAlpha = 0.6 + Math.min(1, energy * 8) * 0.4
+      const finalAlpha = energyAlpha
+
+      const bass = audioData.slice(0, 14).reduce((s, v) => s + Math.abs(v), 0) / 14
+      const mid = audioData.slice(14, 232).reduce((s, v) => s + Math.abs(v), 0) / 218
+      const high = audioData.slice(232, 464).reduce((s, v) => s + Math.abs(v), 0) / 232
+      const tr = Math.min(255, Math.round(high * 1500))
+      const tg = Math.min(255, Math.round(80 + bass * 1000))
+      const tb = Math.min(255, Math.round(mid * 1200))
+      ringColorRGB.r += (tr - ringColorRGB.r) * 0.08
+      ringColorRGB.g += (tg - ringColorRGB.g) * 0.08
+      ringColorRGB.b += (tb - ringColorRGB.b) * 0.08
+      currentRingColorRef.current = `rgb(${Math.round(ringColorRGB.r)},${Math.round(ringColorRGB.g)},${Math.round(ringColorRGB.b)})`
+
+      const pulseRadius = ringRadius + ringPulseRef.current
+
+      timeRef.current++
+      const driftT = timeRef.current
+}}}
 )
