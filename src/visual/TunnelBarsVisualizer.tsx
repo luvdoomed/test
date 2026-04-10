@@ -234,5 +234,123 @@ export function TunnelBarsVisualizer() {
       const xOffset = Math.sin(time * 0.1) * 0.3
 
       ctx.save()
-}}}
+      ctx.shadowBlur = 12
+      ctx.shadowColor = 'rgba(255,255,255,0.8)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.9)'
+      ctx.lineWidth = 1.5
+
+      const tearTop = tearTopRef.current
+      ctx.beginPath()
+      for (let i = 0; i < TEAR_POINTS; i++) {
+        const t = i / (TEAR_POINTS - 1)
+        const x = t * W + xOffset
+        const baseY = tl + (tr - tl) * t
+        const y = baseY + tearTop[i]
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+
+      const tearBottom = tearBottomRef.current
+      ctx.beginPath()
+      for (let i = 0; i < TEAR_POINTS; i++) {
+        const t = i / (TEAR_POINTS - 1)
+        const x = t * W + xOffset
+        const baseY = H - bl - (br - bl) * t
+        const y = baseY + tearBottom[i]
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      }
+      ctx.stroke()
+      ctx.restore()
+
+      const topParts = topParticlesRef.current
+      const bottomParts = bottomParticlesRef.current
+
+      ctx.save()
+      ctx.shadowBlur = 6
+      ctx.shadowColor = 'rgba(255,255,255,0.7)'
+
+      for (const p of topParts) {
+        p.pos += p.speed
+        if (p.pos > 1) p.pos -= 1
+        if (p.pos < 0) p.pos += 1
+        const x = p.pos * W
+        const baseY = tl + (tr - tl) * p.pos
+        ctx.fillStyle = `rgba(255,255,255,${p.opacity})`
+        ctx.beginPath()
+        ctx.arc(x, baseY, p.size, 0, Math.PI * 2)
+        ctx.fill()
+      }
+
+      for (const p of bottomParts) {
+        p.pos += p.speed
+        if (p.pos > 1) p.pos -= 1
+        if (p.pos < 0) p.pos += 1
+        const x = p.pos * W
+        const baseY = H - bl - (br - bl) * p.pos
+        ctx.fillStyle = `rgba(255,255,255,${p.opacity})`
+        ctx.beginPath()
+        ctx.arc(x, baseY, p.size, 0, Math.PI * 2)
+        ctx.fill()
+      }
+      ctx.restore()
+
+      if (flash) {
+        ctx.fillStyle = 'rgba(255,255,255,0.15)'
+        ctx.fillRect(0, 0, W, H)
+      }
+
+      const topEdge = (tl + tr) / 2
+      const bottomEdge = H - (bl + br) / 2
+      const centerY = (topEdge + bottomEdge) / 2
+      const centerX = W / 2
+
+      if (isPlaying) rotationRef.current += 0.005 * pp.rotationSpeed
+      const targetRadius = (beat && isPlaying ? 110 : BASE_RADIUS) * pp.ringSize
+      radiusPulseRef.current = radiusPulseRef.current * 0.9 + targetRadius * 0.1
+      const radius = radiusPulseRef.current
+      const rotation = rotationRef.current
+      const smoothedCircle = smoothedCircleRef.current
+
+      ctx.save()
+      ctx.shadowBlur = 8
+      ctx.shadowColor = 'rgba(255,255,255,0.6)'
+      ctx.strokeStyle = 'rgba(255,255,255,0.7)'
+      ctx.lineWidth = 2
+      ctx.lineCap = 'round'
+
+      for (let i = 0; i < CIRCLE_BARS; i++) {
+        const angle = (i / CIRCLE_BARS) * Math.PI * 2 + rotation
+        const dataIdx = (i * 2) % (audioData.length || 128)
+        const raw = isPlaying && audioData.length > dataIdx ? audioData[dataIdx] : 0
+
+        if (isPlaying) {
+          smoothedCircle[i] = smoothedCircle[i] * smooth + raw * (1 - smooth)
+        } else {
+          smoothedCircle[i] *= 0.95
+        }
+        const barLen = smoothedCircle[i] * 80
+
+        const x1 = centerX + Math.cos(angle) * radius
+        const y1 = centerY + Math.sin(angle) * radius
+        const x2 = centerX + Math.cos(angle) * (radius + barLen)
+        const y2 = centerY + Math.sin(angle) * (radius + barLen)
+
+        ctx.beginPath()
+        ctx.moveTo(x1, y1)
+        ctx.lineTo(x2, y2)
+        ctx.stroke()
+      }
+      ctx.restore()
+
+      if (trackInfo.artist) {
+        ctx.save()
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'
+        ctx.font = '11px monospace'
+        ctx.textBaseline = 'middle'
+        ctx.textAlign = 'center'
+        ctx.letterSpacing = '3px'
+        ctx.fillText(trackInfo.artist.toUpperCase(), centerX, centerY - 30)
+}}}}
 )
