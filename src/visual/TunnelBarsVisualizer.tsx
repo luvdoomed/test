@@ -352,5 +352,120 @@ export function TunnelBarsVisualizer() {
         ctx.textAlign = 'center'
         ctx.letterSpacing = '3px'
         ctx.fillText(trackInfo.artist.toUpperCase(), centerX, centerY - 30)
-}}}}
-)
+        ctx.restore()
+      }
+
+      if (trackInfo.title) {
+        ctx.save()
+        ctx.fillStyle = 'rgba(255,255,255,1)'
+        ctx.font = '500 15px monospace'
+        ctx.textBaseline = 'middle'
+        ctx.textAlign = 'center'
+        ctx.fillText(trackInfo.title, centerX, centerY + 110)
+        ctx.restore()
+      }
+
+      const duration = audioEngine.getDuration()
+      if (duration > 0) {
+        ctx.save()
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'
+        ctx.font = '12px monospace'
+        ctx.textBaseline = 'middle'
+        ctx.textAlign = 'right'
+        ctx.fillText(
+          `${formatTime(currentTime)} / ${formatTime(duration)}`,
+          W - 20,
+          centerY + 110
+        )
+        ctx.restore()
+      }
+
+      ctx.restore()
+
+      if (chromaActive) {
+        ctx.save()
+        ctx.lineWidth = 1.5
+        ctx.strokeStyle = 'rgba(255,100,100,0.3)'
+        ctx.beginPath()
+        for (let i = 0; i < TEAR_POINTS; i++) {
+          const t = i / (TEAR_POINTS - 1)
+          const x = t * W + 3
+          const baseY = tl + (tr - tl) * t
+          if (i === 0) ctx.moveTo(x, baseY)
+          else ctx.lineTo(x, baseY)
+        }
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(100,100,255,0.3)'
+        ctx.beginPath()
+        for (let i = 0; i < TEAR_POINTS; i++) {
+          const t = i / (TEAR_POINTS - 1)
+          const x = t * W - 3
+          const baseY = tl + (tr - tl) * t
+          if (i === 0) ctx.moveTo(x, baseY)
+          else ctx.lineTo(x, baseY)
+        }
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(255,100,100,0.3)'
+        ctx.beginPath()
+        for (let i = 0; i < TEAR_POINTS; i++) {
+          const t = i / (TEAR_POINTS - 1)
+          const x = t * W + 3
+          const baseY = H - bl - (br - bl) * t
+          if (i === 0) ctx.moveTo(x, baseY)
+          else ctx.lineTo(x, baseY)
+        }
+        ctx.stroke()
+        ctx.strokeStyle = 'rgba(100,100,255,0.3)'
+        ctx.beginPath()
+        for (let i = 0; i < TEAR_POINTS; i++) {
+          const t = i / (TEAR_POINTS - 1)
+          const x = t * W - 3
+          const baseY = H - bl - (br - bl) * t
+          if (i === 0) ctx.moveTo(x, baseY)
+          else ctx.lineTo(x, baseY)
+        }
+        ctx.stroke()
+        ctx.restore()
+      }
+
+      ctx.save()
+      ctx.fillStyle = 'rgba(255,255,255,0.025)'
+      for (let i = 0; i < 300; i++) {
+        const gx = Math.random() * W
+        const gy = Math.random() * H
+        ctx.fillRect(gx, gy, 1, 1)
+      }
+      ctx.restore()
+
+      const vignette = ctx.createRadialGradient(
+        W / 2, H / 2, Math.min(W, H) * 0.3,
+        W / 2, H / 2, Math.max(W, H) * 0.7
+      )
+      vignette.addColorStop(0, 'rgba(0,0,0,0)')
+      vignette.addColorStop(1, 'rgba(0,0,0,0.5)')
+      ctx.fillStyle = vignette
+      ctx.fillRect(0, 0, W, H)
+
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'block',
+        zIndex: 0,
+      }}
+    />
+  )
+}
