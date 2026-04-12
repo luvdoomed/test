@@ -529,5 +529,108 @@ export function StarfieldVisualizer() {
         for (let si = smokeClouds.length - 1; si >= 0; si--) {
           const cloud = smokeClouds[si]
           cloud.age++
-}}}}}
-)
+          cloud.opacity *= CLOUD_DECAY
+
+          if (cloud.age > CLOUD_MAX_FRAMES) {
+            smokeClouds.splice(si, 1)
+            continue
+          }
+
+          for (let li = 0; li < cloud.layers.length; li++) {
+            const layer = cloud.layers[li]
+            layer.ox += layer.vx * 0.3
+            layer.oy += layer.vy * 0.3
+            layer.angle += 0.02
+
+            const layerSize = layer.baseRadius * (0.5 + layer.z / 100 + 0.5) * scl
+            const layerOpacity = cloud.opacity * Math.max(0, 0.5 - Math.abs(layer.z) / 120)
+            if (layerOpacity <= 0) continue
+
+            const px = cloud.x + layer.ox + Math.cos(layer.angle) * 3
+            const py = cloud.y + layer.oy + Math.sin(layer.angle) * 3
+
+            const grad = ctx!.createRadialGradient(px, py, 0, px, py, layerSize)
+            grad.addColorStop(0, `rgba(255,255,255,${layerOpacity})`)
+            grad.addColorStop(1, 'rgba(200,220,255,0)')
+            ctx!.fillStyle = grad
+            ctx!.fillRect(px - layerSize, py - layerSize, layerSize * 2, layerSize * 2)
+          }
+        }
+
+        ctx!.filter = 'none'
+        ctx!.globalCompositeOperation = 'source-over'
+      }
+
+      for (let si = shootingStars.length - 1; si >= 0; si--) {
+        const ss = shootingStars[si]
+        ss.x += ss.vx
+        ss.y += ss.vy
+        ss.life++
+        ss.trail.push({ x: ss.x, y: ss.y })
+        if (ss.trail.length > SHOOTING_STAR_TRAIL_LENGTH) ss.trail.shift()
+
+        if (ss.life > ss.maxLife || ss.x < -50 || ss.x > lw + 50 || ss.y < -50 || ss.y > lh + 50) {
+          shootingStars.splice(si, 1)
+          continue
+        }
+
+        for (let ti = 0; ti < ss.trail.length; ti++) {
+          const t = ti / ss.trail.length
+          const trailAlpha = t * (1 - ss.life / ss.maxLife)
+          const trailSize = (1.5 * t + 0.5) * scl
+          ctx!.beginPath()
+          ctx!.arc(ss.trail[ti].x, ss.trail[ti].y, trailSize, 0, Math.PI * 2)
+          ctx!.fillStyle = `rgba(220,230,255,${trailAlpha})`
+          ctx!.fill()
+        }
+        const headAlpha = 1 - ss.life / ss.maxLife
+        ctx!.beginPath()
+        ctx!.arc(ss.x, ss.y, 2.5 * scl, 0, Math.PI * 2)
+        ctx!.fillStyle = `rgba(255,255,255,${headAlpha})`
+        ctx!.fill()
+        ctx!.shadowBlur = 8 * scl
+        ctx!.shadowColor = `rgba(200,220,255,${headAlpha * 0.6})`
+        ctx!.beginPath()
+        ctx!.arc(ss.x, ss.y, 2 * scl, 0, Math.PI * 2)
+        ctx!.fill()
+        ctx!.shadowBlur = 0
+      }
+
+      const vignetteRadius = Math.max(lw, lh) * 0.75
+      const vigGrad = ctx!.createRadialGradient(lw / 2, lh / 2, vignetteRadius * 0.4, lw / 2, lh / 2, vignetteRadius)
+      vigGrad.addColorStop(0, 'rgba(0,0,0,0)')
+      vigGrad.addColorStop(1, 'rgba(0,0,5,0.8)')
+      ctx!.fillStyle = vigGrad
+      ctx!.fillRect(0, 0, lw, lh)
+
+      rafId = requestAnimationFrame(animate)
+    }
+
+    animate()
+
+    function onResize(): void {
+      lw = window.innerWidth
+      lh = window.innerHeight
+      w = lw * dpr
+      h = lh * dpr
+      canvas!.width = w
+      canvas!.height = h
+      canvas!.style.width = lw + 'px'
+      canvas!.style.height = lh + 'px'
+      ctx!.scale(dpr, dpr)
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', onResize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={mountRef}
+      style={{ position: 'fixed', inset: 0, zIndex: 0, background: '#000' }}
+    />
+  )
+}
