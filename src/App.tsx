@@ -623,5 +623,50 @@ export default function App() {
       >
         {hasTrack ? renderVisualizer(activeViz) : null}
       </motion.div>
+
+      {/* подсказка выхода из полноэкранного */}
+      <AnimatePresence>
+        {isFullscreen ? (
+          <motion.div
+            key="fs-hint"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 20 }}
+            transition={{ delay: 0.3, duration: 0.4 }}
+            className="fullscreen-exit-hint"
+          >
+            <kbd>Esc</kbd> или клик чтобы выйти
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      {/* шелл с панелями поверх */}
+      <div className="ui-shell">
+        <Sidebar
+          items={VIZ_ITEMS}
+          activeKey={activeViz}
+          onSelect={(k) => {
+            const next = k as VisualizerMode
+            if (next === activeViz) return
+            setActiveViz(next)
+            const item = VIZ_ITEMS.find((v) => v.key === next)
+            toast(item?.label ?? next, { description: 'эффект применён' })
+          }}
+          footer={sidebarFooter}
+          isFullscreen={isFullscreen}
+        />
+        <div className="main-column">
+          <Topbar
+            title={titleNode}
+            subtitle={subtitle}
+            onBack={hasTrack ? goBack : undefined}
+            actions={actions}
+            isFullscreen={isFullscreen}
+          />
+          <div className="stage-spacer" />
+          <Player
+            cover={cover}
+            title={title}
+            artist={artist}
 }
 )
