@@ -569,5 +569,145 @@ export function WitchscopeVisualizer() {
 
       timeRef.current++
       const driftT = timeRef.current
-}}}
-)
+      const drift = cameraDriftRef.current
+      const driftTargetX = isPlaying ? (Math.sin(driftT * 0.013) * 25 + Math.sin(driftT * 0.031) * 10) * shakeScl : 0
+      const driftTargetY = isPlaying ? (Math.cos(driftT * 0.011) * 18 + Math.sin(driftT * 0.027) * 7) * shakeScl : 0
+      const driftTargetRot = isPlaying ? Math.sin(driftT * 0.008) * 0.015 : 0
+      const driftTargetScale = isPlaying ? 1.0 + Math.sin(driftT * 0.018) * 0.04 + energy * 0.08 : 1.0
+      drift.x += (driftTargetX - drift.x) * 0.08
+      drift.y += (driftTargetY - drift.y) * 0.08
+      drift.rot += (driftTargetRot - drift.rot) * 0.08
+      drift.scale += (driftTargetScale - drift.scale) * 0.08
+
+      velXRef.current = shakeStateRef.current.x - prevShakeXRef.current
+      velYRef.current = shakeStateRef.current.y - prevShakeYRef.current
+      prevShakeXRef.current = shakeStateRef.current.x
+      prevShakeYRef.current = shakeStateRef.current.y
+
+      ctx.save()
+      ctx.translate(cx, cy)
+      ctx.rotate(drift.rot)
+      ctx.scale(drift.scale, drift.scale)
+      ctx.translate(-cx + drift.x, -cy + drift.y)
+      ctx.translate(shakeStateRef.current.x, shakeStateRef.current.y)
+      ctx.rotate(shakeStateRef.current.rot)
+
+      drawParticles(ctx, W, H, energy)
+
+      if (isPlaying) {
+        updateAndDrawLasers(ctx, W, H, cx, cy, beat, energy, scl, ringRadius, Math.floor(pp.beamMax))
+      }
+
+      drawShockwaves(ctx)
+
+      // motion blur: 2 прохода, скип на низкой скорости
+      const velMag = Math.abs(velXRef.current) + Math.abs(velYRef.current)
+
+      const renderRingPass = (mainPass: boolean) => {
+        const ringColor = currentRingColorRef.current
+
+        drawRing(
+          ctx, cx, cy, audioData, ringColor,
+          pulseRadius, finalAlpha, energy, progressRef.current, 2 * scl, 0.1, 15 * scl * pp.glow,
+        )
+
+        drawRing(
+          ctx, cx, cy, audioData, null,
+          pulseRadius, finalAlpha, energy, progressRef.current,
+        )
+
+        if (mainPass) {
+          for (let i = 0; i < CORONA_SCALES.length; i++) {
+            const coronaRadius = pulseRadius * CORONA_SCALES[i]
+            drawRing(
+              ctx, cx, cy, audioData, ringColor,
+              coronaRadius, finalAlpha, energy, progressRef.current, 2 * scl, CORONA_OPACITIES[i], CORONA_BLURS[i] * scl * pp.glow,
+            )
+          }
+        }
+      }
+
+      if (velMag < 0.5) {
+        renderRingPass(true)
+      } else {
+        ctx.save()
+        ctx.globalAlpha = 0.3
+        ctx.translate(-velXRef.current * 2, -velYRef.current * 2)
+        renderRingPass(false)
+        ctx.restore()
+
+        renderRingPass(true)
+      }
+
+      ctx.globalAlpha = 1.0
+
+      drawVHSNoise(ctx, W, H)
+
+      drawColorBleed(ctx, canvas, scl)
+
+      drawScanLines(ctx, W, H)
+
+      drawGrain(ctx, W, H, energy)
+
+      applyGlitch(ctx, W)
+
+      drawVignette(ctx, W, H)
+
+      ctx.restore()
+
+      ctx.save()
+      const titlePx = Math.round(minDim * 0.02)
+      ctx.font = `${titlePx}px 'VCR OSD Mono', monospace`
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+
+      const artist = (trackInfo.artist || '').toUpperCase()
+      const title = (trackInfo.title || '').toUpperCase()
+      const timer = formatTime(currentTime)
+
+      let fullLine: string
+      if (artist && title) fullLine = `${artist} - ${title}   ${timer}`
+      else if (title) fullLine = `${title}   ${timer}`
+      else if (artist) fullLine = `${artist}   ${timer}`
+      else fullLine = timer
+
+      const jitterX = Math.random() < 0.05 ? (Math.random() - 0.5) * 3 : 0
+      const jitterY = Math.random() < 0.05 ? (Math.random() - 0.5) * 2 : 0
+
+      const tx = W / 2 + jitterX
+      const ty = H * 0.92 + jitterY
+      const chOff = Math.max(1, 2 * scl)
+
+      ctx.globalCompositeOperation = 'screen'
+      ctx.fillStyle = 'rgba(255,0,0,0.7)'
+      ctx.fillText(fullLine, tx - chOff, ty)
+      ctx.fillStyle = 'rgba(0,0,255,0.7)'
+      ctx.fillText(fullLine, tx + chOff, ty)
+      ctx.fillStyle = 'rgba(255,255,255,0.95)'
+      ctx.fillText(fullLine, tx, ty)
+
+      ctx.restore()
+
+      rafRef.current = requestAnimationFrame(draw)
+    }
+
+    rafRef.current = requestAnimationFrame(draw)
+
+    return () => {
+      cancelAnimationFrame(rafRef.current)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
+  return (
+    <canvas
+      ref={canvasRef}
+      style={{
+        position: 'fixed',
+        inset: 0,
+        display: 'block',
+        zIndex: 0,
+      }}
+    />
+  )
+}
