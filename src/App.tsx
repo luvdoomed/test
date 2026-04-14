@@ -668,5 +668,47 @@ export default function App() {
             cover={cover}
             title={title}
             artist={artist}
+            isPlaying={isPlaying}
+            currentTime={currentTime}
+            duration={duration}
+            volume={volume}
+            liked={liked}
+            isFullscreen={isFullscreen}
+            onPlayToggle={togglePlay}
+            onSkipBack={skipBackward}
+            onSkipForward={skipForward}
+            onSeek={handleSeek}
+            onVolume={handleVolume}
+            onLikeToggle={() => {
+              setLiked((l) => {
+                const next = !l
+                toast(next ? 'Добавлено в любимое' : 'Убрано из любимого')
+                return next
+              })
+            }}
+          />
+        </div>
+      </div>
+
+      {hasTrack ? null : <Welcome dragging={dragging} onPickAudio={handlePickAudio} />}
+
+      <PresetsDrawer />
+
+      <ExportModal
+        isOpen={exportModalOpen}
+        onClose={() => setExportModalOpen(false)}
+        onStart={onStartExport}
+        trackDurationSec={duration}
+      />
+
+      {exportProgress ? (
+        <ExportProgressOverlay
+          current={exportProgress.current}
+          total={exportProgress.total}
+          startedAt={exportProgress.startedAt}
+          onCancel={cancelExport}
+        />
+      ) : null}
+    </div>
+  )
 }
-)
