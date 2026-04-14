@@ -102,5 +102,110 @@ export function FaceVisualizer() {
                         newDots.push({
                             gx,
                             gy,
-}}}}}}}
-))
+                            brightness: lum,
+                            phase: (gx * 0.17 + gy * 0.23) % TWO_PI,
+                        })
+                    }
+                }
+            }
+            dots = newDots
+        }
+        img.onerror = () => console.warn('face image failed')
+
+        const shake = { x: 0, y: 0, vx: 0, vy: 0, trauma: 0 }
+        let kickX = 0
+        let kickY = 0
+        let prevShakeX = 0
+        let prevShakeY = 0
+
+        const drift = { x: 0, y: 0 }
+        let timeFrame = 0
+
+        let beatPulse = 0
+        let prevBeat = false
+
+        const rays: Ray[] = []
+
+        let trackOpacity = 0
+        let lastTitle = ''
+
+        function resize() {
+            if (!canvas) return
+            canvas.width = window.innerWidth
+            canvas.height = window.innerHeight
+        }
+        resize()
+        window.addEventListener('resize', resize)
+
+        function draw() {
+            if (!canvas || !ctx) return
+
+            const W = canvas.width
+            const H = canvas.height
+            const cx = W / 2
+            const cy = H / 2
+            const data = audioDataRef.current
+            const curBeat = beatRef.current
+            const curEnergy = energyRef.current
+            const curIsPlaying = isPlayingRef.current
+
+            timeFrame++
+
+            const pp = paramsRef.current
+            const faceSizeMul = Math.max(0, pp.faceSize)
+            const dotSizeMul = Math.max(0, pp.dotSize)
+            const chromaMul = Math.max(0, pp.chromaShift)
+            const beatZoomMul = Math.max(0, pp.beatZoom)
+            const rayLenMul = Math.max(0, pp.rayLength)
+
+            ctx.fillStyle = 'rgba(4,1,10,0.45)'
+            ctx.fillRect(0, 0, W, H)
+
+            let bass = 0, mid = 0, high = 0
+            for (let i = 0; i < 14; i++) bass += Math.abs(data[i] ?? 0)
+            for (let i = 30; i < 60; i++) mid += Math.abs(data[i] ?? 0)
+            for (let i = 80; i < 120; i++) high += Math.abs(data[i] ?? 0)
+            bass /= 14; mid /= 30; high /= 40
+
+            const beatHit = curBeat && !prevBeat && curIsPlaying
+            prevBeat = curBeat
+            const sizeScale = Math.min(W, H) / 900
+            const lineScale = Math.min(W, H) / 1080
+            const chromaScale = Math.min(W, H) / 1080
+
+            if (beatHit) {
+                shake.trauma = Math.min(1, shake.trauma + (curEnergy > 0.05 ? 1.6 : 1.0))
+                const ang = Math.random() * TWO_PI
+                const kp = (curEnergy > 0.05 ? 28 : 16) * sizeScale
+                kickX = Math.cos(ang) * kp
+                kickY = Math.sin(ang) * kp
+                beatPulse = 1.0
+
+                if (curEnergy > 0.05) {
+                    const rayCount = 5 + Math.floor(Math.random() * 4)
+                    for (let i = 0; i < rayCount; i++) {
+                        rays.push({
+                            angle: Math.random() * TWO_PI,
+                            life: 18,
+                            maxLife: 18,
+                            length: (200 + Math.random() * 250) * sizeScale * rayLenMul,
+                        })
+                    }
+                }
+            }
+            beatPulse *= 0.88
+            kickX *= 0.7
+            kickY *= 0.7
+
+            shake.trauma *= 0.88
+            const tPow = shake.trauma * shake.trauma
+            const pt = performance.now() * 0.015
+            const tX = (Math.sin(pt * 2.1) + Math.sin(pt * 3.7)) * 0.5 * tPow * 25 * sizeScale
+            const tY = (Math.sin(pt * 1.9) + Math.sin(pt * 3.3)) * 0.5 * tPow * 18 * sizeScale
+            shake.vx += (tX - shake.x) * 0.4; shake.vx *= 0.55; shake.x += shake.vx
+            shake.vy += (tY - shake.y) * 0.4; shake.vy *= 0.55; shake.y += shake.vy
+
+            const velX = shake.x - prevShakeX + kickX
+            const velY = shake.y - prevShakeY + kickY
+}}}
+)
