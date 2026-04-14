@@ -207,5 +207,110 @@ export function FaceVisualizer() {
 
             const velX = shake.x - prevShakeX + kickX
             const velY = shake.y - prevShakeY + kickY
-}}}
+            prevShakeX = shake.x
+            prevShakeY = shake.y
+
+            if (curIsPlaying) {
+                drift.x += (Math.sin(timeFrame * 0.011) * 50 * sizeScale + Math.sin(timeFrame * 0.027) * 18 * sizeScale - drift.x) * 0.05
+                drift.y += (Math.cos(timeFrame * 0.009) * 35 * sizeScale + Math.sin(timeFrame * 0.023) * 12 * sizeScale - drift.y) * 0.05
+            } else {
+                drift.x *= 0.92; drift.y *= 0.92
+            }
+
+            const atmOpacity = 0.15 + high * 1.5
+            const atmGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, Math.min(W, H) * 0.55)
+            atmGrad.addColorStop(0, `rgba(60,10,80,${Math.min(0.4, atmOpacity)})`)
+            atmGrad.addColorStop(0.6, `rgba(30,5,50,${Math.min(0.2, atmOpacity * 0.5)})`)
+            atmGrad.addColorStop(1, 'rgba(0,0,0,0)')
+            ctx.fillStyle = atmGrad
+            ctx.fillRect(0, 0, W, H)
+
+            for (let i = rays.length - 1; i >= 0; i--) {
+                const ray = rays[i]
+                const t = 1 - ray.life / ray.maxLife
+                const alpha = Math.pow(1 - t, 2) * 0.6
+                const len = ray.length * (0.3 + t * 0.7)
+
+                const startX = cx + drift.x + shake.x + kickX
+                const startY = cy + drift.y + shake.y + kickY
+                const endX = startX + Math.cos(ray.angle) * len
+                const endY = startY + Math.sin(ray.angle) * len
+
+                const grad = ctx.createLinearGradient(startX, startY, endX, endY)
+                grad.addColorStop(0, `rgba(255,180,240,${alpha * 0.8})`)
+                grad.addColorStop(0.5, `rgba(255,100,220,${alpha * 0.4})`)
+                grad.addColorStop(1, 'rgba(255,100,220,0)')
+
+                ctx.save()
+                ctx.strokeStyle = grad
+                ctx.lineWidth = 1.5 + (1 - t) * 2 * lineScale
+                ctx.shadowBlur = 20
+                ctx.shadowColor = 'rgba(255,100,220,0.8)'
+                ctx.beginPath()
+                ctx.moveTo(startX, startY)
+                ctx.lineTo(endX, endY)
+                ctx.stroke()
+                ctx.restore()
+
+                ray.life--
+                if (ray.life <= 0) rays.splice(i, 1)
+            }
+
+            const faceH = Math.min(H * 0.85, W * 1.1) * faceSizeMul
+            const faceW = faceH * (GRID_W / GRID_H)
+            const beatScale = 1 + beatPulse * 0.12 * beatZoomMul
+            const scaledW = faceW * beatScale
+            const scaledH = faceH * beatScale
+            const scaledOffX = cx - scaledW / 2 + drift.x + shake.x + kickX
+            const scaledOffY = cy - scaledH / 2 + drift.y + shake.y + kickY
+            const scaledCellW = scaledW / GRID_W
+            const scaledCellH = scaledH / GRID_H
+
+            const motionAmount = Math.min(1, Math.abs(velX) + Math.abs(velY))
+            const chromaShift = (0.5 + motionAmount * 1.5 + high * 2) * chromaScale * chromaMul
+
+            // motion blur — доп. проход со смещением по velocity
+            const motionPasses = motionAmount > 0.25 ? [
+                { dx: -velX * 0.25, dy: -velY * 0.25, alphaMul: 0.2 },
+            ] : []
+
+            for (const dot of dots) {
+                const freqIdx = Math.floor((dot.gx / GRID_W) * 100) + 4
+                const freqAmp = Math.abs(data[freqIdx] ?? 0)
+
+                const wave = Math.sin(timeFrame * 0.04 + dot.phase) * 0.5 + 0.5
+                const pulse = dot.brightness * (0.5 + wave * 0.5 + freqAmp * 2.5 + beatPulse * 0.3 + high * 1.2)
+
+                const px = scaledOffX + dot.gx * scaledCellW
+                const py = scaledOffY + dot.gy * scaledCellH
+
+                const alpha = Math.min(1, pulse * 0.5 + dot.brightness * 0.6)
+                const columnHeight = scaledCellH * (0.3 + dot.brightness * 0.6 + pulse * 1.0)
+                const dotSize = Math.max(0.7, scaledCellW * (0.35 + dot.brightness * 0.4) * dotSizeMul)
+                const dotsInColumn = 1 + Math.floor(pulse * 2)
+
+                const brightShift = (dot.brightness - 0.5) * 2
+                const baseR = Math.round(180 + brightShift * 75)
+                const baseG = Math.round(80 + brightShift * 100)
+                const baseB = Math.round(180 + brightShift * 60)
+                const useChroma = chromaShift > 0.8
+                const passes = useChroma ? [
+                    { dx: -chromaShift, dy: 0, r: Math.max(80, baseR - 30), g: 40, b: Math.max(100, baseB - 40), alphaMul: 0.5 },
+                    { dx: 0, dy: 0, r: baseR, g: baseG, b: baseB, alphaMul: 1.0 },
+                    { dx: chromaShift, dy: 0, r: Math.max(80, baseR - 60), g: Math.max(80, baseG - 20), b: Math.min(255, baseB + 40), alphaMul: 0.4 },
+                ] : [
+                    { dx: 0, dy: 0, r: baseR, g: baseG, b: baseB, alphaMul: 1.0 },
+                ]
+
+                for (const mp of motionPasses) {
+                    ctx.save()
+                    ctx.globalAlpha = mp.alphaMul
+                    ctx.fillStyle = `rgba(255,130,220,${alpha})`
+                    ctx.shadowBlur = 0
+                    ctx.shadowColor = 'rgba(255,130,220,0.6)'
+                    for (let k = 0; k < dotsInColumn; k++) {
+                        const kt = k / Math.max(1, dotsInColumn - 1)
+                        const dotY = py + (kt - 0.5) * columnHeight + mp.dy
+                        ctx.beginPath()
+}}}}}}
 )
