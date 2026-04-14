@@ -312,5 +312,107 @@ export function FaceVisualizer() {
                         const kt = k / Math.max(1, dotsInColumn - 1)
                         const dotY = py + (kt - 0.5) * columnHeight + mp.dy
                         ctx.beginPath()
-}}}}}}
-)
+                        ctx.arc(px + mp.dx, dotY, dotSize * 1.1, 0, TWO_PI)
+                        ctx.fill()
+                    }
+                    ctx.restore()
+                }
+
+                // chromatic aberration 3 прохода
+                for (const p of passes) {
+                    ctx.save()
+                    ctx.shadowBlur = p.alphaMul === 1.0 ? (3 + freqAmp * 8) : 0
+                    ctx.shadowColor = `rgba(${p.r},${p.g},${p.b},1)`
+                    const chAlpha = alpha * p.alphaMul
+
+                    for (let k = 0; k < dotsInColumn; k++) {
+                        const kt = k / Math.max(1, dotsInColumn - 1)
+                        const dotY = py + (kt - 0.5) * columnHeight + p.dy
+                        const dotAlpha = chAlpha * (1 - Math.abs(kt - 0.5) * 0.5)
+                        ctx.fillStyle = `rgba(${p.r},${p.g},${p.b},${dotAlpha})`
+                        ctx.beginPath()
+                        ctx.arc(px + p.dx, dotY, dotSize, 0, TWO_PI)
+                        ctx.fill()
+                    }
+                    ctx.restore()
+                }
+
+                // корона 3 слоя свечения на больших пиках
+                if (pulse > 0.85 && Math.random() < 0.06) {
+                    const coronaSlots = [
+                        { scale: 1.06, blur: 8, opacity: 0.25 },
+                        { scale: 1.12, blur: 14, opacity: 0.15 },
+                        { scale: 1.2, blur: 22, opacity: 0.08 },
+                    ]
+                    for (const c of coronaSlots) {
+                        ctx.save()
+                        ctx.shadowBlur = c.blur
+                        ctx.shadowColor = 'rgba(255,150,230,1)'
+                        ctx.fillStyle = `rgba(255,200,240,${c.opacity})`
+                        ctx.beginPath()
+                        ctx.arc(px, py, dotSize * c.scale * 2, 0, TWO_PI)
+                        ctx.fill()
+                        ctx.restore()
+                    }
+                }
+
+            }
+
+            ctx.fillStyle = 'rgba(255,200,255,0.025)'
+            for (let i = 0; i < 170; i++) {
+                ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1)
+            }
+
+            const vign = ctx.createRadialGradient(cx, cy, Math.min(W, H) * 0.3, cx, cy, Math.min(W, H) * 0.7)
+            vign.addColorStop(0, 'rgba(0,0,0,0)')
+            vign.addColorStop(1, 'rgba(0,0,0,0.7)')
+            ctx.fillStyle = vign
+            ctx.fillRect(0, 0, W, H)
+
+            const hasTrack = trackInfoRef.current.title.length > 0
+            if (hasTrack && lastTitle !== trackInfoRef.current.title) {
+                trackOpacity = 0
+                lastTitle = trackInfoRef.current.title
+            }
+            if (hasTrack) trackOpacity = Math.min(1, trackOpacity + 0.02)
+            else trackOpacity = Math.max(0, trackOpacity - 0.02)
+
+            if (trackOpacity > 0.01) {
+                ctx.textAlign = 'center'
+                const capFont = Math.round(Math.min(W, H) * 0.014)
+                const titleFont = Math.round(Math.min(W, H) * 0.02)
+                if (trackInfoRef.current.artist) {
+                    ctx.font = `600 ${capFont}px monospace`
+                    ctx.letterSpacing = '3px'
+                    ctx.fillStyle = `rgba(255,150,220,${0.65 * trackOpacity})`
+                    ctx.fillText(trackInfoRef.current.artist.toUpperCase(), cx, H * 0.88)
+                }
+                ctx.font = `600 ${titleFont}px monospace`
+                ctx.letterSpacing = '0px'
+                ctx.fillStyle = `rgba(255,230,250,${trackOpacity})`
+                ctx.fillText(trackInfoRef.current.title, cx, H * 0.92)
+            }
+
+            rafRef.current = requestAnimationFrame(draw)
+        }
+
+        rafRef.current = requestAnimationFrame(draw)
+        return () => {
+            cancelAnimationFrame(rafRef.current)
+            window.removeEventListener('resize', resize)
+        }
+    }, [])
+
+    return (
+        <canvas
+            ref={canvasRef}
+            style={{
+                position: 'fixed',
+                inset: 0,
+                display: 'block',
+                zIndex: 0,
+                background: '#04010a',
+            }}
+        />
+    )
+}
