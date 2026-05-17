@@ -12,6 +12,7 @@ import { LayerMaterial, Fresnel, Displace } from 'lamina'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useAudioStore } from '../store/audioStore'
+import { AudioInvalidator } from './_AudioInvalidator'
 
 const CAMERA_CONFIG = { position: [0, 0, 5] as [number, number, number], fov: 45 }
 const BG_COLOR = '#000000'
@@ -113,9 +114,11 @@ function Blob() {
 }
 
 export function HaloVisualizer() {
+  const composerRef = useRef<{ render: (d?: number) => void } | null>(null)
   return (
     <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
-      <Canvas camera={CAMERA_CONFIG}>
+      <Canvas camera={CAMERA_CONFIG} gl={{ preserveDrawingBuffer: true }}>
+        <AudioInvalidator composerRef={composerRef} />
         <color attach="background" args={BG_COLOR_ARGS} />
         <ambientLight intensity={1} />
 
@@ -128,7 +131,7 @@ export function HaloVisualizer() {
           <Blob />
         </Float>
 
-        <EffectComposer>
+        <EffectComposer ref={composerRef as any}>
           <Bloom
             intensity={2.5}
             luminanceThreshold={0.1}

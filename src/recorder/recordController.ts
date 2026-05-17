@@ -1,14 +1,10 @@
+import { invoke } from '@tauri-apps/api/core'
+import { writeFile } from '@tauri-apps/plugin-fs'
+import { flushSync } from 'react-dom'
 import { analyzeOffline } from '../audio/offlineAnalyzer'
 import { audioEngine } from '../audio/audioEngine'
 import { useAudioStore } from '../store/audioStore'
-import { installShim, tickFrame, uninstallShim } from './rafShim'
-import {
-  FrameCapture,
-  beginFrameStream,
-  appendFrame,
-  cancelFrameStream,
-  finalizeVideo,
-} from './videoEncoder'
+import { diagLog } from './_diagLog'
 
 export interface RecordOptions {
   audioBuffer: AudioBuffer
@@ -28,36 +24,149 @@ export interface RecordResult {
   fps: number
 }
 
+const WRITE_CONCURRENCY = 3
+
+const shim = {
+  installed: false,
+  virtualNow: 0,
+  nextId: 1,
+  queue: new Map<number, FrameRequestCallback>(),
+  origRaf: null as typeof window.requestAnimationFrame | null,
+  origCaf: null as typeof window.cancelAnimationFrame | null,
+  origNow: null as typeof performance.now | null,
+}
+
+function installShim(): void {
+  if (shim.installed) return
+  shim.installed = true
+  shim.virtualNow = 0
+  shim.nextId = 1
+  shim.queue.clear()
+  shim.origRaf = window.requestAnimationFrame
+  shim.origCaf = window.cancelAnimationFrame
+  shim.origNow = performance.now
+  window.requestAnimationFrame = (cb) => {
+    const id = shim.nextId++
+    shim.queue.set(id, cb)
+    return id
+  }
+  window.cancelAnimationFrame = (id) => { shim.queue.delete(id) }
+  performance.now = () => shim.virtualNow
+}
+
+function uninstallShim(): void {
+  if (!shim.installed) return
+  shim.installed = false
+
+  // pending колбэки нельзя выкидывать: r3f после экспорта зависает на чёрном кадре
+  const pending = Array.from(shim.queue.values())
+  shim.queue.clear()
+
+  if (shim.origRaf) window.requestAnimationFrame = shim.origRaf
+  if (shim.origCaf) window.cancelAnimationFrame = shim.origCaf
+  if (shim.origNow) performance.now = shim.origNow
+
+  for (const cb of pending) {
+    try { window.requestAnimationFrame(cb) } catch { /* ignore */ }
+  }
+
+  shim.origRaf = shim.origCaf = shim.origNow = null
+}
+
+async function tickFrame(deltaMs: number): Promise<void> {
+  shim.virtualNow += deltaMs
+  flushSync(() => {})
+
+  const pending = Array.from(shim.queue.values())
+  shim.queue.clear()
+
+  for (const cb of pending) {
+    try { cb(shim.virtualNow) } catch (err) { console.error('[rec] rAF cb error:', err) }
+  }
+
+  // event с виртуальной меткой времени в секундах: AudioInvalidator вызывает r3f advance(t)
+  window.dispatchEvent(new CustomEvent('mvapp-export-tick', { detail: shim.virtualNow / 1000 }))
+
+  // r3f/three планируют побочные эффекты через микротаски и вложенные rAF, 3 ротации хватает
+  for (let i = 0; i < 3; i++) {
+    await Promise.resolve()
+  }
+
+  flushSync(() => {})
+}
+
 function findMainCanvas(): HTMLCanvasElement | null {
   const canvases = Array.from(document.querySelectorAll('canvas'))
   if (canvases.length === 0) return null
-  canvases.sort((a, b) => (b.width * b.height) - (a.width * a.height))
-  return canvases[0]
-}
-
-function detectGL(canvas: HTMLCanvasElement): WebGL2RenderingContext | WebGLRenderingContext | null {
-  try {
-    const gl2 = canvas.getContext('webgl2') as WebGL2RenderingContext | null
-    if (gl2) return gl2
-  } catch { /* ignore */ }
-  try {
-    const gl = canvas.getContext('webgl') as WebGLRenderingContext | null
-    if (gl) return gl
-  } catch { /* ignore */ }
-  return null
-}
-
-function flipRowsInPlace(dst: Uint8Array, width: number, height: number): void {
-  const rowBytes = width * 4
-  const tmp = new Uint8Array(rowBytes)
-  const half = height >> 1
-  for (let y = 0; y < half; y++) {
-    const top = y * rowBytes
-    const bot = (height - 1 - y) * rowBytes
-    tmp.set(dst.subarray(top, top + rowBytes))
-    dst.copyWithin(top, bot, bot + rowBytes)
-    dst.set(tmp, bot)
+  // выбираем по видимой css-площади на экране, иначе галерейные превьюшки в режиме 9:16 могут победить
+  // по сырым пикселям (dpr × тайл) живой визуализатор который сжали под узкое окно
+  let best: HTMLCanvasElement | null = null
+  let bestArea = -1
+  for (const c of canvases) {
+    const rect = c.getBoundingClientRect()
+    if (rect.width <= 0 || rect.height <= 0) continue
+    const area = rect.width * rect.height
+    if (area > bestArea) { bestArea = area; best = c }
   }
+  return best
+}
+
+// аспект-сохраняющий cover (центральный кроп), иначе drawImage растянет источник под целевое разрешение
+function drawCover(
+  ctx: CanvasRenderingContext2D,
+  src: HTMLCanvasElement,
+  dstW: number,
+  dstH: number,
+): void {
+  const sw = src.width
+  const sh = src.height
+  if (sw === 0 || sh === 0) return
+  const srcRatio = sw / sh
+  const dstRatio = dstW / dstH
+  let sx = 0, sy = 0, sWidth = sw, sHeight = sh
+  if (srcRatio > dstRatio) {
+    sHeight = sh
+    sWidth = sh * dstRatio
+    sx = (sw - sWidth) / 2
+  } else if (srcRatio < dstRatio) {
+    sWidth = sw
+    sHeight = sw / dstRatio
+    sy = (sh - sHeight) / 2
+  }
+  ctx.drawImage(src, sx, sy, sWidth, sHeight, 0, 0, dstW, dstH)
+}
+
+function describeCanvas(c: HTMLCanvasElement) {
+  const rect = c.getBoundingClientRect()
+  const parent = c.parentElement
+  const grand = parent?.parentElement
+  return {
+    w: c.width,
+    h: c.height,
+    rectW: Math.round(rect.width),
+    rectH: Math.round(rect.height),
+    rectArea: Math.round(rect.width * rect.height),
+    cls: (c.className || '').slice(0, 40),
+    parentCls: (parent?.className || '').slice(0, 40),
+    grandCls: (grand?.className || '').slice(0, 40),
+    inDom: document.body.contains(c),
+  }
+}
+
+function pad7(n: number): string {
+  return String('0000000' + n).slice(-7)
+}
+
+function canvasToJpegBytes(canvas: HTMLCanvasElement): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    canvas.toBlob((blob) => {
+      if (!blob) { reject(new Error('canvas.toBlob вернул null')); return }
+      const fr = new FileReader()
+      fr.onload = () => resolve(new Uint8Array(fr.result as ArrayBuffer))
+      fr.onerror = () => reject(fr.error ?? new Error('FileReader error'))
+      fr.readAsArrayBuffer(blob)
+    }, 'image/jpeg', 0.85)
+  })
 }
 
 export async function runRecording(options: RecordOptions): Promise<RecordResult> {
@@ -66,194 +175,118 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
   const analysis = await analyzeOffline(audioBuffer, fps)
   const store = useAudioStore.getState()
 
-  const allCanvases = Array.from(document.querySelectorAll('canvas'))
-  const canvasSizes = allCanvases.map(c => ({ w: c.width, h: c.height }))
   const startCanvas = findMainCanvas()
   if (!startCanvas) throw new Error('canvas визуализатора не найден в DOM')
 
-  // захват идёт в нативных пикселях canvas, а не в целевых, чтобы не плющить аспект
-  const captureWidth = startCanvas.width
-  const captureHeight = startCanvas.height
-
-  const capture = new FrameCapture(captureWidth, captureHeight)
-
-  console.log('[rec-diag] START', {
-    outputW: width,
-    outputH: height,
-    captureW: captureWidth,
-    captureH: captureHeight,
-    canvasW: startCanvas.width,
-    canvasH: startCanvas.height,
-    canvasStyleW: startCanvas.style.width,
-    canvasStyleH: startCanvas.style.height,
-    canvasCssW: startCanvas.getBoundingClientRect().width,
-    canvasCssH: startCanvas.getBoundingClientRect().height,
-    winInnerW: window.innerWidth,
-    winInnerH: window.innerHeight,
-    devicePixelRatio: window.devicePixelRatio,
-    canvasCount: allCanvases.length,
-    canvasSizes,
-  })
-
   audioEngine.stop()
 
-  const realNow = performance.now.bind(performance)
+  // промежуточный canvas в целевом разрешении, иначе toBlob тащит ретину 2880×1800 → ~15 МБ/кадр
+  const scaledCanvas = document.createElement('canvas')
+  scaledCanvas.width = width
+  scaledCanvas.height = height
+  const scaledCtx = scaledCanvas.getContext('2d')
+  if (!scaledCtx) throw new Error('не удалось создать scaled 2d контекст')
 
-  const framePath = await beginFrameStream(captureWidth, captureHeight, fps)
-  let finalized = false
+  diagLog(`[rec-diag] sizes ${JSON.stringify({
+    vizCanvasW: startCanvas.width,
+    vizCanvasH: startCanvas.height,
+    scaledW: scaledCanvas.width,
+    scaledH: scaledCanvas.height,
+    dpr: window.devicePixelRatio,
+  })}`)
+
+  const allCanvases = Array.from(document.querySelectorAll('canvas'))
+  diagLog(`[rec-diag] canvases in DOM: ${allCanvases.length}`)
+  allCanvases.forEach((c, i) => {
+    diagLog(`[rec-diag] canvas[${i}] ${JSON.stringify(describeCanvas(c))}`)
+  })
+  diagLog(`[rec-diag] selected canvas: ${JSON.stringify(describeCanvas(startCanvas))}`)
+
+  const total = analysis.totalFrames
+  const deltaMs = 1000 / fps
+
+  // папка под кадры на диске, plugin-fs writeFile использует бинарный ipc, сильно быстрее json
+  const framesDir = await invoke<string>('prepare_export_dir')
+  diagLog(`[rec-diag] export dir ${framesDir}`)
+
   let writtenFrames = 0
+  let totalBytes = 0
+  const inFlight = new Set<Promise<void>>()
 
-  // пинг-понг из двух буферов: пока один уезжает в ipc, второй принимает следующий кадр
-  const frameBytes = captureWidth * captureHeight * 4
-  const framePools = [new Uint8Array(frameBytes), new Uint8Array(frameBytes)]
-  let poolIdx = 0
+  async function enqueueWrite(name: string, bytes: Uint8Array): Promise<void> {
+    while (inFlight.size >= WRITE_CONCURRENCY) {
+      await Promise.race(inFlight)
+    }
+    const p = writeFile(`${framesDir}/${name}`, bytes)
+      .catch((err) => { console.error('[rec] writeFile error', name, err); throw err })
+      .finally(() => { inFlight.delete(p) })
+    inFlight.add(p)
+  }
 
-  let pendingWrite: Promise<void> | null = null
+  // переключаем r3f в frameloop=never до старта shim'а
+  window.dispatchEvent(new Event('mvapp-export-start'))
+  await Promise.resolve()
 
-  let cachedCanvas: HTMLCanvasElement | null = null
-  let cachedGL: WebGL2RenderingContext | WebGLRenderingContext | null = null
-  let pathLogged = false
-
-  let tickTotal = 0
-  let grabTotal = 0
-  let writeTotal = 0
-
+  installShim()
+  let exportFailed = false
   try {
-    installShim()
-    try {
-      const total = analysis.totalFrames
-      const deltaMs = 1000 / fps
+    for (let f = 0; f < total; f++) {
+      store.setAudioData(analysis.snapshots[f])
+      store.setEnergy(analysis.energies[f])
+      store.setBeat(analysis.beats[f])
+      store.setCurrentTime(f / fps)
+      store.setIsPlaying(true)
 
-      for (let f = 0; f < total; f++) {
-        store.setAudioData(analysis.snapshots[f])
-        store.setEnergy(analysis.energies[f])
-        store.setBeat(analysis.beats[f])
-        store.setCurrentTime(f / fps)
-        store.setIsPlaying(true)
+      await tickFrame(deltaMs)
 
-        const tTick0 = realNow()
-        await tickFrame(deltaMs)
-        tickTotal += realNow() - tTick0
+      const canvas = findMainCanvas()
+      if (!canvas) throw new Error('canvas визуализатора пропал из DOM')
 
-        const canvas = findMainCanvas()
-        if (!canvas) throw new Error('canvas визуализатора не найден в DOM')
+      drawCover(scaledCtx, canvas, scaledCanvas.width, scaledCanvas.height)
+      const jpeg = await canvasToJpegBytes(scaledCanvas)
+      totalBytes += jpeg.byteLength
 
-        if (f % 100 === 0) {
-          const rect = canvas.getBoundingClientRect()
-          console.log('[rec-diag] frame', f, {
-            outputW: width,
-            outputH: height,
-            captureW: captureWidth,
-            captureH: captureHeight,
-            canvasW: canvas.width,
-            canvasH: canvas.height,
-            canvasStyleW: canvas.style.width,
-            canvasStyleH: canvas.style.height,
-            canvasCssW: rect.width,
-            canvasCssH: rect.height,
-            canvasTransform: canvas.style.transform,
-            winInnerW: window.innerWidth,
-            winInnerH: window.innerHeight,
-            devicePixelRatio: window.devicePixelRatio,
-          })
-        }
+      await enqueueWrite(`frame_${pad7(writtenFrames)}.jpg`, jpeg)
+      writtenFrames++
 
-        if (canvas !== cachedCanvas) {
-          cachedCanvas = canvas
-          cachedGL = detectGL(canvas)
-        }
-
-        const canUseGL = cachedGL !== null && canvas.width === captureWidth && canvas.height === captureHeight
-
-        if (!pathLogged) {
-          pathLogged = true
-          const isGL2 = typeof WebGL2RenderingContext !== 'undefined'
-            && cachedGL instanceof WebGL2RenderingContext
-          const contextType = cachedGL === null ? '2d-or-none' : (isGL2 ? 'webgl2' : 'webgl')
-          const fallbackReason = cachedGL === null
-            ? 'canvas без gl, идём через drawImage+getImageData'
-            : (canUseGL ? null : 'размеры canvas изменились после старта, остаёмся на 2d-drawImage')
-          console.log('[rec-grab] путь захвата', {
-            contextType,
-            willFlip: canUseGL,
-            fallbackReason,
-          })
-        }
-
-        const framePool = framePools[poolIdx]
-
-        const tGrab0 = realNow()
-        if (canUseGL) {
-          const gl = cachedGL as WebGL2RenderingContext | WebGLRenderingContext
-          gl.readPixels(0, 0, captureWidth, captureHeight, gl.RGBA, gl.UNSIGNED_BYTE, framePool)
-          flipRowsInPlace(framePool, captureWidth, captureHeight)
-        } else {
-          const bytes = capture.grab(canvas)
-          framePool.set(bytes)
-        }
-        grabTotal += realNow() - tGrab0
-
-        // ждём предыдущую запись уже после захвата, чтобы grab перекрывался с write,
-        if (pendingWrite) {
-          await pendingWrite
-          pendingWrite = null
-        }
-
-        const wStart = realNow()
-        pendingWrite = appendFrame(framePath, framePool).then(() => {
-          writeTotal += realNow() - wStart
-        })
-
-        poolIdx = 1 - poolIdx
-        writtenFrames++
-
-        if (onProgress && f % 30 === 0) onProgress(f, total)
-
-        if (f > 0 && f % 500 === 0) {
-          const n = f + 1
-          console.log('[rec-timing] кадр', f, {
-            avgTickMs: (tickTotal / n).toFixed(2),
-            avgGrabMs: (grabTotal / n).toFixed(2),
-            avgWriteMs: (writeTotal / n).toFixed(2),
-            avgTotalMs: ((tickTotal + grabTotal + writeTotal) / n).toFixed(2),
-          })
-        }
+      if (f < 10 || f % 30 === 0) {
+        const srcR = (canvas.width / canvas.height).toFixed(3)
+        const dstR = (scaledCanvas.width / scaledCanvas.height).toFixed(3)
+        diagLog(`[rec-diag] frame ${f} jpegSize ${jpeg.byteLength} canvasW ${canvas.width} canvasH ${canvas.height} srcRatio ${srcR} dstRatio ${dstR}`)
       }
 
-      if (pendingWrite) {
-        await pendingWrite
-        pendingWrite = null
-      }
-
-      store.setIsPlaying(false)
-      if (onProgress) onProgress(total, total)
-
-      const n = Math.max(1, writtenFrames)
-      console.log('[rec-timing] итого', {
-        frames: writtenFrames,
-        tickMs: Math.round(tickTotal),
-        grabMs: Math.round(grabTotal),
-        writeMs: Math.round(writeTotal),
-        avgTickMs: (tickTotal / n).toFixed(2),
-        avgGrabMs: (grabTotal / n).toFixed(2),
-        avgWriteMs: (writeTotal / n).toFixed(2),
-        avgTotalMs: ((tickTotal + grabTotal + writeTotal) / n).toFixed(2),
-      })
-    } finally {
-      uninstallShim()
+      if (onProgress && f % 30 === 0) onProgress(f, total)
     }
 
-    await finalizeVideo(framePath, captureWidth, captureHeight, width, height, fps, audioBytes, audioExtension, outputPath)
-    finalized = true
+    // ждём оставшиеся записи на диск
+    if (inFlight.size > 0) await Promise.all(Array.from(inFlight))
+
+    store.setIsPlaying(false)
+    if (onProgress) onProgress(total, total)
+  } catch (err) {
+    exportFailed = true
+    throw err
   } finally {
-    if (!finalized) {
-      if (pendingWrite) {
-        try { await pendingWrite } catch { /* ignore */ }
-        pendingWrite = null
-      }
-      try { await cancelFrameStream(framePath) } catch { /* уже убит */ }
+    uninstallShim()
+    window.dispatchEvent(new Event('mvapp-export-end'))
+    if (exportFailed) {
+      try { await invoke('cleanup_export_dir', { dir: framesDir }) } catch { /* ignore */ }
     }
   }
+
+  diagLog(`[rec] кадров ${writtenFrames} totalBytes ${(totalBytes / 1024 / 1024).toFixed(1)} MB`)
+
+  const t0 = performance.now()
+  await invoke('build_video_from_dir', {
+    framesDir,
+    width,
+    height,
+    fps,
+    audioBytes: Array.from(audioBytes),
+    audioExtension,
+    outputPath,
+  })
+  diagLog(`[rec-diag] IPC + ffmpeg took ${((performance.now() - t0) / 1000).toFixed(1)} s`)
 
   return { frameCount: writtenFrames, width, height, fps }
 }

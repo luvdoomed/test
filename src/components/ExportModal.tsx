@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useState } from 'react'
 
 export type AspectKey = '16:9' | '9:16' | '1:1'
 
@@ -14,7 +14,6 @@ interface Resolution {
   sub: string
   width: number
   height: number
-  perFrameMs: number
 }
 
 interface AspectOption {
@@ -32,9 +31,9 @@ const ASPECTS: AspectOption[] = [
     caption: 'Горизонтальное · YouTube',
     defaultIdx: 1,
     resolutions: [
-      { label: '720p', sub: '1280×720', width: 1280, height: 720, perFrameMs: 30 },
-      { label: '1080p', sub: '1920×1080', width: 1920, height: 1080, perFrameMs: 55 },
-      { label: '1440p', sub: '2560×1440', width: 2560, height: 1440, perFrameMs: 100 },
+      { label: '720p', sub: '1280×720', width: 1280, height: 720 },
+      { label: '1080p', sub: '1920×1080', width: 1920, height: 1080 },
+      { label: '1440p', sub: '2560×1440', width: 2560, height: 1440 },
     ],
   },
   {
@@ -43,9 +42,9 @@ const ASPECTS: AspectOption[] = [
     caption: 'Вертикальное · Reels, TikTok',
     defaultIdx: 1,
     resolutions: [
-      { label: '720p', sub: '720×1280', width: 720, height: 1280, perFrameMs: 30 },
-      { label: '1080p', sub: '1080×1920', width: 1080, height: 1920, perFrameMs: 55 },
-      { label: '1440p', sub: '1440×2560', width: 1440, height: 2560, perFrameMs: 100 },
+      { label: '720p', sub: '720×1280', width: 720, height: 1280 },
+      { label: '1080p', sub: '1080×1920', width: 1080, height: 1920 },
+      { label: '1440p', sub: '1440×2560', width: 1440, height: 2560 },
     ],
   },
   {
@@ -54,9 +53,9 @@ const ASPECTS: AspectOption[] = [
     caption: 'Квадрат · Instagram',
     defaultIdx: 1,
     resolutions: [
-      { label: '720p', sub: '720×720', width: 720, height: 720, perFrameMs: 25 },
-      { label: '1080p', sub: '1080×1080', width: 1080, height: 1080, perFrameMs: 45 },
-      { label: '1440p', sub: '1440×1440', width: 1440, height: 1440, perFrameMs: 80 },
+      { label: '720p', sub: '720×720', width: 720, height: 720 },
+      { label: '1080p', sub: '1080×1080', width: 1080, height: 1080 },
+      { label: '1440p', sub: '1440×1440', width: 1440, height: 1440 },
     ],
   },
 ]
@@ -70,19 +69,13 @@ interface ExportModalProps {
   trackDurationSec: number
 }
 
-export function ExportModal({ isOpen, onClose, onStart, trackDurationSec }: ExportModalProps) {
+export function ExportModal({ isOpen, onClose, onStart }: ExportModalProps) {
   const [aspectIdx, setAspectIdx] = useState(0)
   const [resIdx, setResIdx] = useState(ASPECTS[0].defaultIdx)
   const [fps, setFps] = useState(60)
 
   const aspect = ASPECTS[aspectIdx]
   const resolution = aspect.resolutions[resIdx] ?? aspect.resolutions[aspect.defaultIdx]
-
-  const estimatedSec = useMemo(() => {
-    if (trackDurationSec <= 0) return 0
-    const frames = trackDurationSec * fps
-    return Math.round((frames * resolution.perFrameMs) / 1000)
-  }, [trackDurationSec, fps, resolution])
 
   if (!isOpen) return null
 
@@ -104,7 +97,6 @@ export function ExportModal({ isOpen, onClose, onStart, trackDurationSec }: Expo
     <div className="overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="modal-card export-modal" onClick={(e) => e.stopPropagation()}>
         <h2 className="export-modal__title">Экспорт видео</h2>
-        <p className="export-modal__sub">{`Длительность трека: ${formatTime(trackDurationSec)} · оценка рендера: ${formatEstimate(estimatedSec)}`}</p>
 
         <div className="export-modal__group">
           <div className="export-modal__group-title">Пропорция</div>
@@ -207,17 +199,3 @@ export function ExportProgressOverlay({ current, total, startedAt, onCancel }: E
   )
 }
 
-function formatTime(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return '00:00'
-  const m = Math.floor(seconds / 60)
-  const s = Math.floor(seconds % 60)
-  return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
-}
-
-function formatEstimate(sec: number): string {
-  if (sec <= 0) return '—'
-  if (sec < 60) return `примерно ${sec} сек`
-  const m = Math.floor(sec / 60)
-  const s = sec % 60
-  return s > 0 ? `${m} мин ${s} сек` : `${m} мин`
-}

@@ -1,64 +1,28 @@
-import {
-  type ChangeEvent,
-  type DragEvent,
-  type ReactNode,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { save } from '@tauri-apps/plugin-dialog'
-import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window'
-import { createRoot } from 'react-dom/client'
-import { Toaster, toast } from 'sonner'
-import { AnimatePresence, motion } from 'framer-motion'
-
+import { useUIStore } from './store/uiStore'
 import { useThemeStore } from './store/themeStore'
 import { useAudioStore } from './store/audioStore'
+import { useLibraryStore } from './store/libraryStore'
+import { useUserVizStore } from './userViz/userVizStore'
 import { audioEngine } from './audio/audioEngine'
-import { testOfflineAnalyzer } from './audio/offlineAnalyzer'
+import { loadTrack } from './library/playback'
 import { runRecording } from './recorder/recordController'
-import { installShim, tickFrame, uninstallShim } from './recorder/rafShim'
-import { type Frame as ProfilerFrame } from './profiler/testPatterns'
-import { profileVisualizer, type VibeProfile } from './profiler/profiler'
-import { setCachedProfile, getAllCachedProfiles } from './profiler/profileCache'
-import { profileTrack } from './profiler/trackProfiler'
-import { matchVisualizers, selectWeightedFromTop } from './profiler/matcher'
-import { usePresetsStore } from './presets/presetsStore'
-import { parseLrc } from './utils/lrcParser'
-import { extractCoverColors, applyCoverPalette } from './utils/extractCoverColors'
-
-import { AuraBackground } from './components/Layout/AuraBackground'
-import { Sidebar } from './components/Layout/Sidebar'
-import { Topbar } from './components/Layout/Topbar'
-import { Player } from './components/Layout/Player'
-import { Welcome } from './components/Welcome'
-import { PresetsDrawer } from './components/PresetsDrawer'
+import { isTauri } from './utils/platform'
+import { pickVizForMood, getLastAutoPickedViz } from './audio/moodEngine'
+import { getAllVisualizersInfoSnapshot } from './gallery/all'
+import TopNav from './components/TopNav'
+import VisualizersGallery from './pages/VisualizersGallery'
+import Library from './pages/Library'
+import Wave from './pages/Wave'
+import UserVizPage from './pages/UserVizPage'
+import PlayerOverlay from './components/player/PlayerOverlay'
+import MiniPlayer from './components/MiniPlayer'
 import {
   ExportModal,
   ExportProgressOverlay,
-  type AspectKey,
   type ExportSettings,
 } from './components/ExportModal'
-
-import { VIZ_ITEMS, renderVisualizer, type VisualizerMode } from './vizItems'
-
-const ACCEPTED_EXT = ['.mp3', '.flac', '.wav']
-const ACCEPTED_MIME = ['audio/mpeg', 'audio/flac', 'audio/wav', 'audio/x-wav']
-const SKIP_SEC = 10
-
-const WORK_SIZES: Record<AspectKey, { w: number; h: number }> = {
-  '16:9': { w: 1600, h: 900 },
-  '9:16': { w: 600, h: 1067 },
-  '1:1': { w: 1000, h: 1000 },
-}
-
-const MOOD_RU: Record<VibeProfile['mood'], string> = {
-  neon: 'неон',
-  warm: 'тёплый',
-  cold: 'холодный',
-  dark: 'тёмный',
-}
 
 interface ExportProgress {
   current: number
@@ -66,339 +30,89 @@ interface ExportProgress {
   startedAt: number
 }
 
-function isAudioFile(file: File): boolean {
-  return (
-    ACCEPTED_MIME.includes(file.type) ||
-    ACCEPTED_EXT.some((ext) => file.name.toLowerCase().endsWith(ext))
-  )
-}
-
-function isLrcFile(file: File): boolean {
-  const n = file.name.toLowerCase()
-  return n.endsWith('.lrc') || file.type === 'application/x-lrc' || file.type === 'text/plain'
-}
-
-function describeVibe(p: VibeProfile): string {
-  let energyWord: string
-  if (p.energy > 0.6) energyWord = 'энергичный'
-  else if (p.energy >= 0.3) energyWord = 'средний'
-  else energyWord = 'спокойный'
-
-  let motionWord: string
-  if (p.motion > 0.7) motionWord = 'быстрый'
-  else if (p.motion >= 0.4) motionWord = 'ритмичный'
-  else motionWord = 'медленный'
-
-  return `${energyWord} · ${MOOD_RU[p.mood]} · ${motionWord}`
-}
 
 export default function App() {
-  const title = useAudioStore((s) => s.trackInfo.title)
-  const artist = useAudioStore((s) => s.trackInfo.artist)
-  const cover = useAudioStore((s) => s.trackInfo.cover)
-  const currentTime = useAudioStore((s) => s.currentTime)
-  const isPlaying = useAudioStore((s) => s.isPlaying)
-  const volume = useAudioStore((s) => s.volume)
-  const autoMode = useAudioStore((s) => s.autoMode)
-  const trackProfile = useAudioStore((s) => s.trackProfile)
+  const currentTab = useUIStore((s) => s.currentTab)
+  const exportOpen = useUIStore((s) => s.exportOpen)
+  const setExportOpen = useUIStore((s) => s.setExportOpen)
+  const setFullscreen = useUIStore((s) => s.setFullscreen)
+  useThemeStore()
 
-  const theme = useThemeStore((s) => s.theme)
-  const togglePresetsDrawer = usePresetsStore((s) => s.toggleDrawer)
-  const setActivePresetVisualizer = usePresetsStore((s) => s.setActiveVisualizerId)
-
-  const [activeViz, setActiveViz] = useState<VisualizerMode>('cosmic')
-  const [dragging, setDragging] = useState(false)
-  const [exportModalOpen, setExportModalOpen] = useState(false)
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
-  const [profilingProgress, setProfilingProgress] = useState<{
-    current: number
-    total: number
-    label: string
-  } | null>(null)
-  const [autoProfiling, setAutoProfiling] = useState(false)
-  const [needsVisualizerProfiling, setNeedsVisualizerProfiling] = useState(false)
-  const [liked, setLiked] = useState(false)
-  const [isFullscreen, setIsFullscreen] = useState(false)
+  const exportCancelledRef = useRef(false)
 
-  const exportCancelled = useRef(false)
-  const profilingRunning = useRef(false)
-  const profileTicket = useRef(0)
-  const autoMatchRunning = useRef(false)
-
-  const hasTrack = title !== ''
-  const duration = audioEngine.getDuration()
-
-  // проверка кэша профилей
-  useEffect(() => {
-    const cached = getAllCachedProfiles()
-    if (Object.keys(cached).length === 0) setNeedsVisualizerProfiling(true)
-  }, [])
+  // авто-подбор визы при смене трека в режиме настроения
+  const currentTrackId = useLibraryStore((s) => s.currentTrackId)
+  const currentPlaylistMood = useAudioStore((s) => s.currentPlaylistMood)
+  const clearPlaylistQueue = useAudioStore((s) => s.clearPlaylistQueue)
+  const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
+  const selectedVizId = useUIStore((s) => s.selectedVizId)
 
   useEffect(() => {
-    setActivePresetVisualizer(activeViz)
-  }, [activeViz, setActivePresetVisualizer])
+    if (!currentPlaylistMood || !currentTrackId) return
+    const pool = getAllVisualizersInfoSnapshot()
+    const picked = pickVizForMood(currentPlaylistMood, currentTrackId, pool)
+    if (picked) setSelectedVizId(picked)
+  }, [currentTrackId, currentPlaylistMood, setSelectedVizId])
 
   useEffect(() => {
-    if (!cover) {
-      applyCoverPalette(null)
-      return
-    }
-    let cancelled = false
-    void extractCoverColors(cover).then((palette) => {
-      if (!cancelled) applyCoverPalette(palette)
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [cover])
+    if (!currentPlaylistMood) return
+    if (!selectedVizId) return
+    if (selectedVizId === getLastAutoPickedViz()) return
+    clearPlaylistQueue()
+  }, [selectedVizId, currentPlaylistMood, clearPlaylistQueue])
 
-  // esc — выход из фуллскрина
   useEffect(() => {
-    if (!isFullscreen) return
-    const handler = (e: KeyboardEvent) => {
-      if (e.code === 'Escape') setIsFullscreen(false)
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [isFullscreen])
-
-  const togglePlay = useCallback(() => {
-    if (isPlaying) audioEngine.pause()
-    else audioEngine.play()
-  }, [isPlaying])
-
-  const skipBackward = useCallback(() => {
-    if (audioEngine.getDuration() <= 0) return
-    const t = Math.max(0, useAudioStore.getState().currentTime - SKIP_SEC)
-    audioEngine.seek(t)
-  }, [])
-
-  const skipForward = useCallback(() => {
-    const d = audioEngine.getDuration()
-    if (d <= 0) return
-    const t = Math.min(d, useAudioStore.getState().currentTime + SKIP_SEC)
-    audioEngine.seek(t)
-  }, [])
-
-  const handleSeek = useCallback((time: number) => {
-    audioEngine.seek(time)
-  }, [])
-
-  const handleVolume = useCallback((value: number) => {
-    audioEngine.setVolume(value)
-  }, [])
-
-  const handleLrcFile = useCallback(async (file: File) => {
-    if (!isLrcFile(file)) return
-    const text = await file.text()
-    const lines = parseLrc(text)
-    useAudioStore.getState().setLrcLines(lines)
-  }, [])
-
-  const runAutoMatch = useCallback(async (reason: 'track-load' | 'user-toggle') => {
-    if (autoMatchRunning.current) return
-    const buffer = audioEngine.getAudioBuffer()
-    if (!buffer) return
-    const cached = getAllCachedProfiles()
-    if (Object.keys(cached).length === 0) {
-      setNeedsVisualizerProfiling(true)
-      return
-    }
-
-    const ticket = ++profileTicket.current
-    autoMatchRunning.current = true
-    setAutoProfiling(true)
-    try {
-      const profile = await profileTrack(buffer)
-      if (ticket !== profileTicket.current) return
-      const matches = matchVisualizers(profile, cached, 5)
-      const state = useAudioStore.getState()
-      state.setTrackProfile(profile)
-      state.setSuggestedVisualizers(matches)
-      console.log('[automode] reason=', reason, 'top:', matches.map((m) => `${m.id}:${m.distance.toFixed(3)}`).join(', '))
-      const { chosenId } = selectWeightedFromTop(matches)
-      if (!chosenId) return
-      setActiveViz(chosenId as VisualizerMode)
-      const item = VIZ_ITEMS.find((v) => v.key === chosenId)
-      const label = item?.label ?? chosenId
-      toast.success(`Авто выбрал: ${label}`, {
-        description: `вайб: ${MOOD_RU[profile.mood]} · энергия ${profile.energy.toFixed(2)} · движение ${profile.motion.toFixed(2)}`,
-      })
-    } catch (err) {
-      console.error('[automode] ошибка:', err)
-    } finally {
-      autoMatchRunning.current = false
-      setAutoProfiling(false)
-    }
-  }, [])
-
-  const handleAudioFile = useCallback(
-    async (file: File) => {
-      if (!isAudioFile(file)) return
-      profileTicket.current++
-      await audioEngine.loadFile(file)
-      audioEngine.play()
-
-      const state = useAudioStore.getState()
-      state.setTrackProfile(null)
-      state.setSuggestedVisualizers([])
-
-      const loadedTitle = state.trackInfo.title || file.name.replace(/\.[^.]+$/, '')
-      toast.success('Трек загружен', { description: loadedTitle })
-
-      if (state.autoMode) await runAutoMatch('track-load')
-    },
-    [runAutoMatch],
-  )
-
-  const handlePickAudio = useCallback(
-    async (file: File) => {
-      await handleAudioFile(file)
-    },
-    [handleAudioFile],
-  )
-
-  function onDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setDragging(true)
-  }
-
-  function onDragLeave(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    if (e.currentTarget.contains(e.relatedTarget as Node)) return
-    setDragging(false)
-  }
-
-  async function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    setDragging(false)
-    const list = Array.from(e.dataTransfer.files)
-    if (list.length === 0) return
-    const audio = list.find(isAudioFile)
-    const lrc = list.find(isLrcFile)
-    if (audio) await handleAudioFile(audio)
-    if (lrc) await handleLrcFile(lrc)
-  }
-
-  function goBack() {
-    audioEngine.stop()
-    const s = useAudioStore.getState()
-    s.setTrackInfo({ title: '', artist: '', album: '', cover: '' })
-    s.setTrackProfile(null)
-    s.setSuggestedVisualizers([])
-    s.setLrcLines([])
-    profileTicket.current++
-  }
-
-  function toggleAutoMode() {
-    const s = useAudioStore.getState()
-    const next = !s.autoMode
-    s.setAutoMode(next)
-    if (next && audioEngine.getAudioBuffer()) void runAutoMatch('user-toggle')
-  }
-
-  async function onDebugAnalyze() {
-    const buffer = audioEngine.getAudioBuffer()
-    if (!buffer) {
-      console.warn('[debug] нет загруженного трека')
-      return
-    }
-    const result = await testOfflineAnalyzer(buffer)
-    const beatCount = result.beats.filter(Boolean).length
-    console.log('[debug] fps:', result.fps)
-    console.log('[debug] totalFrames:', result.totalFrames)
-    console.log('[debug] кадров с битом:', beatCount)
-  }
-
-  async function onProfileAll() {
-    if (profilingRunning.current) return
-    profilingRunning.current = true
-    audioEngine.stop()
-
-    const results: Record<string, VibeProfile> = {}
-    const total = VIZ_ITEMS.length
-
-    const driver = async (frame: ProfilerFrame) => {
-      const s = useAudioStore.getState()
-      s.setAudioData(frame.audioData)
-      s.setEnergy(frame.energy)
-      s.setBeat(frame.beat)
-      s.setIsPlaying(true)
-      await tickFrame(1000 / 60)
-    }
-
-    try {
-      for (let idx = 0; idx < VIZ_ITEMS.length; idx++) {
-        const item = VIZ_ITEMS[idx]
-        setProfilingProgress({ current: idx, total, label: item.label })
-
-        const s0 = useAudioStore.getState()
-        s0.setAudioData(new Float32Array(1024))
-        s0.setEnergy(0)
-        s0.setBeat(false)
-        s0.setIsPlaying(false)
-
-        const wrapper = document.createElement('div')
-        wrapper.style.cssText = 'position:fixed;inset:0;opacity:0;pointer-events:none;z-index:-10;'
-        document.body.appendChild(wrapper)
-        const root = createRoot(wrapper)
-        root.render(renderVisualizer(item.key as VisualizerMode))
-
-        await new Promise<void>((r) => setTimeout(r, 120))
-
-        installShim()
+    audioEngine.onTrackEnd = () => {
+      const audio = useAudioStore.getState()
+      const lib = useLibraryStore.getState()
+      if (!audio.currentPlaylistMood || audio.playlistQueue.length === 0) return
+      const idx = lib.currentTrackId ? audio.playlistQueue.indexOf(lib.currentTrackId) : -1
+      if (idx === -1 || idx >= audio.playlistQueue.length - 1) return
+      const nextId = audio.playlistQueue[idx + 1]
+      const nextTrack = lib.tracks.find((t) => t.id === nextId)
+      if (!nextTrack) return
+      void (async () => {
         try {
-          await new Promise<void>((r) => setTimeout(r, 60))
-          const canvas = wrapper.querySelector('canvas') as HTMLCanvasElement | null
-          if (!canvas) {
-            console.warn(`[profiler] canvas не найден для ${item.key}`)
-            continue
-          }
-          try {
-            const profile = await profileVisualizer(item.key, canvas, driver)
-            console.log(`[profiler] ${item.key}:`, profile)
-            setCachedProfile(item.key, profile)
-            results[item.key] = profile
-          } catch (err) {
-            console.error(`[profiler] ${item.key} упал:`, err)
-          }
-        } finally {
-          uninstallShim()
-          root.unmount()
-          wrapper.remove()
+          await loadTrack(nextTrack)
+          audioEngine.play()
+          lib.setCurrentTrack(nextTrack.id)
+        } catch (err) {
+          console.warn('[wave] auto-advance не удался', err)
         }
-
-        await new Promise<void>((r) => setTimeout(r, 40))
-      }
-
-      const sEnd = useAudioStore.getState()
-      sEnd.setIsPlaying(false)
-      sEnd.setAudioData(new Float32Array())
-      sEnd.setEnergy(0)
-      sEnd.setBeat(false)
-    } finally {
-      profilingRunning.current = false
-      setProfilingProgress(null)
-      setNeedsVisualizerProfiling(false)
+      })()
     }
-  }
+    return () => { audioEngine.onTrackEnd = null }
+  }, [])
 
-  async function runExport(settings: ExportSettings) {
-    const buffer = audioEngine.getAudioBuffer()
-    if (!buffer) {
-      console.warn('[export] нет загруженного трека')
+  const loadLibraryFromDisk = useLibraryStore((s) => s.loadLibraryFromDisk)
+  const loadUserVizFromDisk = useUserVizStore((s) => s.loadFromDisk)
+  useEffect(() => {
+    void loadLibraryFromDisk()
+    void loadUserVizFromDisk()
+  }, [loadLibraryFromDisk, loadUserVizFromDisk])
+
+  async function onExportStart(settings: ExportSettings) {
+    setExportOpen(false)
+
+    if (!isTauri()) {
+      alert('Экспорт видео доступен только в desktop-версии. Скачай Mac/Windows app для рендера.')
       return
     }
+
+    const buffer = audioEngine.getAudioBuffer()
     const audioBytes = audioEngine.getOriginalAudioBytes()
-    if (!audioBytes) {
-      console.warn('[export] нет исходных байт аудио')
+    if (!buffer || !audioBytes) {
+      alert('Сначала загрузи трек')
       return
     }
     const audioExt = audioEngine.getOriginalAudioExt()
     const { width, height, fps } = settings
 
-    const { trackInfo } = useAudioStore.getState()
-    const baseName = (trackInfo.title || 'visualization').replace(/[\\/:*?"<>|]/g, '_')
+    const baseName = (useAudioStore.getState().trackInfo.title || 'visualization').replace(
+      /[\\/:*?"<>|]/g,
+      '_',
+    )
 
     let path: string | null = null
     try {
@@ -412,20 +126,14 @@ export default function App() {
     }
     if (!path) return
 
-    exportCancelled.current = false
+    exportCancelledRef.current = false
     const startedAt = Date.now()
     setExportProgress({ current: 0, total: 1, startedAt })
 
-    const work = WORK_SIZES[settings.aspect]
-    const win = getCurrentWindow()
-    const scaleFactor = await win.scaleFactor()
-    const prevSize = await win.innerSize()
-    const prevLogical = prevSize.toLogical(scaleFactor)
-    let resized = false
+    setFullscreen(true)
+
     try {
-      await win.setSize(new LogicalSize(work.w, work.h))
-      resized = true
-      await new Promise((r) => setTimeout(r, 400))
+      await new Promise((r) => setTimeout(r, 200))
 
       await runRecording({
         audioBuffer: buffer,
@@ -436,271 +144,48 @@ export default function App() {
         audioExtension: audioExt,
         outputPath: path,
         onProgress: (f, total) => {
-          if (exportCancelled.current) return
+          if (exportCancelledRef.current) return
           setExportProgress({ current: f, total, startedAt })
         },
       })
     } catch (err) {
       console.error('[export] упал:', err)
       const msg = String(err)
-      if (msg.includes('ffmpeg не запустился') || msg.toLowerCase().includes('no such file')) {
+      if (msg.includes('ffmpeg') || msg.toLowerCase().includes('no such file')) {
         alert('Требуется ffmpeg. Установите: brew install ffmpeg (Mac) или скачайте с ffmpeg.org (Windows)')
       } else {
         alert(`Ошибка экспорта: ${msg}`)
       }
     } finally {
       setExportProgress(null)
-      if (resized) {
-        try {
-          await win.setSize(new LogicalSize(prevLogical.width, prevLogical.height))
-        } catch (e) {
-          console.error('[export] не удалось восстановить размер окна:', e)
-        }
-      }
+      setFullscreen(false)
     }
   }
 
-  function onStartExport(settings: ExportSettings) {
-    setExportModalOpen(false)
-    void runExport(settings)
-  }
-
   function cancelExport() {
-    exportCancelled.current = true
+    // отмены сигнала у runRecording нет спрятать оверлей
+    exportCancelledRef.current = true
     setExportProgress(null)
   }
 
-  const lrcInputRef = useRef<HTMLInputElement>(null)
-  function onLrcChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    if (file) void handleLrcFile(file)
-    e.target.value = ''
-  }
-
-  const sidebarFooter: ReactNode = needsVisualizerProfiling ? (
-    <button
-      type="button"
-      className="sidebar__cta"
-      disabled={profilingProgress !== null}
-      onClick={() => {
-        void (async () => {
-          await onProfileAll()
-          if (useAudioStore.getState().autoMode && audioEngine.getAudioBuffer()) {
-            await runAutoMatch('user-toggle')
-          }
-        })()
-      }}
-      title="Прогон тестовых паттернов через каждую сцену"
-    >
-      {profilingProgress
-        ? `Профилирование… ${profilingProgress.current + 1}/${profilingProgress.total}`
-        : '⚠ Профилировать сцены'}
-    </button>
-  ) : null
-
-  const subtitle = autoProfiling
-    ? 'Вайб: анализ…'
-    : trackProfile
-      ? `Вайб: ${describeVibe(trackProfile)}`
-      : artist || ''
-
-  const titleNode: ReactNode = hasTrack ? (
-    <>
-      {title}
-      {artist ? <span style={{ opacity: 0.7 }}>{` · ${artist}`}</span> : null}
-    </>
-  ) : (
-    'Загрузи трек, чтобы начать'
-  )
-
-  const actions: ReactNode = (
-    <>
-      <button
-        type="button"
-        className={`chip${autoMode ? ' chip--accent' : ''}`}
-        onClick={toggleAutoMode}
-        title="Авто-выбор визуализатора по вайбу трека"
-      >
-        {autoMode ? 'АВТО ✓' : 'АВТО'}
-      </button>
-      <button
-        type="button"
-        className="chip"
-        onClick={() => lrcInputRef.current?.click()}
-        title="Загрузить .lrc"
-      >
-        ✎ LRC
-      </button>
-      <button
-        type="button"
-        className="chip"
-        onClick={togglePresetsDrawer}
-        title="Параметры визуализатора"
-      >
-        ⚙ Пресеты
-      </button>
-      {hasTrack ? (
-        <button
-          type="button"
-          className="chip"
-          onClick={() => setExportModalOpen(true)}
-          title="Экспорт в mp4"
-        >
-          ⇩ Экспорт
-        </button>
-      ) : null}
-      {import.meta.env.DEV ? (
-        <>
-          <button
-            type="button"
-            className="chip chip--debug"
-            onClick={onDebugAnalyze}
-            title="Тест offline analyzer"
-          >
-            ANALYZER
-          </button>
-          <button
-            type="button"
-            className="chip chip--debug"
-            disabled={profilingProgress !== null}
-            onClick={() => void onProfileAll()}
-            title="Прогон профайлера по всем сценам"
-          >
-            {profilingProgress ? `${profilingProgress.current + 1}/${profilingProgress.total}` : 'PROFILE'}
-          </button>
-        </>
-      ) : null}
-    </>
-  )
+  useAudioStore((s) => s.trackInfo.title)
+  const duration = audioEngine.getDuration()
 
   return (
-    <div onDragOver={onDragOver} onDragLeave={onDragLeave} onDrop={onDrop} style={{ width: '100%', height: '100%' }}>
-      <Toaster
-        position="top-right"
-        theme={theme}
-        richColors
-        closeButton
-        toastOptions={{
-          style: {
-            background: 'var(--surface-glass)',
-            backdropFilter: 'blur(20px)',
-            color: 'var(--text)',
-            border: '1px solid var(--border)',
-          },
-        }}
-      />
-
-      <input
-        ref={lrcInputRef}
-        type="file"
-        accept=".lrc,text/plain"
-        className="hidden-input"
-        onChange={onLrcChange}
-      />
-
-      <AuraBackground />
-
-      {/* виз с трансформом из карточки в полноэкранный режим */}
-      <motion.div
-        className="visualizer-container"
-        layout
-        transition={{ layout: { duration: 0.6, ease: [0.32, 0.72, 0, 1] } }}
-        onClick={() => hasTrack && setIsFullscreen((prev) => !prev)}
-        style={{
-          position: 'fixed',
-          top: isFullscreen ? 0 : 16,
-          left: isFullscreen ? 0 : 272,
-          right: isFullscreen ? 0 : 16,
-          bottom: isFullscreen ? 0 : 112,
-          borderRadius: isFullscreen ? 0 : 24,
-          zIndex: isFullscreen ? 100 : 1,
-          overflow: 'hidden',
-          cursor: hasTrack ? 'pointer' : 'default',
-          willChange: 'transform',
-          background: 'var(--bg)',
-          boxShadow: isFullscreen ? 'none' : 'var(--shadow-card)',
-        }}
-      >
-        {hasTrack ? renderVisualizer(activeViz) : null}
-      </motion.div>
-
-      {/* подсказка выхода из полноэкранного */}
-      <AnimatePresence>
-        {isFullscreen ? (
-          <motion.div
-            key="fs-hint"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 20 }}
-            transition={{ delay: 0.3, duration: 0.4 }}
-            className="fullscreen-exit-hint"
-          >
-            <kbd>Esc</kbd> или клик чтобы выйти
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      {/* шелл с панелями поверх */}
-      <div className="ui-shell">
-        <Sidebar
-          items={VIZ_ITEMS}
-          activeKey={activeViz}
-          onSelect={(k) => {
-            const next = k as VisualizerMode
-            if (next === activeViz) return
-            setActiveViz(next)
-            const item = VIZ_ITEMS.find((v) => v.key === next)
-            toast(item?.label ?? next, { description: 'эффект применён' })
-          }}
-          footer={sidebarFooter}
-          isFullscreen={isFullscreen}
-        />
-        <div className="main-column">
-          <Topbar
-            title={titleNode}
-            subtitle={subtitle}
-            onBack={hasTrack ? goBack : undefined}
-            actions={actions}
-            isFullscreen={isFullscreen}
-          />
-          <div className="stage-spacer" />
-          <Player
-            cover={cover}
-            title={title}
-            artist={artist}
-            isPlaying={isPlaying}
-            currentTime={currentTime}
-            duration={duration}
-            volume={volume}
-            liked={liked}
-            isFullscreen={isFullscreen}
-            onPlayToggle={togglePlay}
-            onSkipBack={skipBackward}
-            onSkipForward={skipForward}
-            onSeek={handleSeek}
-            onVolume={handleVolume}
-            onLikeToggle={() => {
-              setLiked((l) => {
-                const next = !l
-                toast(next ? 'Добавлено в любимое' : 'Убрано из любимого')
-                return next
-              })
-            }}
-          />
-        </div>
-      </div>
-
-      {hasTrack ? null : <Welcome dragging={dragging} onPickAudio={handlePickAudio} />}
-
-      <PresetsDrawer />
-
+    <>
+      <TopNav />
+      {currentTab === 'visualizers' && <VisualizersGallery />}
+      {currentTab === 'library' && <Library />}
+      {currentTab === 'wave' && <Wave />}
+      {currentTab === 'user-viz' && <UserVizPage />}
+      <PlayerOverlay />
+      <MiniPlayer />
       <ExportModal
-        isOpen={exportModalOpen}
-        onClose={() => setExportModalOpen(false)}
-        onStart={onStartExport}
+        isOpen={exportOpen}
+        onClose={() => setExportOpen(false)}
+        onStart={onExportStart}
         trackDurationSec={duration}
       />
-
       {exportProgress ? (
         <ExportProgressOverlay
           current={exportProgress.current}
@@ -709,6 +194,6 @@ export default function App() {
           onCancel={cancelExport}
         />
       ) : null}
-    </div>
+    </>
   )
 }

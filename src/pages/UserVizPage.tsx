@@ -1,0 +1,485 @@
+import { type ChangeEvent, type DragEvent, useRef, useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Upload, Download, BookOpen, X, ChevronDown, FileCode2 } from 'lucide-react'
+import { MOOD_LABELS, type MoodId } from '../audio/moodEngine'
+import { useUserVizStore } from '../userViz/userVizStore'
+import { useUIStore } from '../store/uiStore'
+import { useAudioStore } from '../store/audioStore'
+import { resetMoodPicker } from '../audio/moodEngine'
+import { downloadTemplate, type TemplateKind } from '../userViz/templates'
+import UserVizUploadModal from '../components/userViz/UserVizUploadModal'
+import UserVizDocsModal from '../components/userViz/UserVizDocsModal'
+
+function isTsxFile(file: File): boolean {
+  return file.name.toLowerCase().endsWith('.tsx') || file.name.toLowerCase().endsWith('.ts')
+}
+
+export default function UserVizPage() {
+  const visualizers = useUserVizStore((s) => s.visualizers)
+  const removeVisualizer = useUserVizStore((s) => s.removeVisualizer)
+
+  const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
+  const openOverlay = useUIStore((s) => s.openOverlay)
+
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
+  const [docsOpen, setDocsOpen] = useState(false)
+  const [dragOver, setDragOver] = useState(false)
+  const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const dragCounter = useRef(0)
+
+  function handleFile(file: File) {
+    if (!isTsxFile(file)) {
+      alert('Поддерживаются только .tsx файлы')
+      return
+    }
+    setPendingFile(file)
+  }
+
+  function onPick(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) handleFile(file)
+    e.target.value = ''
+  }
+
+  function onDragEnter(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    dragCounter.current++
+    if (e.dataTransfer.types.includes('Files')) setDragOver(true)
+  }
+
+  function onDragOver(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+  }
+
+  function onDragLeave(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    dragCounter.current--
+    if (dragCounter.current <= 0) {
+      dragCounter.current = 0
+      setDragOver(false)
+    }
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault()
+    dragCounter.current = 0
+    setDragOver(false)
+    const file = Array.from(e.dataTransfer.files).find(isTsxFile)
+    if (file) handleFile(file)
+  }
+
+  function openUserViz(id: string) {
+    useAudioStore.getState().clearPlaylistQueue()
+    resetMoodPicker()
+    setSelectedVizId(id)
+    openOverlay(id)
+  }
+
+  function handleDelete(id: string, name: string) {
+    const ok = confirm(`Удалить визуализатор "${name}"?`)
+    if (!ok) return
+    void removeVisualizer(id)
+  }
+
+  function pickTemplate(kind: TemplateKind) {
+    downloadTemplate(kind)
+    setTemplateMenuOpen(false)
+  }
+
+  return (
+    <main className="mx-auto max-w-[1400px] px-8 pt-16 pb-32 relative z-[2]">
+      <div className="font-mono text-[11px] uppercase tracking-[0.18em] text-[var(--fg-mute)] mb-4">
+        — Твои творения
+      </div>
+      <h1 className="text-5xl sm:text-6xl font-semibold tracking-[-0.035em] leading-[1.02] mb-4">
+        Мои{' '}
+        <span
+          className="font-normal italic"
+          style={{
+            fontFamily: "'Instrument Serif', serif",
+            backgroundImage: 'linear-gradient(180deg, var(--fg) 0%, var(--fg-mute) 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+          }}
+        >
+          визуализаторы.
+        </span>
+      </h1>
+      <p className="text-base text-[var(--fg-soft)] mb-10 max-w-2xl">
+        Загрузи .tsx файл — он появится в галерее и в подборках по настроению.
+      </p>
+
+      <div style={{ display: 'flex', gap: 12, marginBottom: 32, flexWrap: 'wrap' }}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={() => inputRef.current?.click()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
+          }}
+          onDragEnter={onDragEnter}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+          style={{
+            flex: 1,
+            minWidth: 320,
+            minHeight: 160,
+            padding: 24,
+            borderRadius: 14,
+            border: `2px dashed ${dragOver ? 'var(--border-active)' : 'var(--border-strong)'}`,
+            background: dragOver ? 'var(--bg-elev)' : 'var(--bg-soft)',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: 8,
+            cursor: 'pointer',
+            transition: 'background 0.15s, border-color 0.15s',
+            outline: 'none',
+          }}
+        >
+          <Upload size={22} style={{ color: 'var(--fg-mute)' }} />
+          <div style={{ fontSize: 15, fontWeight: 500, color: 'var(--fg)' }}>
+            Перетащи .tsx сюда
+          </div>
+          <div style={{ fontSize: 12, color: 'var(--fg-mute)' }}>
+            или нажми, чтобы выбрать
+          </div>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".tsx,.ts"
+            onChange={onPick}
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 240 }}>
+          <div style={{ position: 'relative' }}>
+            <button
+              type="button"
+              onClick={() => setTemplateMenuOpen((v) => !v)}
+              style={{
+                width: '100%',
+                padding: '14px 16px',
+                borderRadius: 12,
+                border: '1px solid var(--border)',
+                background: 'var(--bg-soft)',
+                color: 'var(--fg)',
+                fontSize: 13,
+                fontWeight: 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                cursor: 'pointer',
+                fontFamily: 'inherit',
+                transition: 'border-color 0.15s, background 0.15s',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-active)'
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)'
+              }}
+            >
+              <Download size={14} />
+              <span>Скачать шаблон</span>
+              <ChevronDown
+                size={14}
+                style={{
+                  marginLeft: 'auto',
+                  transition: 'transform 0.15s',
+                  transform: templateMenuOpen ? 'rotate(180deg)' : 'rotate(0)',
+                }}
+              />
+            </button>
+            <AnimatePresence>
+              {templateMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.12 }}
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(100% + 6px)',
+                    left: 0,
+                    right: 0,
+                    background: 'var(--bg)',
+                    border: '1px solid var(--border)',
+                    borderRadius: 12,
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
+                    padding: 6,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: 2,
+                    zIndex: 5,
+                  }}
+                >
+                  <TemplateMenuItem label="Canvas 2D (простой)" onClick={() => pickTemplate('canvas2d')} />
+                  <TemplateMenuItem label="Three.js R3F (3D)" onClick={() => pickTemplate('r3f')} />
+                  <TemplateMenuItem label="WebGL шейдер" onClick={() => pickTemplate('webgl')} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setDocsOpen(true)}
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'transparent',
+              color: 'var(--fg-soft)',
+              fontSize: 13,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              transition: 'color 0.15s, border-color 0.15s',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--fg)'
+              e.currentTarget.style.borderColor = 'var(--border-active)'
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = 'var(--fg-soft)'
+              e.currentTarget.style.borderColor = 'var(--border)'
+            }}
+          >
+            <BookOpen size={14} />
+            <span>Как написать</span>
+          </button>
+        </div>
+      </div>
+
+      {visualizers.length === 0 ? (
+        <div
+          style={{
+            minHeight: 240,
+            border: '1px dashed var(--border)',
+            borderRadius: 14,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--fg-mute)',
+            fontSize: 14,
+            textAlign: 'center',
+            padding: 24,
+          }}
+        >
+          Пока ничего нет. Начни с шаблона.
+        </div>
+      ) : (
+        <div
+          className="grid"
+          style={{
+            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+            gap: 16,
+          }}
+        >
+          {visualizers.map((v) => (
+            <UserVizCard
+              key={v.id}
+              name={v.name}
+              moods={v.moods}
+              error={v.error}
+              onOpen={() => openUserViz(v.id)}
+              onDelete={() => handleDelete(v.id, v.name)}
+            />
+          ))}
+        </div>
+      )}
+
+      {pendingFile ? (
+        <UserVizUploadModal
+          file={pendingFile}
+          onClose={() => setPendingFile(null)}
+          onUploaded={() => setPendingFile(null)}
+        />
+      ) : null}
+
+      {docsOpen ? <UserVizDocsModal onClose={() => setDocsOpen(false)} /> : null}
+    </main>
+  )
+}
+
+interface TemplateMenuItemProps {
+  label: string
+  onClick: () => void
+}
+
+function TemplateMenuItem({ label, onClick }: TemplateMenuItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        width: '100%',
+        padding: '9px 12px',
+        borderRadius: 8,
+        border: 'none',
+        background: 'transparent',
+        color: 'var(--fg-soft)',
+        fontSize: 13,
+        fontFamily: 'inherit',
+        textAlign: 'left',
+        cursor: 'pointer',
+        transition: 'background 0.15s, color 0.15s',
+      }}
+      onMouseEnter={(e) => {
+        e.currentTarget.style.background = 'var(--bg-soft)'
+        e.currentTarget.style.color = 'var(--fg)'
+      }}
+      onMouseLeave={(e) => {
+        e.currentTarget.style.background = 'transparent'
+        e.currentTarget.style.color = 'var(--fg-soft)'
+      }}
+    >
+      {label}
+    </button>
+  )
+}
+
+interface UserVizCardProps {
+  name: string
+  moods: MoodId[]
+  error: string | null
+  onOpen: () => void
+  onDelete: () => void
+}
+
+function UserVizCard({ name, moods, error, onOpen, onDelete }: UserVizCardProps) {
+  const [hover, setHover] = useState(false)
+  const broken = error !== null
+
+  return (
+    <div
+      style={{ position: 'relative' }}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+    >
+      <button
+        type="button"
+        onClick={onOpen}
+        style={{
+          width: '100%',
+          minHeight: 160,
+          borderRadius: 14,
+          border: `1px solid ${hover ? 'var(--border-active)' : 'var(--border)'}`,
+          background: broken
+            ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(0,0,0,0.4))'
+            : 'linear-gradient(135deg, var(--bg-elev), var(--bg-soft))',
+          padding: 16,
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          gap: 14,
+          textAlign: 'left',
+          cursor: 'pointer',
+          fontFamily: 'inherit',
+          transition: 'border-color 0.15s, transform 0.15s',
+          transform: hover ? 'translateY(-2px)' : 'translateY(0)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <FileCode2 size={16} style={{ color: 'var(--fg-mute)', flexShrink: 0 }} />
+          <div
+            className="truncate"
+            style={{
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 10,
+              letterSpacing: '0.16em',
+              textTransform: 'uppercase',
+              color: 'var(--fg-mute)',
+            }}
+          >
+            Свой
+          </div>
+        </div>
+        <div
+          className="truncate"
+          style={{
+            fontSize: 18,
+            fontWeight: 600,
+            letterSpacing: '-0.015em',
+            color: 'var(--fg)',
+          }}
+        >
+          {name}
+        </div>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          {moods.map((m) => (
+            <span
+              key={m}
+              style={{
+                padding: '3px 8px',
+                borderRadius: 999,
+                fontSize: 11,
+                fontFamily: 'inherit',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                color: 'var(--fg-soft)',
+              }}
+            >
+              {MOOD_LABELS[m]}
+            </span>
+          ))}
+        </div>
+        {broken ? (
+          <div
+            className="truncate"
+            style={{
+              fontSize: 11,
+              color: 'rgb(252,165,165)',
+              fontFamily: "'JetBrains Mono', monospace",
+            }}
+            title={error ?? ''}
+          >
+            ошибка компиляции
+          </div>
+        ) : null}
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onDelete()
+        }}
+        aria-label="Удалить"
+        style={{
+          position: 'absolute',
+          top: 10,
+          right: 10,
+          width: 26,
+          height: 26,
+          borderRadius: 8,
+          border: '1px solid var(--border)',
+          background: 'var(--bg-soft)',
+          color: 'var(--fg-mute)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          opacity: hover ? 1 : 0,
+          transition: 'opacity 0.15s, color 0.15s',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = 'rgb(239,68,68)'
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = 'var(--fg-mute)'
+        }}
+      >
+        <X size={13} />
+      </button>
+    </div>
+  )
+}

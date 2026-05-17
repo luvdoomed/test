@@ -95,3 +95,8 @@ desktop.ini
 *.swp
 *.swo
 
+.vercel
+
+# rust build artifacts
+target/
+src-tauri/target/

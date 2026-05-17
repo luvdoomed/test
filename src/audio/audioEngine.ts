@@ -2,6 +2,7 @@ import * as mm from 'music-metadata-browser'
 import { useAudioStore } from '../store/audioStore'
 import { BeatDetector } from './beatDetector'
 import { parseLrc } from '../utils/lrcParser'
+import { loadTrackBytes, audioMimeFromPath } from '../library/persistence'
 
 export class AudioEngine {
   audioContext: AudioContext
@@ -18,6 +19,25 @@ export class AudioEngine {
   private pauseOffset = 0
   private playing = false
   private rafId: number = 0
+  private loadCounter = 0
+
+  onTrackEnd: (() => void) | null = null
+
+  private disposeSource(): void {
+    if (!this.source) return
+    this.source.onended = null
+    try { this.source.stop() } catch { /* already stopped */ }
+    try { this.source.disconnect() } catch { /* already disconnected */ }
+    this.source = null
+  }
+
+  private resetAnalysisState(): void {
+    this.beatDetector.reset()
+    const store = useAudioStore.getState()
+    store.setAudioData(new Float32Array(this.dataArray.length))
+    store.setEnergy(0)
+    store.setBeat(false)
+  }
 
   constructor() {
     this.audioContext = new AudioContext()
@@ -45,28 +65,75 @@ export class AudioEngine {
   }
 
   async loadFile(file: File): Promise<void> {
-    const arrayBuffer = await file.arrayBuffer()
-    this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
-    this.originalExt = file.name.split('.').pop()?.toLowerCase() ?? ''
-    this.buffer = await this.audioContext.decodeAudioData(arrayBuffer)
-
-    useAudioStore.getState().setLrcLines([])
-    useAudioStore.getState().setIsPlaying(false)
-    useAudioStore.getState().setCurrentTime(0)
+    this.disposeSource()
     this.pauseOffset = 0
     this.playing = false
+    this.buffer = null
+    this.resetAnalysisState()
 
-    this.extractTags(file)
+    const store = useAudioStore.getState()
+    store.setLrcLines([])
+    store.setIsPlaying(false)
+    store.setCurrentTime(0)
 
+    const myLoadId = ++this.loadCounter
+
+    const arrayBuffer = await file.arrayBuffer()
+    if (myLoadId !== this.loadCounter) return
+
+    this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
+    this.originalExt = file.name.split('.').pop()?.toLowerCase() ?? ''
+
+    const decoded = await this.audioContext.decodeAudioData(arrayBuffer)
+    if (myLoadId !== this.loadCounter) return
+    this.buffer = decoded
+
+    this.extractTags(file, myLoadId)
     this.startLoop()
   }
 
-  private async extractTags(file: File): Promise<void> {
-    const fallbackTitle = file.name.replace(/\.[^/.]+$/, '')
+  async loadFromPath(audioPath: string): Promise<void> {
+    this.disposeSource()
+    this.pauseOffset = 0
+    this.playing = false
+    this.buffer = null
+    this.resetAnalysisState()
+
     const store = useAudioStore.getState()
+    store.setLrcLines([])
+    store.setIsPlaying(false)
+    store.setCurrentTime(0)
+
+    const myLoadId = ++this.loadCounter
+
+    const bytes = await loadTrackBytes(audioPath)
+    if (myLoadId !== this.loadCounter) return
+
+    const filename = audioPath.split('/').pop() ?? 'track'
+    const ext = filename.split('.').pop()?.toLowerCase() ?? ''
+    const mime = audioMimeFromPath(audioPath)
+
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer
+
+    this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
+    this.originalExt = ext
+
+    const decoded = await this.audioContext.decodeAudioData(arrayBuffer.slice(0))
+    if (myLoadId !== this.loadCounter) return
+    this.buffer = decoded
+
+    const synthFile = new File([new Uint8Array(this.originalBytes)], filename, { type: mime })
+    this.extractTags(synthFile, myLoadId)
+    this.startLoop()
+  }
+
+  private async extractTags(file: File, loadId: number): Promise<void> {
+    const fallbackTitle = file.name.replace(/\.[^/.]+$/, '')
 
     try {
       const metadata = await mm.parseBlob(file)
+      if (loadId !== this.loadCounter) return
+      const store = useAudioStore.getState()
       const { title, artist, album } = metadata.common
       const picture = metadata.common.picture?.[0]
       let cover = ''
@@ -94,7 +161,8 @@ export class AudioEngine {
         }
       }
     } catch {
-      store.setTrackInfo({
+      if (loadId !== this.loadCounter) return
+      useAudioStore.getState().setTrackInfo({
         title: fallbackTitle,
         artist: '',
         album: '',
@@ -105,6 +173,7 @@ export class AudioEngine {
 
   play(): void {
     if (!this.buffer || this.playing) return
+    this.disposeSource()
 
     if (this.audioContext.state === 'suspended') {
       void this.audioContext.resume()
@@ -119,7 +188,10 @@ export class AudioEngine {
     this.playing = true
 
     this.source.onended = () => {
-      if (this.playing) this.stop()
+      if (!this.playing) return
+      const hook = this.onTrackEnd
+      this.stop()
+      if (hook) hook()
     }
 
     useAudioStore.getState().setIsPlaying(true)
@@ -130,15 +202,7 @@ export class AudioEngine {
     if (!this.playing) return
 
     this.pauseOffset = this.audioContext.currentTime - this.startedAt
-    if (this.source) {
-      this.source.onended = null
-      try {
-        this.source.stop()
-      } catch {
-        /* уже остановлен */
-      }
-      this.source = null
-    }
+    this.disposeSource()
     this.playing = false
 
     useAudioStore.getState().setIsPlaying(false)
@@ -146,12 +210,7 @@ export class AudioEngine {
   }
 
   stop(): void {
-    if (this.source) {
-      this.source.onended = null
-      try { this.source.stop() } catch { /* уже остановлен */ }
-      this.source = null
-    }
-
+    this.disposeSource()
     this.pauseOffset = 0
     this.playing = false
 
@@ -165,16 +224,7 @@ export class AudioEngine {
     const clamped = Math.max(0, Math.min(time, this.buffer.duration))
 
     if (this.playing) {
-      if (this.source) {
-        // тогда stop и сброс трека
-        this.source.onended = null
-        try {
-          this.source.stop()
-        } catch {
-          /* уже остановлен */
-        }
-        this.source = null
-      }
+      this.disposeSource()
 
       this.source = this.audioContext.createBufferSource()
       this.source.buffer = this.buffer
@@ -183,7 +233,10 @@ export class AudioEngine {
       this.startedAt = this.audioContext.currentTime - clamped
 
       this.source.onended = () => {
-        if (this.playing) this.stop()
+        if (!this.playing) return
+        const hook = this.onTrackEnd
+        this.stop()
+        if (hook) hook()
       }
     } else {
       this.pauseOffset = clamped

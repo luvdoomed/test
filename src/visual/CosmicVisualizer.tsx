@@ -10,6 +10,7 @@ import { BlendFunction } from 'postprocessing'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useAudioStore } from '../store/audioStore'
+import { AudioInvalidator } from './_AudioInvalidator'
 
 const CAMERA = { position: [0, 0, 5] as [number, number, number], fov: 45 }
 const BG_COLOR = '#000000'
@@ -204,12 +205,14 @@ function CosmicScene() {
 }
 
 export function CosmicVisualizer() {
+  const composerRef = useRef<{ render: (d?: number) => void } | null>(null)
   return (
     <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
-      <Canvas camera={CAMERA}>
+      <Canvas camera={CAMERA} gl={{ preserveDrawingBuffer: true }}>
+        <AudioInvalidator composerRef={composerRef} />
         <color attach="background" args={[BG_COLOR]} />
         <CosmicScene />
-        <EffectComposer>
+        <EffectComposer ref={composerRef as any}>
           <Bloom
             intensity={1.2}
             luminanceThreshold={0.4}
