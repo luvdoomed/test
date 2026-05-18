@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 
-export type Tab = 'visualizers' | 'library' | 'wave' | 'user-viz'
+export type Tab = 'visualizers' | 'library' | 'wave' | 'user-viz' | 'system-test'
 
 export type LibraryView = 'list' | 'grid'
 

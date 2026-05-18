@@ -4,6 +4,8 @@ import {
   exists,
   writeTextFile,
   readTextFile,
+  writeFile,
+  readFile,
   remove,
   rename,
 } from '@tauri-apps/plugin-fs'
@@ -66,6 +68,40 @@ export async function deleteUserVizFile(sourcePath: string): Promise<void> {
   }
 }
 
+export async function saveUserVizPreview(vizId: string, jpegBlob: Blob): Promise<string> {
+  if (!isUserVizPersistenceAvailable()) {
+    throw new Error('Persistence unavailable')
+  }
+  await ensureUserVizDirs()
+  const rel = `visualizers/${vizId}.png`
+  const full = `${ROOT}/${rel}`
+  const bytes = new Uint8Array(await jpegBlob.arrayBuffer())
+  await writeFile(full, bytes, { baseDir: APPDATA })
+  return rel
+}
+
+export async function loadUserVizPreviewUrl(previewPath: string): Promise<string> {
+  if (!isUserVizPersistenceAvailable()) {
+    throw new Error('Persistence unavailable')
+  }
+  const full = `${ROOT}/${previewPath}`
+  const bytes = await readFile(full, { baseDir: APPDATA })
+  const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })
+  return URL.createObjectURL(blob)
+}
+
+export async function deleteUserVizPreview(previewPath: string): Promise<void> {
+  if (!isUserVizPersistenceAvailable()) return
+  const full = `${ROOT}/${previewPath}`
+  try {
+    if (await exists(full, { baseDir: APPDATA })) {
+      await remove(full, { baseDir: APPDATA })
+    }
+  } catch (err) {
+    console.warn('[userViz] не удалось удалить превью', previewPath, err)
+  }
+}
+
 function isValidMeta(v: unknown): v is UserVisualizerMeta {
   if (!v || typeof v !== 'object') return false
   const o = v as Record<string, unknown>
@@ -75,7 +111,8 @@ function isValidMeta(v: unknown): v is UserVisualizerMeta {
     Array.isArray(o.moods) &&
     o.moods.every((m) => typeof m === 'string') &&
     typeof o.sourcePath === 'string' &&
-    typeof o.createdAt === 'string'
+    typeof o.createdAt === 'string' &&
+    (o.previewPath === undefined || typeof o.previewPath === 'string')
   )
 }
 

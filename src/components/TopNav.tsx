@@ -2,12 +2,14 @@ import { useEffect, useRef } from 'react'
 import { Search, Sun, Moon, Monitor, Settings } from 'lucide-react'
 import { useUIStore, type Tab } from '../store/uiStore'
 import { useThemeStore } from '../store/themeStore'
+import { useAudioStore } from '../store/audioStore'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'visualizers', label: 'Визуализаторы' },
   { id: 'library', label: 'Библиотека' },
   { id: 'wave', label: 'Волна' },
   { id: 'user-viz', label: 'Мои' },
+  { id: 'system-test', label: '🔊 System Test' },
 ]
 
 export default function TopNav() {
@@ -17,6 +19,7 @@ export default function TopNav() {
   const setSearchQuery = useUIStore((s) => s.setSearchQuery)
   const mode = useThemeStore((s) => s.mode)
   const cycleMode = useThemeStore((s) => s.cycleMode)
+  const audioMode = useAudioStore((s) => s.audioMode)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -84,11 +87,18 @@ export default function TopNav() {
         <nav className="flex items-center gap-1">
           {TABS.map((tab) => {
             const active = tab.id === currentTab
+            const disabled = audioMode === 'system' && tab.id === 'wave'
+            const title = disabled ? 'Доступно только для файлов' : undefined
             return (
               <button
                 key={tab.id}
                 type="button"
-                onClick={() => setTab(tab.id)}
+                onClick={() => {
+                  if (disabled) return
+                  setTab(tab.id)
+                }}
+                title={title}
+                aria-disabled={disabled}
                 style={{
                   padding: '6px 12px',
                   borderRadius: 8,
@@ -98,12 +108,15 @@ export default function TopNav() {
                   color: active ? 'var(--fg)' : 'var(--fg-mute)',
                   transition: 'color 0.15s, background 0.15s',
                   border: 'none',
-                  cursor: 'pointer',
+                  cursor: disabled ? 'not-allowed' : 'pointer',
+                  opacity: disabled ? 0.4 : 1,
                 }}
                 onMouseEnter={(e) => {
+                  if (disabled) return
                   if (!active) e.currentTarget.style.color = 'var(--fg)'
                 }}
                 onMouseLeave={(e) => {
+                  if (disabled) return
                   if (!active) e.currentTarget.style.color = 'var(--fg-mute)'
                 }}
               >

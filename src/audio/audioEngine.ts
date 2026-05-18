@@ -3,6 +3,7 @@ import { useAudioStore } from '../store/audioStore'
 import { BeatDetector } from './beatDetector'
 import { parseLrc } from '../utils/lrcParser'
 import { loadTrackBytes, audioMimeFromPath } from '../library/persistence'
+import { processSystemAudioFrame } from './systemAudioCapture'
 
 export class AudioEngine {
   audioContext: AudioContext
@@ -20,6 +21,8 @@ export class AudioEngine {
   private playing = false
   private rafId: number = 0
   private loadCounter = 0
+  private systemTickLog = 0
+  private systemModeStartTime: number = 0
 
   onTrackEnd: (() => void) | null = null
 
@@ -62,6 +65,11 @@ export class AudioEngine {
   stopLoop(): void {
     cancelAnimationFrame(this.rafId)
     this.rafId = 0
+  }
+
+  markSystemStart(): void {
+    this.systemModeStartTime = performance.now()
+    this.systemTickLog = 0
   }
 
   async loadFile(file: File): Promise<void> {
@@ -267,12 +275,27 @@ export class AudioEngine {
   }
 
   tick(): void {
+    const store = useAudioStore.getState()
+
+    if (store.audioMode === 'system') {
+      const { audioData, energy } = processSystemAudioFrame()
+      const beat = this.beatDetector.detect(audioData)
+      const elapsedSec = (performance.now() - this.systemModeStartTime) / 1000
+      store.setCurrentTime(elapsedSec)
+      store.setAudioData(audioData)
+      store.setEnergy(energy)
+      store.setBeat(beat)
+      if (this.systemTickLog++ % 30 === 0) {
+        console.log('[system-tick]', 'energy:', energy, 'beat:', beat, 'time:', elapsedSec)
+      }
+      return
+    }
+
     this.analyser.getFloatFrequencyData(this.dataArray)
 
     const normalized = new Float32Array(this.dataArray.length)
     let sum = 0
     for (let i = 0; i < this.dataArray.length; i++) {
-      // dbfs [-inf, 0] клип до [-100, 0] и норм в [0, 1]
       const v = Math.max(0, (this.dataArray[i] + 100) / 100)
       normalized[i] = v
       sum += v
@@ -281,7 +304,6 @@ export class AudioEngine {
     const energy = sum / this.dataArray.length
     const beat = this.beatDetector.detect(normalized)
 
-    const store = useAudioStore.getState()
     store.setAudioData(normalized)
     store.setEnergy(energy)
     store.setBeat(beat)

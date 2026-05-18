@@ -16,6 +16,7 @@ import VisualizersGallery from './pages/VisualizersGallery'
 import Library from './pages/Library'
 import Wave from './pages/Wave'
 import UserVizPage from './pages/UserVizPage'
+import SystemAudioTest from './pages/SystemAudioTest'
 import PlayerOverlay from './components/player/PlayerOverlay'
 import MiniPlayer from './components/MiniPlayer'
 import {
@@ -178,6 +179,7 @@ export default function App() {
       {currentTab === 'library' && <Library />}
       {currentTab === 'wave' && <Wave />}
       {currentTab === 'user-viz' && <UserVizPage />}
+      {currentTab === 'system-test' && <SystemAudioTest />}
       <PlayerOverlay />
       <MiniPlayer />
       <ExportModal

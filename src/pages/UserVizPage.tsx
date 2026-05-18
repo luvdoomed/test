@@ -9,6 +9,8 @@ import { resetMoodPicker } from '../audio/moodEngine'
 import { downloadTemplate, type TemplateKind } from '../userViz/templates'
 import UserVizUploadModal from '../components/userViz/UserVizUploadModal'
 import UserVizDocsModal from '../components/userViz/UserVizDocsModal'
+import PreviewImage from '../components/gallery/PreviewImage'
+import VisualizerHost from '../components/player/VisualizerHost'
 
 function isTsxFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.tsx') || file.name.toLowerCase().endsWith('.ts')
@@ -288,9 +290,11 @@ export default function UserVizPage() {
           {visualizers.map((v) => (
             <UserVizCard
               key={v.id}
+              vizId={v.id}
               name={v.name}
               moods={v.moods}
               error={v.error}
+              hasComponent={v.component !== null}
               onOpen={() => openUserViz(v.id)}
               onDelete={() => handleDelete(v.id, v.name)}
             />
@@ -349,16 +353,19 @@ function TemplateMenuItem({ label, onClick }: TemplateMenuItemProps) {
 }
 
 interface UserVizCardProps {
+  vizId: string
   name: string
   moods: MoodId[]
   error: string | null
+  hasComponent: boolean
   onOpen: () => void
   onDelete: () => void
 }
 
-function UserVizCard({ name, moods, error, onOpen, onDelete }: UserVizCardProps) {
+function UserVizCard({ vizId, name, moods, error, hasComponent, onOpen, onDelete }: UserVizCardProps) {
   const [hover, setHover] = useState(false)
   const broken = error !== null
+  const canLivePreview = !broken && hasComponent
 
   return (
     <div
@@ -370,18 +377,18 @@ function UserVizCard({ name, moods, error, onOpen, onDelete }: UserVizCardProps)
         type="button"
         onClick={onOpen}
         style={{
+          position: 'relative',
           width: '100%',
-          minHeight: 160,
+          aspectRatio: '4 / 3',
+          minHeight: 180,
           borderRadius: 14,
           border: `1px solid ${hover ? 'var(--border-active)' : 'var(--border)'}`,
           background: broken
             ? 'linear-gradient(135deg, rgba(239,68,68,0.15), rgba(0,0,0,0.4))'
-            : 'linear-gradient(135deg, var(--bg-elev), var(--bg-soft))',
-          padding: 16,
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'space-between',
-          gap: 14,
+            : 'var(--bg-soft)',
+          overflow: 'hidden',
+          padding: 0,
+          display: 'block',
           textAlign: 'left',
           cursor: 'pointer',
           fontFamily: 'inherit',
@@ -389,63 +396,118 @@ function UserVizCard({ name, moods, error, onOpen, onDelete }: UserVizCardProps)
           transform: hover ? 'translateY(-2px)' : 'translateY(0)',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <FileCode2 size={16} style={{ color: 'var(--fg-mute)', flexShrink: 0 }} />
+        <motion.div
+          className="absolute inset-0"
+          animate={{
+            scale: hover && canLivePreview ? 1.05 : 1,
+            opacity: hover && canLivePreview ? 0 : 1,
+          }}
+          transition={{
+            scale: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+            opacity: { duration: 0.15 },
+          }}
+        >
+          <PreviewImage vizId={vizId} name={name} />
+        </motion.div>
+
+        <AnimatePresence>
+          {hover && canLivePreview ? (
+            <motion.div
+              key="live"
+              className="absolute inset-0"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.15 }}
+            >
+              <VisualizerHost vizId={vizId} />
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: 'var(--card-overlay)' }}
+        />
+
+        <div
+          style={{
+            position: 'absolute',
+            top: 12,
+            left: 12,
+            display: 'flex',
+            alignItems: 'center',
+            gap: 6,
+            padding: '4px 8px',
+            borderRadius: 6,
+            background: 'var(--bg-elev)',
+            border: '1px solid var(--border-strong)',
+            backdropFilter: 'blur(8px)',
+          }}
+        >
+          <FileCode2 size={11} style={{ color: 'var(--fg-mute)', flexShrink: 0 }} />
           <div
-            className="truncate"
             style={{
               fontFamily: "'JetBrains Mono', monospace",
-              fontSize: 10,
-              letterSpacing: '0.16em',
+              fontSize: 9,
+              letterSpacing: '0.14em',
               textTransform: 'uppercase',
-              color: 'var(--fg-mute)',
+              fontWeight: 500,
+              color: 'var(--fg)',
             }}
           >
             Свой
           </div>
         </div>
+
         <div
-          className="truncate"
-          style={{
-            fontSize: 18,
-            fontWeight: 600,
-            letterSpacing: '-0.015em',
-            color: 'var(--fg)',
-          }}
+          className="absolute inset-x-0 bottom-0"
+          style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 8 }}
         >
-          {name}
-        </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-          {moods.map((m) => (
-            <span
-              key={m}
-              style={{
-                padding: '3px 8px',
-                borderRadius: 999,
-                fontSize: 11,
-                fontFamily: 'inherit',
-                background: 'var(--bg)',
-                border: '1px solid var(--border)',
-                color: 'var(--fg-soft)',
-              }}
-            >
-              {MOOD_LABELS[m]}
-            </span>
-          ))}
-        </div>
-        {broken ? (
           <div
             className="truncate"
             style={{
-              fontSize: 11,
-              color: 'rgb(252,165,165)',
-              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: 17,
+              fontWeight: 600,
+              letterSpacing: '-0.015em',
+              color: 'var(--fg)',
             }}
-            title={error ?? ''}
           >
-            ошибка компиляции
+            {name}
           </div>
-        ) : null}
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {moods.map((m) => (
+              <span
+                key={m}
+                style={{
+                  padding: '3px 8px',
+                  borderRadius: 999,
+                  fontSize: 10,
+                  fontFamily: 'inherit',
+                  background: 'rgba(0,0,0,0.45)',
+                  border: '1px solid var(--border)',
+                  color: 'var(--fg-soft)',
+                  backdropFilter: 'blur(8px)',
+                }}
+              >
+                {MOOD_LABELS[m]}
+              </span>
+            ))}
+          </div>
+          {broken ? (
+            <div
+              className="truncate"
+              style={{
+                fontSize: 11,
+                color: 'rgb(252,165,165)',
+                fontFamily: "'JetBrains Mono', monospace",
+              }}
+              title={error ?? ''}
+            >
+              ошибка компиляции
+            </div>
+          ) : null}
+        </div>
       </button>
       <button
         type="button"
@@ -470,6 +532,7 @@ function UserVizCard({ name, moods, error, onOpen, onDelete }: UserVizCardProps)
           cursor: 'pointer',
           opacity: hover ? 1 : 0,
           transition: 'opacity 0.15s, color 0.15s',
+          zIndex: 2,
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.color = 'rgb(239,68,68)'

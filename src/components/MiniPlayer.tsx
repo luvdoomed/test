@@ -8,13 +8,14 @@ import VolumeControl from './player/VolumeControl'
 
 export default function MiniPlayer() {
   const trackInfo = useAudioStore((s) => s.trackInfo)
+  const audioMode = useAudioStore((s) => s.audioMode)
   const overlayOpen = useUIStore((s) => s.overlayOpen)
   const openOverlay = useUIStore((s) => s.openOverlay)
   const selectedVizId = useUIStore((s) => s.selectedVizId)
 
   const hasTrack = trackInfo.title !== ''
 
-  if (!hasTrack || overlayOpen) return null
+  if (audioMode === 'system' || !hasTrack || overlayOpen) return null
 
   const displayTitle = trackInfo.title || 'Без названия'
   const displayArtist = trackInfo.artist || 'Неизвестный исполнитель'

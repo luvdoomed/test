@@ -8,8 +8,12 @@ import {
   deleteUserVizFile,
   loadUserVizManifest,
   saveUserVizManifest,
+  saveUserVizPreview,
+  loadUserVizPreviewUrl,
+  deleteUserVizPreview,
   isUserVizPersistenceAvailable,
 } from './storage'
+import { generateUserVizPreview } from './previewGenerator'
 
 const ID_PREFIX = 'user-'
 
@@ -25,24 +29,33 @@ export function isUserVizId(id: string | null | undefined): boolean {
   return typeof id === 'string' && id.startsWith(ID_PREFIX)
 }
 
+export type AddVisualizerStage = 'compile' | 'save' | 'preview' | 'manifest' | 'done'
+
 interface UserVizState {
   visualizers: UserVisualizerRuntime[]
   isLoading: boolean
   loadFromDisk: () => Promise<void>
-  addVisualizer: (file: File, name: string, moods: MoodId[]) => Promise<UserVisualizerRuntime>
+  addVisualizer: (
+    file: File,
+    name: string,
+    moods: MoodId[],
+    onStage?: (stage: AddVisualizerStage) => void,
+  ) => Promise<UserVisualizerRuntime>
   removeVisualizer: (vizId: string) => Promise<void>
   recompileVisualizer: (vizId: string) => Promise<void>
   getById: (vizId: string) => UserVisualizerRuntime | undefined
 }
 
 function metaFromRuntime(r: UserVisualizerRuntime): UserVisualizerMeta {
-  return {
+  const meta: UserVisualizerMeta = {
     id: r.id,
     name: r.name,
     moods: r.moods,
     sourcePath: r.sourcePath,
     createdAt: r.createdAt,
   }
+  if (r.previewPath) meta.previewPath = r.previewPath
+  return meta
 }
 
 async function persistCurrentManifest(): Promise<void> {
@@ -77,7 +90,15 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
         } catch (err) {
           error = err instanceof Error ? err.message : String(err)
         }
-        restored.push({ ...m, component, error })
+        let previewUrl: string | null = null
+        if (m.previewPath) {
+          try {
+            previewUrl = await loadUserVizPreviewUrl(m.previewPath)
+          } catch (err) {
+            console.warn('[userViz] не удалось загрузить превью', m.previewPath, err)
+          }
+        }
+        restored.push({ ...m, component, error, previewUrl })
       }
       set({ visualizers: restored })
     } catch (err) {
@@ -87,7 +108,8 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
     }
   },
 
-  addVisualizer: async (file, name, moods) => {
+  addVisualizer: async (file, name, moods, onStage) => {
+    onStage?.('compile')
     const source = await file.text()
     const compiled = compileUserViz(source)
     if (!compiled.component) {
@@ -95,6 +117,7 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
     }
 
     const id = makeUserVizId()
+    onStage?.('save')
     let sourcePath = ''
     if (isUserVizPersistenceAvailable()) {
       try {
@@ -107,6 +130,28 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
       sourcePath = `visualizers/${id}.tsx`
     }
 
+    onStage?.('preview')
+    let previewPath: string | undefined
+    let previewUrl: string | null = null
+    try {
+      const blob = await generateUserVizPreview(compiled.component, id)
+      if (blob) {
+        if (isUserVizPersistenceAvailable()) {
+          try {
+            previewPath = await saveUserVizPreview(id, blob)
+            previewUrl = URL.createObjectURL(blob)
+          } catch (err) {
+            console.warn('[userViz] не удалось сохранить превью:', err)
+            previewUrl = URL.createObjectURL(blob)
+          }
+        } else {
+          previewUrl = URL.createObjectURL(blob)
+        }
+      }
+    } catch (err) {
+      console.warn('[userViz] preview generation failed:', err)
+    }
+
     const runtime: UserVisualizerRuntime = {
       id,
       name: name.trim() || 'Без названия',
@@ -115,22 +160,38 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
       createdAt: new Date().toISOString(),
       component: compiled.component,
       error: null,
+      previewUrl,
     }
+    if (previewPath) runtime.previewPath = previewPath
 
+    onStage?.('manifest')
     set((s) => ({ visualizers: [...s.visualizers, runtime] }))
-    void persistCurrentManifest()
+    await persistCurrentManifest()
+    onStage?.('done')
     return runtime
   },
 
   removeVisualizer: async (vizId) => {
     const target = get().visualizers.find((v) => v.id === vizId)
     if (!target) return
+    if (target.previewUrl) {
+      try {
+        URL.revokeObjectURL(target.previewUrl)
+      } catch {}
+    }
     set((s) => ({ visualizers: s.visualizers.filter((v) => v.id !== vizId) }))
     if (isUserVizPersistenceAvailable()) {
       try {
         await deleteUserVizFile(target.sourcePath)
       } catch (err) {
         console.warn('[userViz] не удалось удалить файл:', err)
+      }
+      if (target.previewPath) {
+        try {
+          await deleteUserVizPreview(target.previewPath)
+        } catch (err) {
+          console.warn('[userViz] не удалось удалить превью:', err)
+        }
       }
     }
     void persistCurrentManifest()

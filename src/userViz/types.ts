@@ -7,6 +7,7 @@ export interface UserVisualizerMeta {
   moods: MoodId[]
   sourcePath: string
   createdAt: string
+  previewPath?: string
 }
 
 export interface UserVizProps {
@@ -19,4 +20,5 @@ export interface UserVizProps {
 export interface UserVisualizerRuntime extends UserVisualizerMeta {
   component: ComponentType<UserVizProps> | null
   error: string | null
+  previewUrl: string | null
 }

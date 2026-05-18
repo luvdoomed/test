@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
 import { MOOD_ORDER, MOOD_LABELS, type MoodId } from '../../audio/moodEngine'
 import { compileUserViz } from '../../userViz/compiler'
-import { useUserVizStore } from '../../userViz/userVizStore'
+import { useUserVizStore, type AddVisualizerStage } from '../../userViz/userVizStore'
 
 interface UserVizUploadModalProps {
   file: File
@@ -25,6 +25,7 @@ export default function UserVizUploadModal({ file, onClose, onUploaded }: UserVi
   const [moods, setMoods] = useState<Set<MoodId>>(new Set())
   const [compile, setCompile] = useState<CompileState>({ kind: 'pending' })
   const [submitting, setSubmitting] = useState(false)
+  const [submitStage, setSubmitStage] = useState<AddVisualizerStage | null>(null)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
   const addVisualizer = useUserVizStore((s) => s.addVisualizer)
@@ -78,16 +79,26 @@ export default function UserVizUploadModal({ file, onClose, onUploaded }: UserVi
   async function handleSubmit() {
     if (!canSubmit) return
     setSubmitting(true)
+    setSubmitStage(null)
     setSubmitError(null)
     try {
-      const runtime = await addVisualizer(file, name, Array.from(moods))
+      const runtime = await addVisualizer(file, name, Array.from(moods), setSubmitStage)
       onUploaded(runtime.id)
       onClose()
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err)
       setSubmitError(msg)
+      setSubmitStage(null)
       setSubmitting(false)
     }
+  }
+
+  function submitLabel(): string {
+    if (!submitting) return 'Загрузить'
+    if (submitStage === 'preview') return 'Создаю превью...'
+    if (submitStage === 'save') return 'Сохраняю...'
+    if (submitStage === 'manifest') return 'Финализирую...'
+    return 'Загрузка...'
   }
 
   const content = (
@@ -323,7 +334,7 @@ export default function UserVizUploadModal({ file, onClose, onUploaded }: UserVi
               transition: 'background 0.15s, color 0.15s',
             }}
           >
-            {submitting ? 'Загрузка...' : 'Загрузить'}
+            {submitLabel()}
           </button>
         </div>
 

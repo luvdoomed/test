@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { SlidersHorizontal, Mic2, Download } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
+import { useAudioStore } from '../../store/audioStore'
 
 interface ActionButtonsProps {
   hasTrack: boolean
@@ -10,6 +11,11 @@ interface ActionButtonsProps {
 export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsProps) {
   const setExportOpen = useUIStore((s) => s.setExportOpen)
   const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
+  const audioMode = useAudioStore((s) => s.audioMode)
+
+  const systemMode = audioMode === 'system'
+  const exportDisabled = !hasTrack || systemMode
+  const karaokeDisabled = !hasTrack || systemMode
 
   return (
     <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
@@ -17,13 +23,15 @@ export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsP
       <ActionBtn
         icon={<Mic2 size={14} />}
         label="Караоке"
-        disabled={!hasTrack}
+        disabled={karaokeDisabled}
+        title={systemMode ? 'Доступно только для файлов' : undefined}
         onClick={() => setSelectedVizId('karaoke')}
       />
       <ActionBtn
         icon={<Download size={14} />}
         label="Экспорт"
-        disabled={!hasTrack}
+        disabled={exportDisabled}
+        title={systemMode ? 'Запись доступна только для файлов' : undefined}
         onClick={() => setExportOpen(true)}
       />
     </div>
@@ -35,10 +43,11 @@ interface ActionBtnProps {
   label: string
   active?: boolean
   disabled?: boolean
+  title?: string
   onClick: () => void
 }
 
-function ActionBtn({ icon, label, active = false, disabled = false, onClick }: ActionBtnProps) {
+function ActionBtn({ icon, label, active = false, disabled = false, title, onClick }: ActionBtnProps) {
   const [hover, setHover] = useState(false)
   let bg = 'var(--bg-soft)'
   let color = 'var(--fg-soft)'
@@ -57,6 +66,7 @@ function ActionBtn({ icon, label, active = false, disabled = false, onClick }: A
       type="button"
       onClick={onClick}
       disabled={disabled}
+      title={title}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       style={{

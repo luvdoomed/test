@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LayoutGrid, Rows3, FileCode2 } from 'lucide-react'
 import { useUIStore } from '../store/uiStore'
 import { useAudioStore } from '../store/audioStore'
 import { resetMoodPicker, MOOD_LABELS } from '../audio/moodEngine'
@@ -10,9 +9,11 @@ import { useUserVizStore } from '../userViz/userVizStore'
 import type { UserVisualizerRuntime } from '../userViz/types'
 import VisualizerCard from '../components/gallery/VisualizerCard'
 import FilterChip from '../components/gallery/FilterChip'
+import PreviewImage from '../components/gallery/PreviewImage'
+import VisualizerHost from '../components/player/VisualizerHost'
+import SystemAudioToggle from '../components/SystemAudioToggle'
 
 type Filter = 'all' | 'user' | VizCategory
-type ViewMode = 'grid' | 'list'
 
 export default function VisualizersGallery() {
   const searchQuery = useUIStore((s) => s.searchQuery)
@@ -23,7 +24,6 @@ export default function VisualizersGallery() {
   const userVisualizers = useUserVizStore((s) => s.visualizers)
 
   const [filter, setFilter] = useState<Filter>('all')
-  const [view, setView] = useState<ViewMode>('grid')
 
   const counts = useMemo(() => {
     const c: Record<Filter, number> = {
@@ -100,7 +100,7 @@ export default function VisualizersGallery() {
           </p>
         </div>
 
-        <ViewToggle view={view} onChange={setView} />
+        <SystemAudioToggle />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 mb-8">
@@ -233,6 +233,7 @@ interface UserGalleryCardProps {
 function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardProps) {
   const [hovered, setHovered] = useState(false)
   const broken = runtime.error !== null
+  const canLivePreview = !broken && runtime.component !== null
 
   return (
     <motion.button
@@ -249,7 +250,7 @@ function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardP
       style={{
         background: broken
           ? 'linear-gradient(135deg, rgba(239,68,68,0.18), rgba(0,0,0,0.5))'
-          : 'linear-gradient(135deg, var(--bg-elev), var(--bg-soft))',
+          : 'var(--bg-soft)',
         border: `1px solid ${isActive || hovered ? 'var(--border-active)' : 'var(--border)'}`,
         boxShadow: isActive
           ? '0 0 0 1px var(--border-active) inset, 0 18px 40px rgba(0,0,0,0.45)'
@@ -262,18 +263,39 @@ function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardP
         outline: 'none',
       }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: 'var(--fg-mute)',
+      <motion.div
+        className="absolute inset-0"
+        animate={{
+          scale: hovered && canLivePreview ? 1.05 : 1,
+          opacity: hovered && canLivePreview ? 0 : 1,
+        }}
+        transition={{
+          scale: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+          opacity: { duration: 0.15 },
         }}
       >
-        <FileCode2 size={48} strokeWidth={1.2} />
-      </div>
+        <PreviewImage vizId={runtime.id} name={runtime.name} />
+      </motion.div>
+
+      <AnimatePresence>
+        {hovered && canLivePreview ? (
+          <motion.div
+            key="live"
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <VisualizerHost vizId={runtime.id} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
+
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{ background: 'var(--card-overlay)' }}
+      />
 
       <div
         style={{
@@ -298,7 +320,7 @@ function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardP
 
       <div
         className="absolute inset-x-0 bottom-0"
-        style={{ padding: 18, background: 'linear-gradient(180deg, transparent, rgba(0,0,0,0.55))' }}
+        style={{ padding: 18 }}
       >
         <div
           className="flex items-center gap-1.5"
@@ -331,64 +353,3 @@ function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardP
   )
 }
 
-interface ViewToggleProps {
-  view: ViewMode
-  onChange: (v: ViewMode) => void
-}
-
-function ViewToggle({ view, onChange }: ViewToggleProps) {
-  return (
-    <div
-      className="inline-flex items-center"
-      style={{
-        background: 'var(--bg-soft)',
-        border: '1px solid var(--border)',
-        borderRadius: 10,
-        padding: 3,
-        gap: 2,
-      }}
-    >
-      <ViewToggleBtn active={view === 'grid'} onClick={() => onChange('grid')} title="Сетка">
-        <LayoutGrid size={14} />
-      </ViewToggleBtn>
-      <ViewToggleBtn active={view === 'list'} onClick={() => onChange('list')} title="Список">
-        <Rows3 size={14} />
-      </ViewToggleBtn>
-    </div>
-  )
-}
-
-function ViewToggleBtn({
-  active,
-  onClick,
-  title,
-  children,
-}: {
-  active: boolean
-  onClick: () => void
-  title: string
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      title={title}
-      style={{
-        width: 30,
-        height: 28,
-        borderRadius: 7,
-        border: 'none',
-        background: active ? 'var(--bg-elev)' : 'transparent',
-        color: active ? 'var(--fg)' : 'var(--fg-mute)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'background 0.15s, color 0.15s',
-      }}
-    >
-      {children}
-    </button>
-  )
-}

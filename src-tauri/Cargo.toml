@@ -26,4 +26,5 @@ tauri-plugin-dialog = "2.7.0"
 tauri-plugin-fs = "2.5.0"
 tauri-plugin-shell = "2"
 tar = "0.4"
+cpal = "0.15"
 

@@ -1,8 +1,9 @@
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
 import type { VizPreview } from '../../gallery/types'
-import CanvasPreview from './CanvasPreview'
+import PreviewImage from './PreviewImage'
+import VisualizerHost from '../player/VisualizerHost'
 
 interface VisualizerCardProps {
   viz: VizPreview
@@ -44,11 +45,29 @@ export default function VisualizerCard({ viz, isActive, index, onClick }: Visual
     >
       <motion.div
         className="absolute inset-0"
-        animate={{ scale: hovered ? 1.05 : 1 }}
-        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        animate={{ scale: hovered ? 1.05 : 1, opacity: hovered ? 0 : 1 }}
+        transition={{
+          scale: { duration: 0.5, ease: [0.22, 1, 0.36, 1] },
+          opacity: { duration: 0.15 },
+        }}
       >
-        <CanvasPreview draw={viz.draw} isHovered={hovered} />
+        <PreviewImage vizId={viz.id} name={viz.name} />
       </motion.div>
+
+      <AnimatePresence>
+        {hovered ? (
+          <motion.div
+            key="live"
+            className="absolute inset-0"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.15 }}
+          >
+            <VisualizerHost vizId={viz.id} />
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
 
       <div
         className="absolute inset-0 pointer-events-none"
