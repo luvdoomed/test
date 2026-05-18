@@ -397,13 +397,21 @@ async fn build_video_from_png_tar(
 }
 
 #[cfg(target_os = "windows")]
+fn windows_capture_config(d: &cpal::Device) -> Result<cpal::SupportedStreamConfig, String> {
+    use cpal::traits::DeviceTrait;
+    if let Ok(cfg) = d.default_input_config() {
+        return Ok(cfg);
+    }
+    d.default_output_config()
+        .map_err(|e| format!("default_output_config: {}", e))
+}
+
+#[cfg(target_os = "windows")]
 fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, String> {
     use cpal::traits::{DeviceTrait, HostTrait};
 
     let probe = |d: &cpal::Device| -> Result<(), String> {
-        let cfg = d
-            .default_input_config()
-            .map_err(|e| format!("default_input_config: {}", e))?;
+        let cfg = windows_capture_config(d)?;
         let sample_format = cfg.sample_format();
         let stream_config: cpal::StreamConfig = cfg.into();
         let err_fn = |_e| {};
@@ -432,37 +440,116 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         Ok(())
     };
 
-    if let Some(d) = host.default_output_device() {
+    let input_devices: Vec<cpal::Device> = host
+        .input_devices()
+        .map_err(|e| format!("input_devices: {}", e))?
+        .collect();
+    println!(
+        "[system-capture] Windows input devices found: {}",
+        input_devices.len()
+    );
+    for d in &input_devices {
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
-        match probe(&d) {
+        println!("[system-capture] enumerated input: {}", name);
+    }
+
+    let prefer_keywords = [
+        "loopback",
+        "stereo mix",
+        "what u hear",
+        "what you hear",
+        "wave out",
+        "virtual cable",
+        "vb-audio",
+        "cable output",
+        "voicemeeter",
+    ];
+
+    for d in input_devices.iter().filter(|d| {
+        d.name()
+            .map(|n| {
+                let n = n.to_lowercase();
+                prefer_keywords.iter().any(|k| n.contains(k))
+            })
+            .unwrap_or(false)
+    }) {
+        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
+        match probe(d) {
             Ok(()) => {
-                println!("[system-capture] using device: {}", name);
-                return Ok(d);
+                println!(
+                    "[system-capture] using loopback device (preferred input): {}",
+                    name
+                );
+                return Ok(d.clone());
             }
             Err(e) => {
                 println!(
-                    "[system-capture] default output {} skipped: {}",
+                    "[system-capture] preferred input {} skipped: {}",
                     name, e
                 );
             }
         }
     }
 
-    let mut tried: usize = 0;
-    let iter = host
-        .output_devices()
-        .map_err(|e| format!("output_devices: {}", e))?;
-    for d in iter {
-        tried += 1;
+    if let Some(d) = host.default_output_device() {
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
         match probe(&d) {
             Ok(()) => {
-                println!("[system-capture] using device: {}", name);
+                println!(
+                    "[system-capture] using loopback device (default output via WASAPI loopback): {}",
+                    name
+                );
                 return Ok(d);
             }
             Err(e) => {
                 println!(
-                    "[system-capture] candidate {} skipped: {}",
+                    "[system-capture] default output {} loopback failed: {}",
+                    name, e
+                );
+            }
+        }
+    }
+
+    let output_devices: Vec<cpal::Device> = host
+        .output_devices()
+        .map_err(|e| format!("output_devices: {}", e))?
+        .collect();
+    println!(
+        "[system-capture] Windows output devices found: {}",
+        output_devices.len()
+    );
+    for d in &output_devices {
+        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
+        match probe(d) {
+            Ok(()) => {
+                println!(
+                    "[system-capture] using loopback device (output via WASAPI loopback): {}",
+                    name
+                );
+                return Ok(d.clone());
+            }
+            Err(e) => {
+                println!(
+                    "[system-capture] output candidate {} loopback failed: {}",
+                    name, e
+                );
+            }
+        }
+    }
+
+    for d in &input_devices {
+        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
+        match probe(d) {
+            Ok(()) => {
+                println!(
+                    "[system-capture] using loopback device (any input): {}",
+                    name
+                );
+                return Ok(d.clone());
+            }
+            Err(e) => {
+                println!(
+                    "[system-capture] input candidate {} skipped: {}",
                     name, e
                 );
             }
@@ -470,8 +557,9 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
     }
 
     Err(format!(
-        "WINDOWS_NO_LOOPBACK_DEVICE: tried {} devices, none supports loopback",
-        tried
+        "WINDOWS_NO_LOOPBACK_DEVICE: tried {} inputs and {} outputs, none supports loopback.",
+        input_devices.len(),
+        output_devices.len()
     ))
 }
 
@@ -519,11 +607,17 @@ async fn start_system_audio_test(app_handle: tauri::AppHandle) -> Result<String,
         let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
         println!("[system-audio-test] устройство: {}", device_name);
 
-        let config = match device.default_input_config() {
+        #[cfg(target_os = "windows")]
+        let cfg_result = windows_capture_config(&device);
+        #[cfg(not(target_os = "windows"))]
+        let cfg_result = device
+            .default_input_config()
+            .map_err(|e| format!("default_input_config: {}", e));
+
+        let config = match cfg_result {
             Ok(c) => c,
             Err(e) => {
-                let _ = result_tx
-                    .send(Err(format!("default_input_config: {}", e)));
+                let _ = result_tx.send(Err(e));
                 return;
             }
         };
@@ -716,10 +810,17 @@ async fn start_system_capture(
         let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
         println!("[system-capture] устройство: {}", device_name);
 
-        let config = match device.default_input_config() {
+        #[cfg(target_os = "windows")]
+        let cfg_result = windows_capture_config(&device);
+        #[cfg(not(target_os = "windows"))]
+        let cfg_result = device
+            .default_input_config()
+            .map_err(|e| format!("default_input_config: {}", e));
+
+        let config = match cfg_result {
             Ok(c) => c,
             Err(e) => {
-                let _ = init_tx.send(Err(format!("default_input_config: {}", e)));
+                let _ = init_tx.send(Err(e));
                 return;
             }
         };
