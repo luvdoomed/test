@@ -396,6 +396,85 @@ async fn build_video_from_png_tar(
     }
 }
 
+#[cfg(target_os = "windows")]
+fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, String> {
+    use cpal::traits::{DeviceTrait, HostTrait};
+
+    let probe = |d: &cpal::Device| -> Result<(), String> {
+        let cfg = d
+            .default_input_config()
+            .map_err(|e| format!("default_input_config: {}", e))?;
+        let sample_format = cfg.sample_format();
+        let stream_config: cpal::StreamConfig = cfg.into();
+        let err_fn = |_e| {};
+        let probe_stream: Result<cpal::Stream, _> = match sample_format {
+            cpal::SampleFormat::F32 => d.build_input_stream(
+                &stream_config,
+                |_data: &[f32], _: &cpal::InputCallbackInfo| {},
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::I16 => d.build_input_stream(
+                &stream_config,
+                |_data: &[i16], _: &cpal::InputCallbackInfo| {},
+                err_fn,
+                None,
+            ),
+            cpal::SampleFormat::U16 => d.build_input_stream(
+                &stream_config,
+                |_data: &[u16], _: &cpal::InputCallbackInfo| {},
+                err_fn,
+                None,
+            ),
+            other => return Err(format!("unsupported sample format: {:?}", other)),
+        };
+        let _stream = probe_stream.map_err(|e| format!("build probe: {}", e))?;
+        Ok(())
+    };
+
+    if let Some(d) = host.default_output_device() {
+        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
+        match probe(&d) {
+            Ok(()) => {
+                println!("[system-capture] using device: {}", name);
+                return Ok(d);
+            }
+            Err(e) => {
+                println!(
+                    "[system-capture] default output {} skipped: {}",
+                    name, e
+                );
+            }
+        }
+    }
+
+    let mut tried: usize = 0;
+    let iter = host
+        .output_devices()
+        .map_err(|e| format!("output_devices: {}", e))?;
+    for d in iter {
+        tried += 1;
+        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
+        match probe(&d) {
+            Ok(()) => {
+                println!("[system-capture] using device: {}", name);
+                return Ok(d);
+            }
+            Err(e) => {
+                println!(
+                    "[system-capture] candidate {} skipped: {}",
+                    name, e
+                );
+            }
+        }
+    }
+
+    Err(format!(
+        "WINDOWS_NO_LOOPBACK_DEVICE: tried {} devices, none supports loopback",
+        tried
+    ))
+}
+
 #[tauri::command]
 async fn start_system_audio_test(app_handle: tauri::AppHandle) -> Result<String, String> {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
@@ -423,9 +502,7 @@ async fn start_system_audio_test(app_handle: tauri::AppHandle) -> Result<String,
         })();
 
         #[cfg(target_os = "windows")]
-        let device_result: Result<cpal::Device, String> = host
-            .default_output_device()
-            .ok_or_else(|| "NO_OUTPUT_DEVICE".to_string());
+        let device_result: Result<cpal::Device, String> = windows_pick_loopback_device(&host);
 
         #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let device_result: Result<cpal::Device, String> =
@@ -622,9 +699,7 @@ async fn start_system_capture(
         })();
 
         #[cfg(target_os = "windows")]
-        let device_result: Result<cpal::Device, String> = host
-            .default_output_device()
-            .ok_or_else(|| "NO_OUTPUT_DEVICE".to_string());
+        let device_result: Result<cpal::Device, String> = windows_pick_loopback_device(&host);
 
         #[cfg(not(any(target_os = "macos", target_os = "windows")))]
         let device_result: Result<cpal::Device, String> =
