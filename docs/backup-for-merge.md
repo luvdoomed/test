@@ -8,7 +8,23 @@
 | Коммит | `f170a8f` (тег `backup-2026-05-20`) |
 | Файл для друга | `backups/loomi-pre-merge-2026-05-20.bundle` |
 
-**Не вошло в backup (намеренно):** `server/.env`, `server/data/`, пароли SMTP, база пользователей.
+**В git / bundle не вошло (секреты):** `server/.env`, `server/data/` — они в отдельной папке для передачи.
+
+### Полный пакет «как у меня» (код + секреты + база)
+
+Папка на вашем ПК:
+
+`backups/transfer-for-friend/`
+
+| Файл | Назначение |
+|------|------------|
+| `loomi-pre-merge-2026-05-20.bundle` | весь код |
+| `server/.env` | SMTP, JWT |
+| `server/data/` | SQLite (аккаунты, синхронизация) |
+| `.env`, `src-tauri/.env` | если есть |
+| `README.txt` | инструкция для друга |
+
+Передайте **всю папку** другу (флешка / ZIP с паролем). **Не в GitHub.**
 
 ---
 
@@ -26,6 +42,7 @@ git branch -a
 ```
 
 3. Ветка с полным снимком: `backup/pre-merge-2026-05-20`.
+4. Скопировать из переданной папки `server/.env` и `server/data/` в клон (см. `README.txt`).
 
 ### Вариант B: общий репозиторий (GitHub)
 
@@ -75,5 +92,5 @@ git merge backup/pre-merge-2026-05-20
 
 1. `npm install`
 2. `cd server && npm install` (Node **22**)
-3. Скопировать `server/.env.example` → `server/.env`, свой SMTP
+3. Либо скопировать переданный `server/.env` + `server/data/`, либо `.env.example` и свой SMTP
 4. `npm run server:dev` + `npm run tauri dev`

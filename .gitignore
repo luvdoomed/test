@@ -84,6 +84,8 @@ desktop.ini
 server/data/
 server/node_modules/
 backups/*.bundle
+backups/transfer-for-friend/
+backups/loomi-full-for-friend.zip
 *.pem
 *.key
 
