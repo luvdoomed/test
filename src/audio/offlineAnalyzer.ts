@@ -32,7 +32,7 @@ export async function analyzeOffline(
   const totalFrames = Math.max(1, Math.ceil(audioBuffer.duration * fps))
   const hopSize = sampleRate / fps
 
-  // моно микс — среднее по каналам
+  // моно микс
   const mono = new Float32Array(length)
   if (channels === 1) {
     mono.set(audioBuffer.getChannelData(0))
@@ -74,7 +74,7 @@ export async function analyzeOffline(
 
     fft.realTransform(out, frame)
 
-    // магнитуда, дБ нормализация [0,1] как в audioEngine.tick
+    // дБ → [0,1]
     const snapshot = new Float32Array(BINS)
     let sum = 0
     for (let k = 0; k < BINS; k++) {
@@ -94,35 +94,4 @@ export async function analyzeOffline(
   }
 
   return { snapshots, energies, beats, totalFrames, fps }
-}
-
-export async function testOfflineAnalyzer(audioBuffer: AudioBuffer): Promise<OfflineAnalysis> {
-  const fps = 60
-  console.log(
-    `[offlineAnalyzer] анализ: ${audioBuffer.duration.toFixed(2)}с, `
-    + `${audioBuffer.sampleRate}Гц, ${audioBuffer.numberOfChannels}ch`,
-  )
-
-  const t0 = performance.now()
-  const result = await analyzeOffline(audioBuffer, fps)
-  const t1 = performance.now()
-
-  console.log(`[offlineAnalyzer] готово за ${(t1 - t0).toFixed(0)}мс, кадров: ${result.totalFrames}`)
-  console.log(
-    '[offlineAnalyzer] первые 10 energies:',
-    result.energies.slice(0, 10).map((v) => v.toFixed(4)),
-  )
-  console.log('[offlineAnalyzer] первые 10 beats:', result.beats.slice(0, 10))
-
-  const beatCount = result.beats.filter(Boolean).length
-  const firstBeatMoments: string[] = []
-  for (let i = 0; i < result.beats.length && firstBeatMoments.length < 10; i++) {
-    if (result.beats[i] && (i === 0 || !result.beats[i - 1])) {
-      firstBeatMoments.push(`#${i} (${(i / fps).toFixed(2)}с)`)
-    }
-  }
-  console.log(`[offlineAnalyzer] всего кадров с beat=true: ${beatCount}`)
-  console.log('[offlineAnalyzer] первые 10 начал битов:', firstBeatMoments)
-
-  return result
 }

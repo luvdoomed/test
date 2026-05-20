@@ -100,3 +100,4 @@ desktop.ini
 # rust build artifacts
 target/
 src-tauri/target/
+_diploma_docs/

@@ -159,7 +159,7 @@ interface Star {
   prevScreenX: number
   prevScreenY: number
   colorType: StarColor
-  hue: number // для Bright
+  hue: number
   baseR: number
   baseG: number
   baseB: number
@@ -425,7 +425,7 @@ export function StarfieldVisualizer() {
 
         const depthBrightness = Math.pow(1 - star.z / MAX_DEPTH, 1.5)
 
-        // температура цвета по скорости (далёкие — холодные, близкие — тёплые)
+        // цвет зависит от скорости
         const speedFactor = currentSpeed / (BASE_SPEED + MAX_ENERGY_SPEED)
         const depthFactor = 1 - star.z / MAX_DEPTH
 
@@ -437,7 +437,6 @@ export function StarfieldVisualizer() {
           g = Math.max(0, Math.cos(hRad - 2.094)) * 0.5 + 0.5
           b = Math.max(0, Math.cos(hRad + 2.094)) * 0.5 + 0.5
         } else {
-          // холодные #aaccff (0.667, 0.8, 1.0) к тёплым #ffeecc (1.0, 0.933, 0.8)
           const t = depthFactor * speedFactor
           r = star.baseR * (0.667 + t * 0.333)
           g = star.baseG * (0.8 + t * 0.133)

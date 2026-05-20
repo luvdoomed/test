@@ -1,11 +1,10 @@
-import { type ChangeEvent, type DragEvent, useRef, useState } from 'react'
+import { type ChangeEvent, type DragEvent, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, Download, BookOpen, X, ChevronDown, FileCode2 } from 'lucide-react'
 import { MOOD_LABELS, type MoodId } from '../audio/moodEngine'
 import { useUserVizStore } from '../userViz/userVizStore'
 import { useUIStore } from '../store/uiStore'
 import { useAudioStore } from '../store/audioStore'
-import { resetMoodPicker } from '../audio/moodEngine'
 import { downloadTemplate, type TemplateKind } from '../userViz/templates'
 import UserVizUploadModal from '../components/userViz/UserVizUploadModal'
 import UserVizDocsModal from '../components/userViz/UserVizDocsModal'
@@ -22,6 +21,13 @@ export default function UserVizPage() {
 
   const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
   const openOverlay = useUIStore((s) => s.openOverlay)
+  const searchQuery = useUIStore((s) => s.searchQuery)
+
+  const filtered = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase()
+    if (!q) return visualizers
+    return visualizers.filter((v) => v.name.toLowerCase().includes(q))
+  }, [visualizers, searchQuery])
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [docsOpen, setDocsOpen] = useState(false)
@@ -73,7 +79,6 @@ export default function UserVizPage() {
 
   function openUserViz(id: string) {
     useAudioStore.getState().clearPlaylistQueue()
-    resetMoodPicker()
     setSelectedVizId(id)
     openOverlay(id)
   }
@@ -95,7 +100,7 @@ export default function UserVizPage() {
         — Твои творения
       </div>
       <h1 className="text-5xl sm:text-6xl font-semibold tracking-[-0.035em] leading-[1.02] mb-4">
-        Мои{' '}
+        Музыка,{' '}
         <span
           className="font-normal italic"
           style={{
@@ -105,7 +110,7 @@ export default function UserVizPage() {
             WebkitTextFillColor: 'transparent',
           }}
         >
-          визуализаторы.
+          которую представляешь.
         </span>
       </h1>
       <p className="text-base text-[var(--fg-soft)] mb-10 max-w-2xl">
@@ -279,6 +284,19 @@ export default function UserVizPage() {
         >
           Пока ничего нет. Начни с шаблона.
         </div>
+      ) : filtered.length === 0 ? (
+        <div
+          style={{
+            minHeight: 120,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--fg-mute)',
+            fontSize: 14,
+          }}
+        >
+          Ничего не найдено.
+        </div>
       ) : (
         <div
           className="grid"
@@ -287,7 +305,7 @@ export default function UserVizPage() {
             gap: 16,
           }}
         >
-          {visualizers.map((v) => (
+          {filtered.map((v) => (
             <UserVizCard
               key={v.id}
               vizId={v.id}

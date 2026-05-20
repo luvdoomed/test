@@ -11,7 +11,6 @@ const BRIGHTNESS_THRESHOLD = 0.12
 interface FaceParams {
     faceSize: number
     dotSize: number
-    chromaShift: number
     beatZoom: number
     rayLength: number
 }
@@ -154,7 +153,6 @@ export function FaceVisualizer() {
             const pp = paramsRef.current
             const faceSizeMul = Math.max(0, pp.faceSize)
             const dotSizeMul = Math.max(0, pp.dotSize)
-            const chromaMul = Math.max(0, pp.chromaShift)
             const beatZoomMul = Math.max(0, pp.beatZoom)
             const rayLenMul = Math.max(0, pp.rayLength)
 
@@ -267,9 +265,9 @@ export function FaceVisualizer() {
             const scaledCellH = scaledH / GRID_H
 
             const motionAmount = Math.min(1, Math.abs(velX) + Math.abs(velY))
-            const chromaShift = (0.5 + motionAmount * 1.5 + high * 2) * chromaScale * chromaMul
+            const chromaOffset = (0.5 + motionAmount * 1.5 + high * 2) * chromaScale
 
-            // motion blur — доп. проход со смещением по velocity
+            // motion blur со смещением
             const motionPasses = motionAmount > 0.25 ? [
                 { dx: -velX * 0.25, dy: -velY * 0.25, alphaMul: 0.2 },
             ] : []
@@ -293,11 +291,11 @@ export function FaceVisualizer() {
                 const baseR = Math.round(180 + brightShift * 75)
                 const baseG = Math.round(80 + brightShift * 100)
                 const baseB = Math.round(180 + brightShift * 60)
-                const useChroma = chromaShift > 0.8
+                const useChroma = chromaOffset > 0.8
                 const passes = useChroma ? [
-                    { dx: -chromaShift, dy: 0, r: Math.max(80, baseR - 30), g: 40, b: Math.max(100, baseB - 40), alphaMul: 0.5 },
+                    { dx: -chromaOffset, dy: 0, r: Math.max(80, baseR - 30), g: 40, b: Math.max(100, baseB - 40), alphaMul: 0.5 },
                     { dx: 0, dy: 0, r: baseR, g: baseG, b: baseB, alphaMul: 1.0 },
-                    { dx: chromaShift, dy: 0, r: Math.max(80, baseR - 60), g: Math.max(80, baseG - 20), b: Math.min(255, baseB + 40), alphaMul: 0.4 },
+                    { dx: chromaOffset, dy: 0, r: Math.max(80, baseR - 60), g: Math.max(80, baseG - 20), b: Math.min(255, baseB + 40), alphaMul: 0.4 },
                 ] : [
                     { dx: 0, dy: 0, r: baseR, g: baseG, b: baseB, alphaMul: 1.0 },
                 ]
@@ -318,7 +316,7 @@ export function FaceVisualizer() {
                     ctx.restore()
                 }
 
-                // chromatic aberration 3 прохода
+                // смещение каналов в три прохода
                 for (const p of passes) {
                     ctx.save()
                     ctx.shadowBlur = p.alphaMul === 1.0 ? (3 + freqAmp * 8) : 0
@@ -337,7 +335,7 @@ export function FaceVisualizer() {
                     ctx.restore()
                 }
 
-                // корона 3 слоя свечения на больших пиках
+                // корона свечения на пиках
                 if (pulse > 0.85 && Math.random() < 0.06) {
                     const coronaSlots = [
                         { scale: 1.06, blur: 8, opacity: 0.25 },

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUIStore } from '../store/uiStore'
 import { useAudioStore } from '../store/audioStore'
-import { resetMoodPicker, MOOD_LABELS } from '../audio/moodEngine'
+import { MOOD_LABELS } from '../audio/moodEngine'
 import { GALLERY } from '../gallery/registry'
 import type { VizCategory } from '../gallery/types'
 import { useUserVizStore } from '../userViz/userVizStore'
@@ -67,7 +67,6 @@ export default function VisualizersGallery() {
 
   function handleSelect(id: string) {
     useAudioStore.getState().clearPlaylistQueue()
-    resetMoodPicker()
     setSelectedVizId(id)
     openOverlay(id)
   }
@@ -96,7 +95,7 @@ export default function VisualizersGallery() {
             </span>
           </h1>
           <p className="text-base text-[var(--fg-soft)] max-w-2xl">
-            Визуализаторы, которые реагируют на музыку. Выбери, закинь трек, сними видео.
+            Визуализаторы, которые реагируют на музыку в реальном времени
           </p>
         </div>
 

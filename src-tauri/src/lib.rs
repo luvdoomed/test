@@ -1,24 +1,5 @@
-use std::io::Read;
 use tauri_plugin_shell::ShellExt;
 use tauri::Emitter;
-
-#[tauri::command]
-fn greet(name: &str) -> String {
-    format!("Hello, {}! You've been greeted from Rust!", name)
-}
-
-#[tauri::command]
-fn diag_log_append(line: String) -> Result<(), String> {
-    use std::io::Write;
-    let path = "/tmp/mvapp_diag.log";
-    let mut f = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .map_err(|e| format!("open log: {}", e))?;
-    writeln!(f, "{}", line).map_err(|e| format!("write log: {}", e))?;
-    Ok(())
-}
 
 struct TempFileGuard {
     path: std::path::PathBuf,
@@ -75,7 +56,7 @@ fn build_ffmpeg_args(
     audio_path: &str,
     output_path: &str,
 ) -> Vec<String> {
-    // scale + pad с чёрным к чётным размерам, иначе libx264 ругается на нечёт
+    // scale + pad до чётных размеров
     let vf = format!(
         "scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:black,format=yuv420p",
         w = output_width,
@@ -107,44 +88,6 @@ fn build_ffmpeg_args(
     ]);
 
     args
-}
-
-// извлекает png из чанка, нумерует глобально через counter
-fn extract_chunk_renamed(
-    tar_bytes: &[u8],
-    out_dir: &std::path::Path,
-    counter: &mut u64,
-) -> Result<(), String> {
-    let mut archive = tar::Archive::new(tar_bytes);
-    let entries = archive
-        .entries()
-        .map_err(|e| format!("не удалось прочитать tar: {}", e))?;
-
-    for entry in entries {
-        let mut entry = entry.map_err(|e| format!("ошибка чтения записи tar: {}", e))?;
-        let path = entry
-            .path()
-            .map_err(|e| format!("ошибка пути tar: {}", e))?
-            .into_owned();
-        let name = match path.file_name().and_then(|n| n.to_str()) {
-            Some(n) => n.to_string(),
-            None => continue,
-        };
-        if !name.ends_with(".jpg") {
-            continue;
-        }
-        let mut buf = Vec::new();
-        entry
-            .read_to_end(&mut buf)
-            .map_err(|e| format!("чтение содержимого {}: {}", name, e))?;
-        let out_name = format!("frame_{:07}.jpg", *counter);
-        let out_path = out_dir.join(&out_name);
-        std::fs::write(&out_path, &buf)
-            .map_err(|e| format!("запись {}: {}", out_path.display(), e))?;
-        *counter += 1;
-    }
-
-    Ok(())
 }
 
 #[tauri::command]
@@ -184,7 +127,6 @@ async fn build_video_from_dir(
         .map_err(|e| format!("read_dir: {}", e))?
         .filter_map(|e| e.ok())
         .count();
-    println!("[build_video_from_dir] dir={} frames={}", frames_dir, frames_count);
     if frames_count == 0 {
         return Err("в папке экспорта нет кадров".into());
     }
@@ -209,14 +151,12 @@ async fn build_video_from_dir(
     let fps_str = fps.to_string();
 
     let encoder = primary_encoder();
-    println!("[build_video_from_dir] {}x{} @ {} fps, энкодер {}", width, height, fps, encoder);
 
     let args = build_ffmpeg_args(
         encoder, &fps_str, width, height, &frames_pattern, &audio_str, &output_path,
     );
     let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
 
-    let ffmpeg_start = std::time::Instant::now();
     let first = app
         .shell()
         .command("ffmpeg")
@@ -224,7 +164,6 @@ async fn build_video_from_dir(
         .output()
         .await
         .map_err(|e| format!("ffmpeg не запустился: {}", e))?;
-    println!("[rec-diag-rust] ffmpeg took {:.2}s", ffmpeg_start.elapsed().as_secs_f64());
 
     if first.status.success() {
         return Ok(());
@@ -242,7 +181,6 @@ async fn build_video_from_dir(
         "libx264", &fps_str, width, height, &frames_pattern, &audio_str, &output_path,
     );
     let fb_str_args: Vec<&str> = fb_args.iter().map(|s| s.as_str()).collect();
-    let fb_start = std::time::Instant::now();
     let fb = app
         .shell()
         .command("ffmpeg")
@@ -250,7 +188,6 @@ async fn build_video_from_dir(
         .output()
         .await
         .map_err(|e| format!("fallback libx264 не запустился: {}", e))?;
-    println!("[rec-diag-rust] ffmpeg (libx264 fallback) took {:.2}s", fb_start.elapsed().as_secs_f64());
 
     if fb.status.success() {
         Ok(())
@@ -263,138 +200,6 @@ async fn build_video_from_dir(
     }
 }
 
-#[tauri::command]
-async fn build_video_from_png_tar(
-    app: tauri::AppHandle,
-    tar_chunks: Vec<Vec<u8>>,
-    width: u32,
-    height: u32,
-    fps: u32,
-    audio_bytes: Vec<u8>,
-    audio_extension: String,
-    output_path: String,
-) -> Result<(), String> {
-    println!(
-        "[rec-diag-rust] tar_chunks count: {}, total bytes: {}",
-        tar_chunks.len(),
-        tar_chunks.iter().map(|c| c.len()).sum::<usize>(),
-    );
-
-    let tmp_dir = std::env::temp_dir();
-    let pid = std::process::id();
-    let ts = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_nanos())
-        .unwrap_or(0);
-
-    let frames_dir = tmp_dir.join(format!("mvapp_frames_{}_{}", pid, ts));
-    std::fs::create_dir_all(&frames_dir)
-        .map_err(|e| format!("не удалось создать папку кадров: {}", e))?;
-    let _frames_guard = TempDirGuard { path: frames_dir.clone() };
-
-    let mut counter: u64 = 0;
-    for (idx, chunk) in tar_chunks.iter().enumerate() {
-        println!("[rec-diag-rust] chunk {} size: {} bytes", idx, chunk.len());
-        extract_chunk_renamed(chunk, &frames_dir, &mut counter)
-            .map_err(|e| format!("чанк {}: {}", idx, e))?;
-    }
-
-    let frames: Vec<_> = std::fs::read_dir(&frames_dir)
-        .map_err(|e| format!("read_dir: {}", e))?
-        .filter_map(|e| e.ok())
-        .collect();
-    if let (Some(first), Some(last)) = (frames.first(), frames.last()) {
-        let fsize = first.metadata().map(|m| m.len()).unwrap_or(0);
-        let lsize = last.metadata().map(|m| m.len()).unwrap_or(0);
-        println!(
-            "[rec-diag-rust] frame sizes: first {} bytes, last {} bytes, total {} files",
-            fsize, lsize, frames.len(),
-        );
-    }
-
-    println!(
-        "[build_video] чанков {}, всего png {}, папка {}",
-        tar_chunks.len(),
-        counter,
-        frames_dir.display(),
-    );
-
-    if counter == 0 {
-        return Err("в tar-чанках нет png кадров".into());
-    }
-
-    let ext = if audio_extension.is_empty() { "bin".to_string() } else { audio_extension };
-    let audio_path = tmp_dir.join(format!("mvapp_audio_{}_{}.{}", pid, ts, ext));
-    std::fs::write(&audio_path, &audio_bytes)
-        .map_err(|e| format!("не удалось записать временное аудио: {}", e))?;
-    let _audio_guard = TempFileGuard { path: audio_path.clone() };
-
-    let frames_pattern = frames_dir.join("frame_%07d.jpg").to_string_lossy().to_string();
-    let audio_str = audio_path.to_string_lossy().to_string();
-    let fps_str = fps.to_string();
-
-    let encoder = primary_encoder();
-    println!(
-        "[build_video] {}x{} @ {} fps, энкодер {}",
-        width, height, fps, encoder,
-    );
-
-    let args = build_ffmpeg_args(
-        encoder, &fps_str, width, height, &frames_pattern, &audio_str, &output_path,
-    );
-    let str_args: Vec<&str> = args.iter().map(|s| s.as_str()).collect();
-
-    let ffmpeg_start = std::time::Instant::now();
-    let first = app
-        .shell()
-        .command("ffmpeg")
-        .args(&str_args)
-        .output()
-        .await
-        .map_err(|e| {
-            format!(
-                "ffmpeg не запустился (проверь что он установлен и доступен в PATH): {}",
-                e,
-            )
-        })?;
-    println!("[rec-diag-rust] ffmpeg took {:.2}s", ffmpeg_start.elapsed().as_secs_f64());
-
-    if first.status.success() {
-        return Ok(());
-    }
-
-    let first_stderr = String::from_utf8_lossy(&first.stderr).to_string();
-    eprintln!("[build_video] {} упал:\n{}", encoder, first_stderr);
-
-    if encoder == "libx264" {
-        return Err(format!("ffmpeg завершился с ошибкой:\n{}", first_stderr));
-    }
-
-    eprintln!("[build_video] пробую libx264");
-    let fb_args = build_ffmpeg_args(
-        "libx264", &fps_str, width, height, &frames_pattern, &audio_str, &output_path,
-    );
-    let fb_str_args: Vec<&str> = fb_args.iter().map(|s| s.as_str()).collect();
-    let fb_start = std::time::Instant::now();
-    let fb = app
-        .shell()
-        .command("ffmpeg")
-        .args(&fb_str_args)
-        .output()
-        .await
-        .map_err(|e| format!("fallback libx264 не запустился: {}", e))?;
-    println!("[rec-diag-rust] ffmpeg (libx264 fallback) took {:.2}s", fb_start.elapsed().as_secs_f64());
-
-    if fb.status.success() {
-        Ok(())
-    } else {
-        let fb_stderr = String::from_utf8_lossy(&fb.stderr);
-        Err(format!(
-            "ffmpeg не справился ни с {}, ни с libx264.\n{} stderr:\n{}\nlibx264 stderr:\n{}",
-            encoder, encoder, first_stderr, fb_stderr,
-        ))
-    }
-}
 
 #[cfg(target_os = "windows")]
 fn windows_capture_config(d: &cpal::Device) -> Result<cpal::SupportedStreamConfig, String> {
@@ -444,14 +249,6 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         .input_devices()
         .map_err(|e| format!("input_devices: {}", e))?
         .collect();
-    println!(
-        "[system-capture] Windows input devices found: {}",
-        input_devices.len()
-    );
-    for d in &input_devices {
-        let name = d.name().unwrap_or_else(|_| "unknown".to_string());
-        println!("[system-capture] enumerated input: {}", name);
-    }
 
     let prefer_keywords = [
         "loopback",
@@ -476,10 +273,6 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
         match probe(d) {
             Ok(()) => {
-                println!(
-                    "[system-capture] using loopback device (preferred input): {}",
-                    name
-                );
                 return Ok(d.clone());
             }
             Err(e) => {
@@ -495,10 +288,6 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
         match probe(&d) {
             Ok(()) => {
-                println!(
-                    "[system-capture] using loopback device (default output via WASAPI loopback): {}",
-                    name
-                );
                 return Ok(d);
             }
             Err(e) => {
@@ -514,18 +303,10 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         .output_devices()
         .map_err(|e| format!("output_devices: {}", e))?
         .collect();
-    println!(
-        "[system-capture] Windows output devices found: {}",
-        output_devices.len()
-    );
     for d in &output_devices {
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
         match probe(d) {
             Ok(()) => {
-                println!(
-                    "[system-capture] using loopback device (output via WASAPI loopback): {}",
-                    name
-                );
                 return Ok(d.clone());
             }
             Err(e) => {
@@ -541,10 +322,6 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
         let name = d.name().unwrap_or_else(|_| "unknown".to_string());
         match probe(d) {
             Ok(()) => {
-                println!(
-                    "[system-capture] using loopback device (any input): {}",
-                    name
-                );
                 return Ok(d.clone());
             }
             Err(e) => {
@@ -563,174 +340,6 @@ fn windows_pick_loopback_device(host: &cpal::Host) -> Result<cpal::Device, Strin
     ))
 }
 
-#[tauri::command]
-async fn start_system_audio_test(app_handle: tauri::AppHandle) -> Result<String, String> {
-    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-    use std::sync::{Arc, Mutex};
-    use std::sync::mpsc;
-
-    let (result_tx, result_rx) = mpsc::channel::<Result<String, String>>();
-    let app_for_thread = app_handle.clone();
-
-    std::thread::spawn(move || {
-        let host = cpal::default_host();
-
-        #[cfg(target_os = "macos")]
-        let device_result: Result<cpal::Device, String> = (|| {
-            let mut devices = host
-                .input_devices()
-                .map_err(|e| format!("не удалось получить input_devices: {}", e))?;
-            devices
-                .find(|d| {
-                    d.name()
-                        .map(|n| n.to_lowercase().contains("blackhole"))
-                        .unwrap_or(false)
-                })
-                .ok_or_else(|| "BLACKHOLE_NOT_FOUND".to_string())
-        })();
-
-        #[cfg(target_os = "windows")]
-        let device_result: Result<cpal::Device, String> = windows_pick_loopback_device(&host);
-
-        #[cfg(not(any(target_os = "macos", target_os = "windows")))]
-        let device_result: Result<cpal::Device, String> =
-            Err("UNSUPPORTED_PLATFORM".to_string());
-
-        let device = match device_result {
-            Ok(d) => d,
-            Err(e) => {
-                let _ = result_tx.send(Err(e));
-                return;
-            }
-        };
-
-        let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
-        println!("[system-audio-test] устройство: {}", device_name);
-
-        #[cfg(target_os = "windows")]
-        let cfg_result = windows_capture_config(&device);
-        #[cfg(not(target_os = "windows"))]
-        let cfg_result = device
-            .default_input_config()
-            .map_err(|e| format!("default_input_config: {}", e));
-
-        let config = match cfg_result {
-            Ok(c) => c,
-            Err(e) => {
-                let _ = result_tx.send(Err(e));
-                return;
-            }
-        };
-
-        println!(
-            "[system-audio-test] config: sample_rate={} channels={} format={:?}",
-            config.sample_rate().0,
-            config.channels(),
-            config.sample_format(),
-        );
-
-        let sample_format = config.sample_format();
-        let stream_config: cpal::StreamConfig = config.clone().into();
-        let channels = stream_config.channels as usize;
-
-        let accumulator: Arc<Mutex<Vec<f32>>> = Arc::new(Mutex::new(Vec::new()));
-        let acc_for_callback = accumulator.clone();
-
-        let err_fn = |err| eprintln!("[system-audio-test] stream error: {}", err);
-
-        let stream_result: Result<cpal::Stream, String> = match sample_format {
-            cpal::SampleFormat::F32 => device
-                .build_input_stream(
-                    &stream_config,
-                    move |data: &[f32], _: &cpal::InputCallbackInfo| {
-                        let mut acc = acc_for_callback.lock().unwrap();
-                        acc.extend_from_slice(data);
-                    },
-                    err_fn,
-                    None,
-                )
-                .map_err(|e| format!("build_input_stream F32: {}", e)),
-            cpal::SampleFormat::I16 => device
-                .build_input_stream(
-                    &stream_config,
-                    move |data: &[i16], _: &cpal::InputCallbackInfo| {
-                        let mut acc = acc_for_callback.lock().unwrap();
-                        acc.extend(data.iter().map(|&s| s as f32 / i16::MAX as f32));
-                    },
-                    err_fn,
-                    None,
-                )
-                .map_err(|e| format!("build_input_stream I16: {}", e)),
-            cpal::SampleFormat::U16 => device
-                .build_input_stream(
-                    &stream_config,
-                    move |data: &[u16], _: &cpal::InputCallbackInfo| {
-                        let mut acc = acc_for_callback.lock().unwrap();
-                        acc.extend(data.iter().map(|&s| {
-                            (s as f32 - u16::MAX as f32 / 2.0) / (u16::MAX as f32 / 2.0)
-                        }));
-                    },
-                    err_fn,
-                    None,
-                )
-                .map_err(|e| format!("build_input_stream U16: {}", e)),
-            other => Err(format!("неподдерживаемый sample format: {:?}", other)),
-        };
-
-        let stream = match stream_result {
-            Ok(s) => s,
-            Err(e) => {
-                let _ = result_tx.send(Err(e));
-                return;
-            }
-        };
-
-        if let Err(e) = stream.play() {
-            let _ = result_tx.send(Err(format!("stream.play: {}", e)));
-            return;
-        }
-
-        let start = std::time::Instant::now();
-        let total_duration = std::time::Duration::from_secs(5);
-        let tick = std::time::Duration::from_millis(100);
-
-        while start.elapsed() < total_duration {
-            std::thread::sleep(tick);
-            let samples = {
-                let mut acc = accumulator.lock().unwrap();
-                std::mem::take(&mut *acc)
-            };
-            if samples.is_empty() {
-                let _ = app_for_thread.emit("system-audio-level", 0.0f32);
-                continue;
-            }
-            let frames = samples.len() / channels.max(1);
-            let sum_sq: f32 = samples.iter().map(|s| s * s).sum();
-            let rms = if frames > 0 {
-                (sum_sq / samples.len() as f32).sqrt()
-            } else {
-                0.0
-            };
-            let _ = app_for_thread.emit("system-audio-level", rms);
-        }
-
-        drop(stream);
-        let _ = result_tx.send(Ok("Capture stopped after 5s".to_string()));
-    });
-
-    tauri::async_runtime::spawn_blocking(move || {
-        result_rx
-            .recv()
-            .unwrap_or_else(|e| Err(format!("канал закрыт: {}", e)))
-    })
-    .await
-    .map_err(|e| format!("join error: {}", e))?
-}
-
-#[tauri::command]
-async fn stop_system_audio_test() -> Result<String, String> {
-    Ok("Stopped".to_string())
-}
 
 #[derive(serde::Serialize, Clone)]
 #[serde(rename_all = "camelCase")]
@@ -807,9 +416,6 @@ async fn start_system_capture(
             }
         };
 
-        let device_name = device.name().unwrap_or_else(|_| "unknown".to_string());
-        println!("[system-capture] устройство: {}", device_name);
-
         #[cfg(target_os = "windows")]
         let cfg_result = windows_capture_config(&device);
         #[cfg(not(target_os = "windows"))]
@@ -829,11 +435,6 @@ async fn start_system_capture(
         let stream_config: cpal::StreamConfig = config.clone().into();
         let channels = stream_config.channels as usize;
         let sample_rate = stream_config.sample_rate.0;
-
-        println!(
-            "[system-capture] sample_rate={} channels={} format={:?}",
-            sample_rate, channels, sample_format,
-        );
 
         let accumulator: Arc<StdMutex<Vec<f32>>> =
             Arc::new(StdMutex::new(Vec::with_capacity(16384)));
@@ -988,7 +589,6 @@ async fn start_system_capture(
         }
 
         drop(stream);
-        println!("[system-capture] остановлен");
     });
 
     let join_result = tauri::async_runtime::spawn_blocking(move || init_rx.recv())
@@ -1026,14 +626,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
-            greet,
-            diag_log_append,
             prepare_export_dir,
             cleanup_export_dir,
             build_video_from_dir,
-            build_video_from_png_tar,
-            start_system_audio_test,
-            stop_system_audio_test,
             start_system_capture,
             stop_system_capture
         ])

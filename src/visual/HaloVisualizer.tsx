@@ -12,19 +12,26 @@ import { LayerMaterial, Fresnel, Displace } from 'lamina'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useAudioStore } from '../store/audioStore'
+import { useVisualizerParams } from '../presets/useVisualizerParams'
 import { AudioInvalidator } from './_AudioInvalidator'
+
+interface HaloParams {
+  subdivisions: number
+  displaceAmount: number
+  floatIntensity: number
+  bloomIntensity: number
+  fresnelColor: string
+  resolutionScale: number
+}
 
 const CAMERA_CONFIG = { position: [0, 0, 5] as [number, number, number], fov: 45 }
 const BG_COLOR = '#000000'
 const BG_COLOR_ARGS: [string] = [BG_COLOR]
 
 const BLOB_BASE_COLOR = '#000000'
-const FRESNEL_COLOR = '#ffe5d0'
 const FRESNEL_POWER = 2.5
 const FRESNEL_INTENSITY = 2.2
 const FRESNEL_ALPHA = 1
-
-const BLOB_GEOM_ARGS: [number, number] = [1, 16]
 
 const DISPLACE_STRENGTH = 0.25
 const DISPLACE_SCALE = 1.2
@@ -41,6 +48,10 @@ function Blob() {
   const smoothedBassRef = useRef(0)
   const beatPulseRef = useRef(0)
 
+  const params = useVisualizerParams<HaloParams>('halo')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+
   useFrame((_, delta) => {
     const state = useAudioStore.getState()
     const audioData = state.audioData
@@ -52,7 +63,7 @@ function Blob() {
       bassRaw /= 20
     }
 
-    // экспоненциальное сглаживание независимое от fps
+    // сглаживание без привязки к fps
     const bassK = 1 - Math.pow(0.0001, delta)
     smoothedBassRef.current =
       smoothedBassRef.current + (bassRaw - smoothedBassRef.current) * bassK
@@ -67,12 +78,12 @@ function Blob() {
       displaceRef.current.offset.y = tRef.current * 0.7
       displaceRef.current.offset.z = tRef.current * 0.5
 
-      // сила деформации растёт с басом и битом
+      const da = paramsRef.current.displaceAmount
       displaceRef.current.strength =
-        DISPLACE_STRENGTH + smoothedBassRef.current * 0.5 + beatPulseRef.current * 0.4
+        (DISPLACE_STRENGTH + smoothedBassRef.current * 0.5 + beatPulseRef.current * 0.4) * da
     }
 
-    // на бит шарик слегка раздувается и возвращается
+    // раздувание на бите
     if (meshRef.current) {
       const scaleTarget =
         1 + beatPulseRef.current * 0.15 + smoothedBassRef.current * 0.08
@@ -89,7 +100,7 @@ function Blob() {
 
   return (
     <mesh ref={meshRef}>
-      <icosahedronGeometry args={BLOB_GEOM_ARGS} />
+      <icosahedronGeometry args={[1, params.subdivisions]} />
       {/* @ts-ignore */}
       <LayerMaterial lighting="standard" color={BLOB_BASE_COLOR}>
         {/* @ts-ignore */}
@@ -103,7 +114,7 @@ function Blob() {
         {/* @ts-ignore */}
         <Fresnel
           mode="add"
-          color={FRESNEL_COLOR}
+          color={params.fresnelColor}
           alpha={FRESNEL_ALPHA}
           power={FRESNEL_POWER}
           intensity={FRESNEL_INTENSITY}
@@ -115,17 +126,20 @@ function Blob() {
 
 export function HaloVisualizer() {
   const composerRef = useRef<{ render: (d?: number) => void } | null>(null)
+  const params = useVisualizerParams<HaloParams>('halo')
+  const dprCap = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const dpr = Math.min(Math.max(0.5, params.resolutionScale), 2, dprCap)
   return (
     <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
-      <Canvas camera={CAMERA_CONFIG} gl={{ preserveDrawingBuffer: true }}>
+      <Canvas camera={CAMERA_CONFIG} dpr={dpr} gl={{ preserveDrawingBuffer: true }}>
         <AudioInvalidator composerRef={composerRef} />
         <color attach="background" args={BG_COLOR_ARGS} />
         <ambientLight intensity={1} />
 
         <Float
-          speed={1.2}
+          speed={1.2 * params.floatIntensity}
           rotationIntensity={0}
-          floatIntensity={2.5}
+          floatIntensity={2.5 * params.floatIntensity}
           floatingRange={FLOATING_RANGE}
         >
           <Blob />
@@ -133,7 +147,7 @@ export function HaloVisualizer() {
 
         <EffectComposer ref={composerRef as any}>
           <Bloom
-            intensity={2.5}
+            intensity={2.5 * params.bloomIntensity}
             luminanceThreshold={0.1}
             luminanceSmoothing={0.9}
             mipmapBlur

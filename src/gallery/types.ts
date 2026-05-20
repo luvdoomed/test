@@ -10,11 +10,4 @@ export interface VizPreview {
   subcategory: string
   badge: VizBadge
   moods: MoodId[]
-  draw: (
-    ctx: CanvasRenderingContext2D,
-    width: number,
-    height: number,
-    t: number,
-    isHovered: boolean,
-  ) => void
 }

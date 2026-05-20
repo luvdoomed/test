@@ -82,7 +82,6 @@ async function parseFileMetadata(file: File): Promise<ParsedMetadata> {
       coverObjectUrl = URL.createObjectURL(coverBlob)
     }
   } catch {
-    // parse failed; keep fallbacks
   }
 
   return { title, artist, album, duration, coverBlob, coverObjectUrl }
@@ -151,7 +150,7 @@ function enqueueAnalysis(trackId: string): void {
       }))
     } finally {
       if (ctx) {
-        try { await ctx.close() } catch { /* ignore */ }
+        try { await ctx.close() } catch {}
       }
     }
   })

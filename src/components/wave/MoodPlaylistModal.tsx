@@ -9,7 +9,7 @@ import {
   type MoodId,
 } from '../../audio/moodEngine'
 import { useLibraryStore, type LibraryTrack } from '../../store/libraryStore'
-import { useAudioStore } from '../../store/audioStore'
+import { useAudioStore, EMPTY_MOOD_SESSION } from '../../store/audioStore'
 import { useUIStore } from '../../store/uiStore'
 import { audioEngine } from '../../audio/audioEngine'
 import { loadTrack } from '../../library/playback'
@@ -36,6 +36,7 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
   const setCurrentTrack = useLibraryStore((s) => s.setCurrentTrack)
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const setPlaylistQueue = useAudioStore((s) => s.setPlaylistQueue)
+  const currentPlaylistMood = useAudioStore((s) => s.currentPlaylistMood)
   const openOverlay = useUIStore((s) => s.openOverlay)
   const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
   const selectedVizId = useUIStore((s) => s.selectedVizId)
@@ -82,9 +83,9 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
   async function handlePlayAll() {
     if (moodTracks.length === 0) return
 
-    const playingInThisMood = currentTrackId
-      ? moodTrackIds.includes(currentTrackId)
-      : false
+    const playingInThisMood = currentPlaylistMood === moodId
+      && !!currentTrackId
+      && moodTrackIds.includes(currentTrackId)
 
     if (playingInThisMood) {
       const vizId = selectedVizId ?? GALLERY[0].id
@@ -93,11 +94,45 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
       return
     }
 
+    const audio = useAudioStore.getState()
+    const savedSession = audio.moodSessions[moodId]
+    const savedTrack = savedSession?.currentTrackId
+      ? moodTracks.find((t) => t.id === savedSession.currentTrackId)
+      : null
+
+    if (savedSession && savedTrack && savedSession.currentVizId) {
+      setPlaylistQueue(savedSession.playlistQueue.length > 0 ? savedSession.playlistQueue : moodTrackIds, moodId)
+      setSelectedVizId(savedSession.currentVizId)
+      setCurrentTrack(savedTrack.id)
+      try {
+        await loadTrack(savedTrack)
+        audioEngine.seek(savedSession.currentTrackPosition)
+        audioEngine.play()
+      } catch (err) {
+        console.warn('[wave] не удалось возобновить сессию', err)
+      }
+      openOverlay(savedSession.currentVizId)
+      onClose()
+      return
+    }
+
     const first = moodTracks[0]
     setPlaylistQueue(moodTrackIds, moodId)
+    const ctx = {
+      avoided: savedSession?.avoidedVizIds ?? EMPTY_MOOD_SESSION.avoidedVizIds,
+      lastPickedForTrack: savedSession?.lastPickedForTrack ?? null,
+    }
     const pool = getAllVisualizersInfoSnapshot()
-    const picked = pickVizForMood(moodId, first.id, pool, { force: true })
-    const vizId = picked ?? selectedVizId ?? GALLERY[0].id
+    const result = pickVizForMood(moodId, first.id, pool, ctx, { force: true })
+    const vizId = result.vizId ?? selectedVizId ?? GALLERY[0].id
+    audio.updateMoodSession(moodId, {
+      playlistQueue: moodTrackIds,
+      currentTrackId: first.id,
+      currentTrackPosition: 0,
+      currentVizId: vizId,
+      avoidedVizIds: result.avoided,
+      lastPickedForTrack: result.lastPickedForTrack,
+    })
     setSelectedVizId(vizId)
     setCurrentTrack(first.id)
     try {

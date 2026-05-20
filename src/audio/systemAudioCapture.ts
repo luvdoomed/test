@@ -1,7 +1,7 @@
 import { invoke } from '@tauri-apps/api/core'
 import { listen, type UnlistenFn } from '@tauri-apps/api/event'
 
-export interface SystemCaptureInfo {
+interface SystemCaptureInfo {
   sampleRate: number
   channels: number
 }
@@ -163,14 +163,6 @@ export function processSystemAudioFrame(): { audioData: Float32Array; energy: nu
 
 export function getCapturedAudioData(): Float32Array {
   return lastAudioData
-}
-
-export function getCapturedEnergy(): number {
-  return lastEnergy
-}
-
-export function isSystemCapturing(): boolean {
-  return capturing
 }
 
 if (typeof window !== 'undefined') {

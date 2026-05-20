@@ -1,4 +1,3 @@
-/** строка текста с таймкодом, секунды от начала трека */
 export interface LrcLine {
   time: number
   text: string

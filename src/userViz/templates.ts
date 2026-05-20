@@ -299,7 +299,3 @@ export async function downloadTemplate(kind: TemplateKind): Promise<void> {
   const saved = await saveViaTauri(t.name, t.src)
   if (!saved) saveViaBlob(t.name, t.src)
 }
-
-export function getTemplateName(kind: TemplateKind): string {
-  return TEMPLATES[kind].name
-}

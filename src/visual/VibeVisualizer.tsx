@@ -7,8 +7,8 @@ interface VibeParams {
   exposure: number
   bloomStrength: number
   glow: number
-  chromaShift: number
   shakeIntensity: number
+  resolutionScale: number
 }
 
 const BANDS = 96
@@ -357,8 +357,10 @@ export function VibeVisualizer() {
 
     let W = window.innerWidth
     let H = window.innerHeight
-    const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
-    console.log('[Vibe] maskHeight:', Math.round(H * MASK_HEIGHT_RATIO), 'px |', 'canvas:', W, 'x', H, '| ratio:', MASK_HEIGHT_RATIO, '| factor:', MASK_FACTOR.toFixed(3))
+    const deviceCap = window.devicePixelRatio || 1
+    const resolveDpr = (scale: number) =>
+      Math.min(Math.max(0.5, scale), 2, deviceCap, MAX_DPR)
+    let dpr = resolveDpr(paramsRef.current.resolutionScale)
 
     const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true })
     renderer.setSize(W, H)
@@ -494,6 +496,13 @@ export function VibeVisualizer() {
       const pp = paramsRef.current
       t++
 
+      const wantDpr = resolveDpr(pp.resolutionScale)
+      if (wantDpr !== dpr) {
+        dpr = wantDpr
+        renderer.setPixelRatio(dpr)
+        resize()
+      }
+
       const nowT = performance.now()
       if (lastFrameT > 0) {
         const fps = 1000 / (nowT - lastFrameT)
@@ -501,7 +510,6 @@ export function VibeVisualizer() {
         else lowFpsFrames = 0
         if (motionSamples === 4 && lowFpsFrames > 100) {
           motionSamples = 2
-          console.log('[Vibe] motion blur samples: 4 → 2 (low fps)')
         }
       }
       lastFrameT = nowT
@@ -637,7 +645,7 @@ export function VibeVisualizer() {
       fu.uTime.value = sceneTime
       fu.uRadial.value = motion
       fu.uSamples.value = motionSamples
-      fu.uCA.value = caSm * 0.003 * pp.chromaShift
+      fu.uCA.value = caSm * 0.003
       fu.uBloomStr.value = bloomSm * pp.bloomStrength
       fu.uExposure.value = exposureSm * pp.exposure
 

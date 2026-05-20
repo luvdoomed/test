@@ -11,31 +11,43 @@ interface TrackInfo {
   cover: string
 }
 
-type Section = 'verse' | 'chorus' | 'bridge' | 'unknown'
-
 export type AudioMode = 'file' | 'system'
+
+export interface MoodSession {
+  playlistQueue: string[]
+  currentTrackId: string | null
+  currentTrackPosition: number
+  currentVizId: string | null
+  avoidedVizIds: string[]
+  lastPickedForTrack: string | null
+}
+
+export const EMPTY_MOOD_SESSION: MoodSession = {
+  playlistQueue: [],
+  currentTrackId: null,
+  currentTrackPosition: 0,
+  currentVizId: null,
+  avoidedVizIds: [],
+  lastPickedForTrack: null,
+}
 
 interface AudioState {
   audioData: Float32Array
   beat: boolean
   energy: number
-  section: Section
-  currentLyric: string
   currentTime: number
   trackInfo: TrackInfo
   isPlaying: boolean
   volume: number
-  /** Распарсенные строки .lrc (пусто, если текст не загружен). */
   lrcLines: LrcLine[]
   playlistQueue: string[]
   currentPlaylistMood: MoodId | null
   audioMode: AudioMode
+  moodSessions: Partial<Record<MoodId, MoodSession>>
 
   setAudioData: (data: Float32Array) => void
   setBeat: (beat: boolean) => void
   setEnergy: (energy: number) => void
-  setSection: (section: Section) => void
-  setCurrentLyric: (lyric: string) => void
   setCurrentTime: (time: number) => void
   setTrackInfo: (info: TrackInfo) => void
   setIsPlaying: (playing: boolean) => void
@@ -44,14 +56,13 @@ interface AudioState {
   setPlaylistQueue: (trackIds: string[], mood: MoodId | null) => void
   clearPlaylistQueue: () => void
   setAudioMode: (mode: AudioMode) => Promise<void>
+  updateMoodSession: (mood: MoodId, patch: Partial<MoodSession>) => void
 }
 
 export const useAudioStore = create<AudioState>((set, get) => ({
   audioData: new Float32Array(),
   beat: false,
   energy: 0,
-  section: 'unknown',
-  currentLyric: '',
   currentTime: 0,
   trackInfo: { title: '', artist: '', album: '', cover: '' },
   isPlaying: false,
@@ -60,12 +71,11 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   playlistQueue: [],
   currentPlaylistMood: null,
   audioMode: 'file',
+  moodSessions: {},
 
   setAudioData: (data) => set({ audioData: data }),
   setBeat: (beat) => set({ beat }),
   setEnergy: (energy) => set({ energy }),
-  setSection: (section) => set({ section }),
-  setCurrentLyric: (lyric) => set({ currentLyric: lyric }),
   setCurrentTime: (time) => set({ currentTime: time }),
   setTrackInfo: (info) => set({ trackInfo: info }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
@@ -73,6 +83,12 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   setLrcLines: (lines) => set({ lrcLines: lines }),
   setPlaylistQueue: (trackIds, mood) => set({ playlistQueue: trackIds, currentPlaylistMood: mood }),
   clearPlaylistQueue: () => set({ playlistQueue: [], currentPlaylistMood: null }),
+
+  updateMoodSession: (mood, patch) =>
+    set((s) => {
+      const prev = s.moodSessions[mood] ?? EMPTY_MOOD_SESSION
+      return { moodSessions: { ...s.moodSessions, [mood]: { ...prev, ...patch } } }
+    }),
 
   setAudioMode: async (mode) => {
     const current = get().audioMode
@@ -90,8 +106,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
         isPlaying: true,
       })
       try {
-        const info = await startSystemCapture()
-        console.log('[audioMode] system capture started:', info)
+        await startSystemCapture()
         audioEngine.markSystemStart()
         audioEngine.stopLoop()
         audioEngine.startLoop()

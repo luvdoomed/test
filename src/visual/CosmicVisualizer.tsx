@@ -10,7 +10,17 @@ import { BlendFunction } from 'postprocessing'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useAudioStore } from '../store/audioStore'
+import { useVisualizerParams } from '../presets/useVisualizerParams'
 import { AudioInvalidator } from './_AudioInvalidator'
+
+interface CosmicParams {
+  quality: number
+  bassReactivity: number
+  rotationSpeed: number
+  bloomIntensity: number
+  paletteIndex: number
+  resolutionScale: number
+}
 
 const CAMERA = { position: [0, 0, 5] as [number, number, number], fov: 45 }
 const BG_COLOR = '#000000'
@@ -37,6 +47,8 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform float iAudioRMS;
   uniform float iRotationStep;
   uniform float iPaletteIndex;
+  uniform float iQuality;
+  uniform float iBassReactivity;
 
   vec3 getPalette(float idx) {
     if (idx < 0.5) return vec3(6.0, 1.0, 2.0);
@@ -51,10 +63,11 @@ const FRAGMENT_SHADER = /* glsl */ `
     vec2 fragCoord = vUv * iResolution;
     vec4 O = vec4(0.0);
 
-    float blackHoleRadius = 4.0 + iAudioBass * 6.0 + iAudioBeatPulse * 2.0;
+    float blackHoleRadius = 4.0 + iAudioBass * 6.0 * iBassReactivity + iAudioBeatPulse * 2.0;
 
     float z = 0.0;
     for (float i = 0.0; i < 14.0; i++) {
+      if (i >= iQuality) break;
       vec3 p = z * normalize(
         vec3(fragCoord + fragCoord, 0.0)
           - vec3(iResolution.x, iResolution.y, iResolution.x)
@@ -115,6 +128,8 @@ const CosmicMaterial = shaderMaterial(
     iAudioRMS: 0,
     iRotationStep: 0,
     iPaletteIndex: 0,
+    iQuality: 14,
+    iBassReactivity: 1,
   },
   VERTEX_SHADER,
   FRAGMENT_SHADER,
@@ -137,6 +152,10 @@ function CosmicScene() {
   const rotationStepRef = useRef(0)
   const lastBeatRef = useRef(false)
   const paletteIndexRef = useRef(0)
+
+  const params = useVisualizerParams<CosmicParams>('cosmic')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
 
   const { size } = useThree()
 
@@ -166,18 +185,20 @@ function CosmicScene() {
       rmsRaw /= audioData.length
     }
 
-    // сглаживание не зависит от fps
+    // сглаживание без привязки к fps
     const smoothK = 1 - Math.pow(0.0001, delta)
     smoothedBassRef.current += (bassRaw - smoothedBassRef.current) * smoothK
     smoothedTrebleRef.current += (trebleRaw - smoothedTrebleRef.current) * smoothK
     smoothedRMSRef.current += (rmsRaw - smoothedRMSRef.current) * smoothK
 
-    rotationStepRef.current += delta * 0.15
+    const pp = paramsRef.current
+    rotationStepRef.current += delta * 0.15 * pp.rotationSpeed
 
-    // на бит: импульс 15° и сдвиг палитры
     if (beat && !lastBeatRef.current) {
       rotationStepRef.current += Math.PI / 12
-      paletteIndexRef.current = (paletteIndexRef.current + 1) % PALETTE_COUNT
+      if (pp.paletteIndex < 0) {
+        paletteIndexRef.current = (paletteIndexRef.current + 1) % PALETTE_COUNT
+      }
     }
     lastBeatRef.current = beat
 
@@ -192,7 +213,9 @@ function CosmicScene() {
     matRef.current.iAudioTreble = smoothedTrebleRef.current
     matRef.current.iAudioRMS = smoothedRMSRef.current
     matRef.current.iRotationStep = rotationStepRef.current
-    matRef.current.iPaletteIndex = paletteIndexRef.current
+    matRef.current.iPaletteIndex = pp.paletteIndex >= 0 ? pp.paletteIndex : paletteIndexRef.current
+    matRef.current.iQuality = pp.quality
+    matRef.current.iBassReactivity = pp.bassReactivity
   })
 
   return (
@@ -206,15 +229,18 @@ function CosmicScene() {
 
 export function CosmicVisualizer() {
   const composerRef = useRef<{ render: (d?: number) => void } | null>(null)
+  const params = useVisualizerParams<CosmicParams>('cosmic')
+  const dprCap = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1
+  const dpr = Math.min(Math.max(0.5, params.resolutionScale), 2, dprCap)
   return (
     <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
-      <Canvas camera={CAMERA} gl={{ preserveDrawingBuffer: true }}>
+      <Canvas camera={CAMERA} dpr={dpr} gl={{ preserveDrawingBuffer: true }}>
         <AudioInvalidator composerRef={composerRef} />
         <color attach="background" args={[BG_COLOR]} />
         <CosmicScene />
         <EffectComposer ref={composerRef as any}>
           <Bloom
-            intensity={1.2}
+            intensity={1.2 * params.bloomIntensity}
             luminanceThreshold={0.4}
             luminanceSmoothing={0.9}
             mipmapBlur

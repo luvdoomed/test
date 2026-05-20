@@ -4,7 +4,6 @@ import { LayoutGrid, Rows3, Plus } from 'lucide-react'
 import { useUIStore } from '../store/uiStore'
 import { useLibraryStore, type LibraryTrack } from '../store/libraryStore'
 import { useAudioStore } from '../store/audioStore'
-import { resetMoodPicker } from '../audio/moodEngine'
 import { audioEngine } from '../audio/audioEngine'
 import { loadTrack } from '../library/playback'
 import TrackListItem from '../components/library/TrackListItem'
@@ -48,7 +47,6 @@ export default function Library() {
   async function ingest(files: File[]) {
     const audio = files.filter(isAudioFile)
     if (audio.length === 0) return
-    const before = useLibraryStore.getState().tracks.length
     for (const f of audio) {
       try {
         await addTrack(f)
@@ -56,8 +54,6 @@ export default function Library() {
         console.error('[library] не удалось добавить:', f.name, err)
       }
     }
-    const added = useLibraryStore.getState().tracks.length - before
-    if (added < audio.length) console.log(`[library] пропущены дубликаты: ${audio.length - added}`)
   }
 
   function onPick(e: ChangeEvent<HTMLInputElement>) {
@@ -94,8 +90,12 @@ export default function Library() {
   }
 
   async function playTrack(track: LibraryTrack) {
+    if (track.id === currentTrackId) {
+      if (useAudioStore.getState().isPlaying) audioEngine.pause()
+      else audioEngine.play()
+      return
+    }
     useAudioStore.getState().clearPlaylistQueue()
-    resetMoodPicker()
     await loadTrack(track)
     audioEngine.play()
     setCurrentTrack(track.id)

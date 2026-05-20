@@ -5,6 +5,29 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
 import { AfterimagePass } from 'three/examples/jsm/postprocessing/AfterimagePass.js'
 import { useAudioStore } from '../store/audioStore'
+import { useVisualizerParams } from '../presets/useVisualizerParams'
+
+interface SphereParams {
+  subdivisions: number
+  starCount: number
+  displaceAmount: number
+  trailAmount: number
+  bloomStrength: number
+  resolutionScale: number
+}
+
+function buildStarPositions(count: number): Float32Array {
+  const arr = new Float32Array(count * 3)
+  for (let i = 0; i < count; i++) {
+    const r = 15 + Math.random() * 50
+    const theta = Math.random() * Math.PI * 2
+    const phi = Math.acos(Math.random() * 2 - 1)
+    arr[i * 3] = r * Math.sin(phi) * Math.cos(theta)
+    arr[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
+    arr[i * 3 + 2] = r * Math.cos(phi)
+  }
+  return arr
+}
 
 const VERTEX_SHADER = /* glsl */ `
   varying float vDisplacement;
@@ -16,12 +39,13 @@ const VERTEX_SHADER = /* glsl */ `
   uniform float uBass;
   uniform float uHigh;
   uniform float uPointScale;
+  uniform float uDisplace;
 
   void main() {
     vec3 pos = position;
     float d1 = sin(pos.x * 3.0 + uTime) * cos(pos.y * 3.0 + uTime * 0.7) * sin(pos.z * 3.0 + uTime * 1.3);
     float d2 = sin(pos.x * 7.0 - uTime * 0.5) * 0.3;
-    float displacement = d1 * (0.3 + uEnergy * 3.0 + uBass * 1.0) + d2 * uHigh * 2.0;
+    float displacement = d1 * (0.3 + uEnergy * 3.0 * uDisplace + uBass * 1.0) + d2 * uHigh * 2.0;
     displacement += uBeat * 0.35;
     pos += normal * displacement;
 
@@ -78,6 +102,10 @@ export function ShaderSphereVisualizer() {
   const titleRef = useRef('')
   const artistRef = useRef('')
 
+  const params = useVisualizerParams<SphereParams>('sphere')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
+
   const beat = useAudioStore((s) => s.beat)
   const energy = useAudioStore((s) => s.energy)
   const audioData = useAudioStore((s) => s.audioData)
@@ -111,12 +139,16 @@ export function ShaderSphereVisualizer() {
 
     const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true })
     renderer.setSize(window.innerWidth, window.innerHeight)
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    const deviceCap = window.devicePixelRatio || 1
+    const resolveDpr = (scale: number) => Math.min(Math.max(0.5, scale), 2, deviceCap)
+    let dpr = resolveDpr(paramsRef.current.resolutionScale)
+    renderer.setPixelRatio(dpr)
     renderer.toneMapping = THREE.ACESFilmicToneMapping
     renderer.toneMappingExposure = 0.7
     container.appendChild(renderer.domElement)
 
-    const geometry = new THREE.IcosahedronGeometry(1, 5)
+    let currentSubdivisions = paramsRef.current.subdivisions
+    let geometry = new THREE.IcosahedronGeometry(1, currentSubdivisions)
     const material = new THREE.ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
@@ -127,6 +159,7 @@ export function ShaderSphereVisualizer() {
         uBass: { value: 0 },
         uHigh: { value: 0 },
         uPointScale: { value: 1.0 },
+        uDisplace: { value: 1.0 },
       },
       transparent: true,
       depthWrite: false,
@@ -134,18 +167,9 @@ export function ShaderSphereVisualizer() {
     const points = new THREE.Points(geometry, material)
     scene.add(points)
 
-    const starGeo = new THREE.BufferGeometry()
-    const starCount = 900
-    const starPos = new Float32Array(starCount * 3)
-    for (let i = 0; i < starCount; i++) {
-      const r = 15 + Math.random() * 50
-      const theta = Math.random() * Math.PI * 2
-      const phi = Math.acos(Math.random() * 2 - 1)
-      starPos[i * 3] = r * Math.sin(phi) * Math.cos(theta)
-      starPos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta)
-      starPos[i * 3 + 2] = r * Math.cos(phi)
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3))
+    let starGeo = new THREE.BufferGeometry()
+    let currentStarCount = paramsRef.current.starCount
+    starGeo.setAttribute('position', new THREE.BufferAttribute(buildStarPositions(currentStarCount), 3))
     const starMat = new THREE.PointsMaterial({
       color: 0x8899ff,
       size: 0.05,
@@ -158,7 +182,7 @@ export function ShaderSphereVisualizer() {
 
     const composer = new EffectComposer(renderer)
     composer.addPass(new RenderPass(scene, camera))
-    const afterimagePass = new AfterimagePass(0.78)
+    const afterimagePass = new AfterimagePass(paramsRef.current.trailAmount)
     composer.addPass(afterimagePass)
     const bloomPass = new UnrealBloomPass(
         new THREE.Vector2(window.innerWidth, window.innerHeight),
@@ -197,6 +221,32 @@ export function ShaderSphereVisualizer() {
       const curEnergy = energyRef.current
       const curAudioData = audioDataRef.current
       const curIsPlaying = isPlayingRef.current
+      const pp = paramsRef.current
+
+      if (pp.subdivisions !== currentSubdivisions) {
+        currentSubdivisions = pp.subdivisions
+        const oldGeom = geometry
+        geometry = new THREE.IcosahedronGeometry(1, currentSubdivisions)
+        points.geometry = geometry
+        oldGeom.dispose()
+      }
+
+      if (pp.starCount !== currentStarCount) {
+        currentStarCount = pp.starCount
+        const oldStarGeo = starGeo
+        starGeo = new THREE.BufferGeometry()
+        starGeo.setAttribute('position', new THREE.BufferAttribute(buildStarPositions(currentStarCount), 3))
+        stars.geometry = starGeo
+        oldStarGeo.dispose()
+      }
+
+      const wantDpr = resolveDpr(pp.resolutionScale)
+      if (wantDpr !== dpr) {
+        dpr = wantDpr
+        renderer.setPixelRatio(dpr)
+        composer.setSize(window.innerWidth, window.innerHeight)
+        bloomPass.setSize(window.innerWidth, window.innerHeight)
+      }
 
       let bass = 0, high = 0
       for (let i = 0; i < 14; i++) bass += Math.abs(curAudioData[i] ?? 0)
@@ -265,12 +315,13 @@ export function ShaderSphereVisualizer() {
       material.uniforms.uBass.value = bass
       material.uniforms.uHigh.value = high
       material.uniforms.uPointScale.value = 1 + beatIntensity * 0.2
+      material.uniforms.uDisplace.value = pp.displaceAmount
 
       if (curIsPlaying) stars.rotation.y += 0.0005
 
-      bloomPass.strength = 0.25 + curEnergy * 0.8 + beatIntensity * 0.15
+      bloomPass.strength = (0.25 + curEnergy * 0.8 + beatIntensity * 0.15) * pp.bloomStrength
       const motionAmount = Math.abs(shake.x) + Math.abs(shake.y) + Math.abs(kickX) + Math.abs(kickY)
-      ;(afterimagePass.uniforms as { damp: { value: number } }).damp.value = 0.78 + Math.min(0.18, motionAmount * 0.3)
+      ;(afterimagePass.uniforms as { damp: { value: number } }).damp.value = Math.min(0.97, pp.trailAmount + Math.min(0.18, motionAmount * 0.3))
 
       const hasTrack = titleRef.current.length > 0
       if (hasTrack && lastTitle !== titleRef.current) {

@@ -1,14 +1,21 @@
 import { useEffect, useRef } from 'react'
 import { useAudioStore } from '../store/audioStore'
+import { useVisualizerParams } from '../presets/useVisualizerParams'
 
-const SHAPE_COUNT = 25
+interface GeometryParams {
+  shapeCount: number
+  sparkMax: number
+  gridDensity: number
+  beatPunch: number
+  glow: number
+}
+
 const LINE_SPACING = 35
 const VLINE_SPACING = 60
 const LERP_BACK = 0.96
 const BEAT_SCALE = 1.5
 const SCALE_DECAY = 0.88
 const FLASH_ALPHA = 0.12
-const SPARK_MAX = 40
 const SPARK_BANDS = 8
 
 type ShapeKind = 'square' | 'diamond' | 'cross' | 'triangle'
@@ -41,23 +48,23 @@ interface SyncState {
   globalOffsetY: number
   beatScale: number
   flashAlpha: number
-  beatFlash: number   // 1.0 на бит, затухает * 0.75 каждый кадр
-  beatFlashTimer: number // для первых 2 кадров жёсткой вспышки
+  beatFlash: number   // вспышка на бит
+  beatFlashTimer: number
   glitchTimer: number
   lineBrightness: number
   energy: number
   time: number
-  cameraScaleBurst: number // доп. зум на бит, затухает * 0.92
+  cameraScaleBurst: number // зум на бит
 }
 
-function createShapes(w: number, h: number): GeoShape[] {
+function createShapes(w: number, h: number, count: number): GeoShape[] {
   const shapes: GeoShape[] = []
-  const cols = 5
-  const rows = 5
+  const cols = Math.max(1, Math.ceil(Math.sqrt(count)))
+  const rows = Math.max(1, Math.ceil(count / cols))
   const cellW = w / (cols + 1)
   const cellH = h / (rows + 1)
 
-  for (let i = 0; i < SHAPE_COUNT; i++) {
+  for (let i = 0; i < count; i++) {
     const col = i % cols
     const row = Math.floor(i / cols) % rows
     const baseX = cellW * (col + 1) + (Math.random() - 0.5) * cellW * 0.6
@@ -180,6 +187,10 @@ export function GeometryVisualizer() {
   const rafRef = useRef(0)
   const shapesRef = useRef<GeoShape[]>([])
   const sparksRef = useRef<Spark[]>([])
+
+  const params = useVisualizerParams<GeometryParams>('geometry')
+  const paramsRef = useRef(params)
+  paramsRef.current = params
   const syncRef = useRef<SyncState>({
     globalOffsetX: 0,
     globalOffsetY: 0,
@@ -200,11 +211,14 @@ export function GeometryVisualizer() {
     const ctx = canvas.getContext('2d')
     if (!ctx) return
 
+    let activeShapeCount = paramsRef.current.shapeCount
+
     function resize() {
       if (!canvas) return
       canvas.width = window.innerWidth
       canvas.height = window.innerHeight
-      shapesRef.current = createShapes(canvas.width, canvas.height)
+      activeShapeCount = paramsRef.current.shapeCount
+      shapesRef.current = createShapes(canvas.width, canvas.height, activeShapeCount)
     }
     resize()
     window.addEventListener('resize', resize)
@@ -216,6 +230,12 @@ export function GeometryVisualizer() {
       const H = canvas.height
       const sync = syncRef.current
       const sizeScale = Math.min(W, H) / 900
+      const pp = paramsRef.current
+
+      if (pp.shapeCount !== activeShapeCount) {
+        activeShapeCount = pp.shapeCount
+        shapesRef.current = createShapes(W, H, activeShapeCount)
+      }
 
       let energy = 0
       if (audioData.length > 0) {
@@ -236,13 +256,13 @@ export function GeometryVisualizer() {
         if (beat) {
           sync.globalOffsetX += (Math.random() - 0.5) * 40 * sizeScale
           sync.globalOffsetY += (Math.random() - 0.5) * 20 * sizeScale
-          sync.beatScale = BEAT_SCALE
-          sync.flashAlpha = FLASH_ALPHA
-          sync.beatFlash = 1.0
+          sync.beatScale = 1 + (BEAT_SCALE - 1) * pp.beatPunch
+          sync.flashAlpha = FLASH_ALPHA * pp.beatPunch
+          sync.beatFlash = 1.0 * pp.beatPunch
           sync.beatFlashTimer = 2
           sync.glitchTimer = 6
           sync.lineBrightness = 0.18
-          sync.cameraScaleBurst += 0.1
+          sync.cameraScaleBurst += 0.1 * pp.beatPunch
         }
 
         sync.globalOffsetX *= LERP_BACK
@@ -262,7 +282,7 @@ export function GeometryVisualizer() {
         const sparks = sparksRef.current
 
         const spawnSpark = (): void => {
-          if (sparks.length >= SPARK_MAX) return
+          if (sparks.length >= pp.sparkMax) return
           const x = Math.random() * W
           const y = Math.random() * H
           const maxLife = Math.floor(Math.random() * 21) + 20
@@ -278,7 +298,7 @@ export function GeometryVisualizer() {
           })
         }
 
-        // непрерывный спавн: треблдиапазон [232..929]
+        // требл [232..929]
         const freqPerBand = Math.floor(697 / SPARK_BANDS) // ~87 бинов на полосу
         for (let b = 0; b < SPARK_BANDS; b++) {
           const freqStart = 232 + b * freqPerBand
@@ -292,7 +312,7 @@ export function GeometryVisualizer() {
           }
         }
 
-        // на бит: 6-8 искр в случайных полосах
+        // искры на бит
         if (beat) {
           const beatCount = Math.floor(Math.random() * 3) + 6
           for (let k = 0; k < beatCount; k++) {
@@ -327,8 +347,9 @@ export function GeometryVisualizer() {
       ctx.shadowBlur = 0
       ctx.lineWidth = 1
       ctx.strokeStyle = `rgba(255,255,255,${sync.lineBrightness.toFixed(3)})`
-      for (let y = 0; y < H + LINE_SPACING; y += LINE_SPACING) {
-        const ly = y + (lineOffsetY % LINE_SPACING)
+      const hSpace = LINE_SPACING / Math.max(0.1, pp.gridDensity)
+      for (let y = 0; y < H + hSpace; y += hSpace) {
+        const ly = y + (lineOffsetY % hSpace)
         ctx.beginPath()
         ctx.moveTo(0, ly)
         ctx.lineTo(W, ly)
@@ -336,8 +357,9 @@ export function GeometryVisualizer() {
       }
 
       ctx.strokeStyle = 'rgba(255,255,255,0.04)'
-      for (let x = 0; x < W + VLINE_SPACING; x += VLINE_SPACING) {
-        const lx = x + (lineOffsetX % VLINE_SPACING)
+      const vSpace = VLINE_SPACING / Math.max(0.1, pp.gridDensity)
+      for (let x = 0; x < W + vSpace; x += vSpace) {
+        const lx = x + (lineOffsetX % vSpace)
         ctx.beginPath()
         ctx.moveTo(lx, 0)
         ctx.lineTo(lx, H)
@@ -345,7 +367,7 @@ export function GeometryVisualizer() {
       }
 
       const shapes = shapesRef.current
-      const glow = sync.glitchTimer > 0 ? 30 : 10 + sync.energy * 40
+      const glow = (sync.glitchTimer > 0 ? 30 : 10 + sync.energy * 40) * pp.glow
 
       if (sync.glitchTimer > 0) {
         for (let i = 0; i < shapes.length; i++) {
@@ -399,7 +421,7 @@ export function GeometryVisualizer() {
         ctx.beginPath()
         ctx.arc(spark.x, spark.y, spark.size * 1.2, 0, Math.PI * 2)
         ctx.fillStyle = `hsla(${spark.hue}, 100%, 95%, ${opacity})`
-        ctx.shadowBlur = spark.size * 6
+        ctx.shadowBlur = spark.size * 6 * pp.glow
         ctx.shadowColor = `hsl(${spark.hue}, 100%, 70%)`
         ctx.fill()
         ctx.shadowBlur = 0

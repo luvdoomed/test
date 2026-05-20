@@ -29,9 +29,6 @@ const FEATURES = [
   'spectralRolloff',
 ] as const
 
-// разовая диагностика, чтобы один раз убедиться в единицах от meyda
-let debugLogged = false
-
 interface LoudnessShape {
   total: number
   specific?: Float32Array
@@ -82,7 +79,7 @@ export async function analyzeMeyda(audioBuffer: AudioBuffer): Promise<TrackFeatu
   const mono = mixToMono(audioBuffer)
   const sampleRate = audioBuffer.sampleRate
 
-  // meyda требует частоту дискретизации до extract, иначе centroid вернёт мусор
+  // sampleRate до extract
   Meyda.sampleRate = sampleRate
   Meyda.bufferSize = BUFFER_SIZE
 
@@ -97,30 +94,13 @@ export async function analyzeMeyda(audioBuffer: AudioBuffer): Promise<TrackFeatu
   let frameCount = 0
   const lastStart = mono.length - BUFFER_SIZE
 
-  // centroid от meyda — индекс бина, не Гц, переводим через sampleRate/bufferSize
+  // centroid в Гц
   const binToHz = sampleRate / BUFFER_SIZE
 
   for (let offset = 0; offset <= lastStart; offset += HOP_SIZE) {
     frame.set(mono.subarray(offset, offset + BUFFER_SIZE))
     const out = Meyda.extract(FEATURES as unknown as MeydaAudioFeature[], frame) as MeydaFrameOutput | null
     if (!out) continue
-
-    if (!debugLogged) {
-      debugLogged = true
-      console.log('[meyda] первый кадр — сырые значения:', {
-        sampleRate,
-        bufferSize: BUFFER_SIZE,
-        rms: out.rms,
-        spectralCentroid_raw: out.spectralCentroid,
-        spectralCentroid_hz: typeof out.spectralCentroid === 'number' ? out.spectralCentroid * binToHz : undefined,
-        spectralFlatness: out.spectralFlatness,
-        zcr_raw: out.zcr,
-        zcr_norm: typeof out.zcr === 'number' ? out.zcr / BUFFER_SIZE : undefined,
-        loudness_total: out.loudness?.total,
-        loudness_specific_len: out.loudness?.specific?.length,
-        spectralRolloff_raw: out.spectralRolloff,
-      })
-    }
 
     if (Number.isFinite(out.rms)) rms.push(out.rms as number)
     if (Number.isFinite(out.spectralCentroid)) centroid.push((out.spectralCentroid as number) * binToHz)
@@ -130,7 +110,7 @@ export async function analyzeMeyda(audioBuffer: AudioBuffer): Promise<TrackFeatu
     if (Number.isFinite(out.spectralRolloff)) rolloff.push(out.spectralRolloff as number)
 
     frameCount++
-    // micro-yield каждые 50 кадров чтобы не блокировать ui-поток
+    // отдаём ui время каждые 50 кадров
     if (frameCount % 50 === 0) await new Promise<void>((r) => setTimeout(r, 0))
   }
 

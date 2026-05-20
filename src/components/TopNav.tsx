@@ -6,11 +6,16 @@ import { useAudioStore } from '../store/audioStore'
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'visualizers', label: 'Визуализаторы' },
-  { id: 'library', label: 'Библиотека' },
-  { id: 'wave', label: 'Волна' },
-  { id: 'user-viz', label: 'Мои' },
-  { id: 'system-test', label: '🔊 System Test' },
+  { id: 'library', label: 'Мои треки' },
+  { id: 'wave', label: 'Мое настроение' },
+  { id: 'user-viz', label: 'Мои визуализаторы' },
 ]
+
+const SEARCH_PLACEHOLDERS: Partial<Record<Tab, string>> = {
+  visualizers: 'Поиск визуализаторов',
+  library: 'Поиск треков',
+  'user-viz': 'Поиск моих визуализаторов',
+}
 
 export default function TopNav() {
   const currentTab = useUIStore((s) => s.currentTab)
@@ -26,8 +31,9 @@ export default function TopNav() {
     function onKey(e: KeyboardEvent) {
       const isCmdK = (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k'
       if (!isCmdK) return
+      if (!searchRef.current) return
       e.preventDefault()
-      searchRef.current?.focus()
+      searchRef.current.focus()
     }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
@@ -95,6 +101,7 @@ export default function TopNav() {
                 type="button"
                 onClick={() => {
                   if (disabled) return
+                  if (tab.id !== currentTab) setSearchQuery('')
                   setTab(tab.id)
                 }}
                 title={title}
@@ -127,59 +134,61 @@ export default function TopNav() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
-          <div
-            className="flex items-center"
-            style={{
-              width: 240,
-              height: 32,
-              background: 'var(--bg-soft)',
-              border: '1px solid var(--border)',
-              borderRadius: 8,
-              padding: '0 12px 0 10px',
-              gap: 8,
-              transition: 'background 0.15s, border-color 0.15s',
-            }}
-            onFocus={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border-active)'
-              e.currentTarget.style.background = 'var(--bg-elev)'
-            }}
-            onBlur={(e) => {
-              e.currentTarget.style.borderColor = 'var(--border)'
-              e.currentTarget.style.background = 'var(--bg-soft)'
-            }}
-          >
-            <Search size={14} style={{ color: 'var(--fg-mute)', flexShrink: 0 }} />
-            <input
-              ref={searchRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Поиск визуализаторов"
+          {SEARCH_PLACEHOLDERS[currentTab] ? (
+            <div
+              className="flex items-center"
               style={{
-                flex: 1,
-                background: 'transparent',
-                border: 'none',
-                outline: 'none',
-                color: 'var(--fg)',
-                fontSize: 13,
-                fontFamily: 'inherit',
-              }}
-            />
-            <kbd
-              style={{
-                marginLeft: 'auto',
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                color: 'var(--fg-mute)',
-                padding: '2px 5px',
+                width: 240,
+                height: 32,
+                background: 'var(--bg-soft)',
                 border: '1px solid var(--border)',
-                borderRadius: 4,
-                lineHeight: 1,
+                borderRadius: 8,
+                padding: '0 12px 0 10px',
+                gap: 8,
+                transition: 'background 0.15s, border-color 0.15s',
+              }}
+              onFocus={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border-active)'
+                e.currentTarget.style.background = 'var(--bg-elev)'
+              }}
+              onBlur={(e) => {
+                e.currentTarget.style.borderColor = 'var(--border)'
+                e.currentTarget.style.background = 'var(--bg-soft)'
               }}
             >
-              ⌘K
-            </kbd>
-          </div>
+              <Search size={14} style={{ color: 'var(--fg-mute)', flexShrink: 0 }} />
+              <input
+                ref={searchRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={SEARCH_PLACEHOLDERS[currentTab]}
+                style={{
+                  flex: 1,
+                  background: 'transparent',
+                  border: 'none',
+                  outline: 'none',
+                  color: 'var(--fg)',
+                  fontSize: 13,
+                  fontFamily: 'inherit',
+                }}
+              />
+              <kbd
+                style={{
+                  marginLeft: 'auto',
+                  fontFamily: "'JetBrains Mono', monospace",
+                  fontSize: 10,
+                  color: 'var(--fg-mute)',
+                  padding: '2px 5px',
+                  border: '1px solid var(--border)',
+                  borderRadius: 4,
+                  lineHeight: 1,
+                }}
+              >
+                ⌘K
+              </kbd>
+            </div>
+          ) : null}
 
           <IconButton onClick={cycleMode} title={`Тема: ${mode}`}>
             <ThemeIcon size={14} />

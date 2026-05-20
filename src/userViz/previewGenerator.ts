@@ -103,7 +103,6 @@ export async function generateUserVizPreview(
 
     const canvas = findCanvas(container)
     if (!canvas) {
-      console.log('[preview-gen]', vizId, 'no canvas found')
       return null
     }
 
@@ -111,15 +110,6 @@ export async function generateUserVizPreview(
     if (canvas.height === 0) canvas.height = PREVIEW_H
 
     const blob = await canvasToJpegBlob(canvas)
-    console.log(
-      '[preview-gen]',
-      vizId,
-      'canvas:',
-      canvas.width + 'x' + canvas.height,
-      'blob:',
-      blob?.size ?? 'null',
-      'bytes',
-    )
 
     if (!blob || blob.size < 200) return null
     return blob

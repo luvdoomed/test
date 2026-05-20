@@ -26,7 +26,7 @@ interface Particle {
   vy: number
   size: number
   opacity: number
-  hue: number          // 0-360, медленно меняется каждый кадр
+  hue: number          // 0-360
   orbitDir: 1 | -1    // направление вращения
   life: number
   lifeSpeed: number
@@ -88,8 +88,6 @@ export function ParticlesVisualizer() {
     resize()
     window.addEventListener('resize', resize)
 
-    let frameCount = 0
-
     function draw() {
       if (!canvas || !ctx) return
 
@@ -118,11 +116,6 @@ export function ParticlesVisualizer() {
 
       const connectionDist = connectionDistParam * sizeScale
       const connectionDistSq = connectionDist * connectionDist
-
-      frameCount++
-      if (frameCount % 60 === 0) {
-        console.log('beat:', beat, 'energy:', energy)
-      }
 
       ctx.fillStyle = 'rgba(0,0,0,0.15)'
       ctx.fillRect(0, 0, W, H)

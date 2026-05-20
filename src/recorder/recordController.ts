@@ -4,7 +4,6 @@ import { flushSync } from 'react-dom'
 import { analyzeOffline } from '../audio/offlineAnalyzer'
 import { audioEngine } from '../audio/audioEngine'
 import { useAudioStore } from '../store/audioStore'
-import { diagLog } from './_diagLog'
 
 export interface RecordOptions {
   audioBuffer: AudioBuffer
@@ -58,7 +57,7 @@ function uninstallShim(): void {
   if (!shim.installed) return
   shim.installed = false
 
-  // pending колбэки нельзя выкидывать: r3f после экспорта зависает на чёрном кадре
+  // pending колбэки не дропаем
   const pending = Array.from(shim.queue.values())
   shim.queue.clear()
 
@@ -67,7 +66,7 @@ function uninstallShim(): void {
   if (shim.origNow) performance.now = shim.origNow
 
   for (const cb of pending) {
-    try { window.requestAnimationFrame(cb) } catch { /* ignore */ }
+    try { window.requestAnimationFrame(cb) } catch {}
   }
 
   shim.origRaf = shim.origCaf = shim.origNow = null
@@ -84,10 +83,10 @@ async function tickFrame(deltaMs: number): Promise<void> {
     try { cb(shim.virtualNow) } catch (err) { console.error('[rec] rAF cb error:', err) }
   }
 
-  // event с виртуальной меткой времени в секундах: AudioInvalidator вызывает r3f advance(t)
+  // виртуальное время для r3f
   window.dispatchEvent(new CustomEvent('mvapp-export-tick', { detail: shim.virtualNow / 1000 }))
 
-  // r3f/three планируют побочные эффекты через микротаски и вложенные rAF, 3 ротации хватает
+  // три ротации r3f
   for (let i = 0; i < 3; i++) {
     await Promise.resolve()
   }
@@ -98,8 +97,7 @@ async function tickFrame(deltaMs: number): Promise<void> {
 function findMainCanvas(): HTMLCanvasElement | null {
   const canvases = Array.from(document.querySelectorAll('canvas'))
   if (canvases.length === 0) return null
-  // выбираем по видимой css-площади на экране, иначе галерейные превьюшки в режиме 9:16 могут победить
-  // по сырым пикселям (dpr × тайл) живой визуализатор который сжали под узкое окно
+  // выбираем по css-площади
   let best: HTMLCanvasElement | null = null
   let bestArea = -1
   for (const c of canvases) {
@@ -111,7 +109,7 @@ function findMainCanvas(): HTMLCanvasElement | null {
   return best
 }
 
-// аспект-сохраняющий cover (центральный кроп), иначе drawImage растянет источник под целевое разрешение
+// центрируем и обрезаем
 function drawCover(
   ctx: CanvasRenderingContext2D,
   src: HTMLCanvasElement,
@@ -134,23 +132,6 @@ function drawCover(
     sy = (sh - sHeight) / 2
   }
   ctx.drawImage(src, sx, sy, sWidth, sHeight, 0, 0, dstW, dstH)
-}
-
-function describeCanvas(c: HTMLCanvasElement) {
-  const rect = c.getBoundingClientRect()
-  const parent = c.parentElement
-  const grand = parent?.parentElement
-  return {
-    w: c.width,
-    h: c.height,
-    rectW: Math.round(rect.width),
-    rectH: Math.round(rect.height),
-    rectArea: Math.round(rect.width * rect.height),
-    cls: (c.className || '').slice(0, 40),
-    parentCls: (parent?.className || '').slice(0, 40),
-    grandCls: (grand?.className || '').slice(0, 40),
-    inDom: document.body.contains(c),
-  }
 }
 
 function pad7(n: number): string {
@@ -180,34 +161,18 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
 
   audioEngine.stop()
 
-  // промежуточный canvas в целевом разрешении, иначе toBlob тащит ретину 2880×1800 → ~15 МБ/кадр
+  // промежуточный canvas в целевом разрешении
   const scaledCanvas = document.createElement('canvas')
   scaledCanvas.width = width
   scaledCanvas.height = height
   const scaledCtx = scaledCanvas.getContext('2d')
   if (!scaledCtx) throw new Error('не удалось создать scaled 2d контекст')
 
-  diagLog(`[rec-diag] sizes ${JSON.stringify({
-    vizCanvasW: startCanvas.width,
-    vizCanvasH: startCanvas.height,
-    scaledW: scaledCanvas.width,
-    scaledH: scaledCanvas.height,
-    dpr: window.devicePixelRatio,
-  })}`)
-
-  const allCanvases = Array.from(document.querySelectorAll('canvas'))
-  diagLog(`[rec-diag] canvases in DOM: ${allCanvases.length}`)
-  allCanvases.forEach((c, i) => {
-    diagLog(`[rec-diag] canvas[${i}] ${JSON.stringify(describeCanvas(c))}`)
-  })
-  diagLog(`[rec-diag] selected canvas: ${JSON.stringify(describeCanvas(startCanvas))}`)
-
   const total = analysis.totalFrames
   const deltaMs = 1000 / fps
 
-  // папка под кадры на диске, plugin-fs writeFile использует бинарный ipc, сильно быстрее json
+  // кадры пишем на диск
   const framesDir = await invoke<string>('prepare_export_dir')
-  diagLog(`[rec-diag] export dir ${framesDir}`)
 
   let writtenFrames = 0
   let totalBytes = 0
@@ -223,7 +188,7 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
     inFlight.add(p)
   }
 
-  // переключаем r3f в frameloop=never до старта shim'а
+  // останавливаем r3f до старта shim'а
   window.dispatchEvent(new Event('mvapp-export-start'))
   await Promise.resolve()
 
@@ -249,12 +214,6 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
       await enqueueWrite(`frame_${pad7(writtenFrames)}.jpg`, jpeg)
       writtenFrames++
 
-      if (f < 10 || f % 30 === 0) {
-        const srcR = (canvas.width / canvas.height).toFixed(3)
-        const dstR = (scaledCanvas.width / scaledCanvas.height).toFixed(3)
-        diagLog(`[rec-diag] frame ${f} jpegSize ${jpeg.byteLength} canvasW ${canvas.width} canvasH ${canvas.height} srcRatio ${srcR} dstRatio ${dstR}`)
-      }
-
       if (onProgress && f % 30 === 0) onProgress(f, total)
     }
 
@@ -270,13 +229,10 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
     uninstallShim()
     window.dispatchEvent(new Event('mvapp-export-end'))
     if (exportFailed) {
-      try { await invoke('cleanup_export_dir', { dir: framesDir }) } catch { /* ignore */ }
+      try { await invoke('cleanup_export_dir', { dir: framesDir }) } catch {}
     }
   }
 
-  diagLog(`[rec] кадров ${writtenFrames} totalBytes ${(totalBytes / 1024 / 1024).toFixed(1)} MB`)
-
-  const t0 = performance.now()
   await invoke('build_video_from_dir', {
     framesDir,
     width,
@@ -286,7 +242,6 @@ export async function runRecording(options: RecordOptions): Promise<RecordResult
     audioExtension,
     outputPath,
   })
-  diagLog(`[rec-diag] IPC + ffmpeg took ${((performance.now() - t0) / 1000).toFixed(1)} s`)
 
   return { frameCount: writtenFrames, width, height, fps }
 }

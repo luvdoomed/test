@@ -14,7 +14,6 @@ interface BarcodeParams {
   barHeight: number
   smoothing: number
   hueSpeed: number
-  chromaShift: number
 }
 
 interface LensParticle {
@@ -25,7 +24,7 @@ interface LensParticle {
   size: number
   baseSize: number
   isStar: boolean
-  life: number      // 0..1, для временных вспышек; -1 = постоянная
+  life: number      // 0..1, -1 = постоянная
   maxLife: number
 }
 
@@ -104,7 +103,7 @@ export function BarcodeVisualizer() {
       ctx.globalCompositeOperation = 'screen'
       ctx.globalAlpha = 0.6
 
-      // ось: вдоль длинной, поперёк короткой
+      // длинная ось
       const mainAxisLen = isVertical ? H : W
       const crossCenter = (isVertical ? W : H) / 2
       const totalSpan = barCount * barStep
@@ -125,7 +124,7 @@ export function BarcodeVisualizer() {
             ? `hsla(${hue + 120}, ${sat}%, ${lum}%, 1)`
             : `hsla(${hue + 240}, ${sat}%, ${lum}%, 1)`
 
-        // зеркальное отражение от центра короткой оси
+        // зеркалим от центра
         if (isVertical) {
           ctx.fillRect(crossCenter - barH / 2, startMain + i * barStep, barH, barWidth)
         } else {
@@ -248,7 +247,6 @@ export function BarcodeVisualizer() {
       const barHeightMul = Math.max(0, pp.barHeight)
       const smoothParam = Math.max(0, Math.min(0.95, pp.smoothing))
       const hueSpeedMul = Math.max(0, pp.hueSpeed)
-      const chromaMul = Math.max(0, pp.chromaShift)
 
       const barWidth = BAR_WIDTH_BASE * scl
       const barStep = (BAR_WIDTH_BASE + BAR_GAP_BASE) * scl
@@ -279,7 +277,7 @@ export function BarcodeVisualizer() {
       ctx.fillStyle = '#000000'
       ctx.fillRect(0, 0, W, H)
 
-      const chroma = 2 * scl * chromaMul
+      const chroma = 2 * scl
       if (energy > 0.06) {
         drawBarcodeLayer(ctx, W, H, smoothed, hueOffsetRef.current, bi, -chroma, 'r', isVertical, barWidth, barStep, maxBarH, barCount)
         drawBarcodeLayer(ctx, W, H, smoothed, hueOffsetRef.current, bi, 0, 'g', isVertical, barWidth, barStep, maxBarH, barCount)

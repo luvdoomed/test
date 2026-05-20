@@ -23,7 +23,7 @@ export const MOOD_GRADIENTS: Record<MoodId, string> = {
   melancholic: 'linear-gradient(135deg, #6a4c93, #8e7cc3)',
 }
 
-// плавный переход 0..1 при пересечении порога t с шириной w
+// сглаживаем переход по порогу
 const smoothAbove = (v: number, t: number, w: number): number => {
   if (v <= t - w) return 0
   if (v >= t + w) return 1
@@ -54,7 +54,7 @@ export function computeMoodWeights(f: TrackFeatures): MoodWeights {
       weight: 1.0,
     },
     { score: smoothAbove(f.flatnessMean, 0.04, 0.02), weight: 0.6 },
-    // верхняя граница: не слишком шумно
+    // верхняя граница по шуму
     { score: smoothBelow(f.flatnessMean, 0.20, 0.05), weight: 0.4 },
   ])
 
@@ -75,7 +75,7 @@ export function computeMoodWeights(f: TrackFeatures): MoodWeights {
     { score: smoothBelow(f.centroidMean, 2300, 500),  weight: 0.9 },
     { score: smoothBelow(f.flatnessMean, 0.06, 0.02), weight: 0.7 },
     { score: smoothBelow(f.zcrMean, 0.07, 0.03),      weight: 0.5 },
-    // присутствует, не полная тишина
+    // не тишина
     { score: smoothAbove(f.rmsMean, 0.08, 0.04),      weight: 0.4 },
   ])
 
@@ -96,8 +96,17 @@ export function getTracksByMood(
 }
 
 const RECENT_PICK_MEMORY = 3
-const recentPicks: string[] = []
-let lastPickedForTrack: string | null = null
+
+export interface PickVizContext {
+  avoided: string[]
+  lastPickedForTrack: string | null
+}
+
+export interface PickVizResult {
+  vizId: string | null
+  avoided: string[]
+  lastPickedForTrack: string | null
+}
 
 export interface PickVizOptions {
   force?: boolean
@@ -107,36 +116,29 @@ export function pickVizForMood(
   mood: MoodId,
   trackId: string,
   viz: Array<{ id: string; moods: MoodId[] }>,
+  ctx: PickVizContext,
   opts: PickVizOptions = {},
-): string | null {
-  if (!opts.force && trackId === lastPickedForTrack) return null
-  lastPickedForTrack = trackId
+): PickVizResult {
+  if (!opts.force && trackId === ctx.lastPickedForTrack) {
+    return { vizId: null, avoided: ctx.avoided, lastPickedForTrack: ctx.lastPickedForTrack }
+  }
 
   const candidates = viz.filter((v) => v.moods.includes(mood))
-  if (candidates.length === 0) return null
+  if (candidates.length === 0) {
+    return { vizId: null, avoided: ctx.avoided, lastPickedForTrack: trackId }
+  }
 
-  let pool = candidates.filter((c) => !recentPicks.includes(c.id))
+  let pool = candidates.filter((c) => !ctx.avoided.includes(c.id))
   if (pool.length === 0) {
-    const last = recentPicks[recentPicks.length - 1] ?? null
+    const last = ctx.avoided[ctx.avoided.length - 1] ?? null
     pool = candidates.filter((c) => c.id !== last)
   }
   if (pool.length === 0) pool = candidates
 
-  const avoided = [...recentPicks]
   const chosen = pool[Math.floor(Math.random() * pool.length)].id
 
-  recentPicks.push(chosen)
-  if (recentPicks.length > RECENT_PICK_MEMORY) recentPicks.shift()
+  const newAvoided = [...ctx.avoided, chosen]
+  if (newAvoided.length > RECENT_PICK_MEMORY) newAvoided.shift()
 
-  console.log('[viz-pick]', mood, '→', chosen, 'candidates:', candidates.length, 'avoided:', avoided)
-  return chosen
-}
-
-export function getLastAutoPickedViz(): string | null {
-  return recentPicks.length > 0 ? recentPicks[recentPicks.length - 1] : null
-}
-
-export function resetMoodPicker(): void {
-  recentPicks.length = 0
-  lastPickedForTrack = null
+  return { vizId: chosen, avoided: newAvoided, lastPickedForTrack: trackId }
 }

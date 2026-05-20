@@ -3,7 +3,15 @@ import { useAudioStore } from '../store/audioStore'
 import { BeatDetector } from './beatDetector'
 import { parseLrc } from '../utils/lrcParser'
 import { loadTrackBytes, audioMimeFromPath } from '../library/persistence'
+import { useLibraryStore } from '../store/libraryStore'
 import { processSystemAudioFrame } from './systemAudioCapture'
+
+export interface TrackMetaHint {
+  title: string
+  artist: string
+  album: string
+  cover: string
+}
 
 export class AudioEngine {
   audioContext: AudioContext
@@ -20,8 +28,8 @@ export class AudioEngine {
   private pauseOffset = 0
   private playing = false
   private rafId: number = 0
+  private moodSyncCounter = 0
   private loadCounter = 0
-  private systemTickLog = 0
   private systemModeStartTime: number = 0
 
   onTrackEnd: (() => void) | null = null
@@ -29,8 +37,8 @@ export class AudioEngine {
   private disposeSource(): void {
     if (!this.source) return
     this.source.onended = null
-    try { this.source.stop() } catch { /* already stopped */ }
-    try { this.source.disconnect() } catch { /* already disconnected */ }
+    try { this.source.stop() } catch {}
+    try { this.source.disconnect() } catch {}
     this.source = null
   }
 
@@ -69,7 +77,6 @@ export class AudioEngine {
 
   markSystemStart(): void {
     this.systemModeStartTime = performance.now()
-    this.systemTickLog = 0
   }
 
   async loadFile(file: File): Promise<void> {
@@ -100,7 +107,7 @@ export class AudioEngine {
     this.startLoop()
   }
 
-  async loadFromPath(audioPath: string): Promise<void> {
+  async loadFromPath(audioPath: string, hint?: TrackMetaHint): Promise<void> {
     this.disposeSource()
     this.pauseOffset = 0
     this.playing = false
@@ -111,6 +118,15 @@ export class AudioEngine {
     store.setLrcLines([])
     store.setIsPlaying(false)
     store.setCurrentTime(0)
+
+    if (hint) {
+      store.setTrackInfo({
+        title: hint.title,
+        artist: hint.artist,
+        album: hint.album,
+        cover: hint.cover,
+      })
+    }
 
     const myLoadId = ++this.loadCounter
 
@@ -131,12 +147,12 @@ export class AudioEngine {
     this.buffer = decoded
 
     const synthFile = new File([new Uint8Array(this.originalBytes)], filename, { type: mime })
-    this.extractTags(synthFile, myLoadId)
+    this.extractTags(synthFile, myLoadId, hint)
     this.startLoop()
   }
 
-  private async extractTags(file: File, loadId: number): Promise<void> {
-    const fallbackTitle = file.name.replace(/\.[^/.]+$/, '')
+  private async extractTags(file: File, loadId: number, hint?: TrackMetaHint): Promise<void> {
+    const fallbackTitle = hint?.title || file.name.replace(/\.[^/.]+$/, '')
 
     try {
       const metadata = await mm.parseBlob(file)
@@ -153,9 +169,9 @@ export class AudioEngine {
 
       store.setTrackInfo({
         title: title || fallbackTitle,
-        artist: artist || '',
-        album: album || '',
-        cover,
+        artist: artist || hint?.artist || '',
+        album: album || hint?.album || '',
+        cover: cover || hint?.cover || '',
       })
 
       const lyricsArr = metadata.common.lyrics
@@ -172,9 +188,9 @@ export class AudioEngine {
       if (loadId !== this.loadCounter) return
       useAudioStore.getState().setTrackInfo({
         title: fallbackTitle,
-        artist: '',
-        album: '',
-        cover: '',
+        artist: hint?.artist || '',
+        album: hint?.album || '',
+        cover: hint?.cover || '',
       })
     }
   }
@@ -285,9 +301,6 @@ export class AudioEngine {
       store.setAudioData(audioData)
       store.setEnergy(energy)
       store.setBeat(beat)
-      if (this.systemTickLog++ % 30 === 0) {
-        console.log('[system-tick]', 'energy:', energy, 'beat:', beat, 'time:', elapsedSec)
-      }
       return
     }
 
@@ -309,14 +322,23 @@ export class AudioEngine {
     store.setBeat(beat)
 
     if (this.playing) {
-      store.setCurrentTime(this.audioContext.currentTime - this.startedAt)
+      const elapsed = this.audioContext.currentTime - this.startedAt
+      store.setCurrentTime(elapsed)
+      this.moodSyncCounter++
+      if (this.moodSyncCounter >= 30) {
+        this.moodSyncCounter = 0
+        const mood = store.currentPlaylistMood
+        if (mood) {
+          const trackId = useLibraryStore.getState().currentTrackId
+          store.updateMoodSession(mood, {
+            currentTrackId: trackId,
+            currentTrackPosition: elapsed,
+          })
+        }
+      }
     }
   }
 
-  destroy(): void {
-    this.stop()
-    void this.audioContext.close()
-  }
 }
 
 export const audioEngine = new AudioEngine()

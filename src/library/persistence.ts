@@ -216,11 +216,6 @@ export async function loadTrackBytes(audioPath: string): Promise<Uint8Array> {
   return bytes
 }
 
-export async function loadTrackBlob(audioPath: string, mime = 'audio/mpeg'): Promise<Blob> {
-  const bytes = await loadTrackBytes(audioPath)
-  return new Blob([bytes as BlobPart], { type: mime })
-}
-
 export async function loadCoverObjectUrl(coverPath: string): Promise<string> {
   if (!isPersistenceAvailable()) {
     throw new Error('Persistence unavailable')

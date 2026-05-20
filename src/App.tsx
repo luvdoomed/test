@@ -9,14 +9,14 @@ import { audioEngine } from './audio/audioEngine'
 import { loadTrack } from './library/playback'
 import { runRecording } from './recorder/recordController'
 import { isTauri } from './utils/platform'
-import { pickVizForMood, getLastAutoPickedViz } from './audio/moodEngine'
+import { pickVizForMood } from './audio/moodEngine'
+import { EMPTY_MOOD_SESSION } from './store/audioStore'
 import { getAllVisualizersInfoSnapshot } from './gallery/all'
 import TopNav from './components/TopNav'
 import VisualizersGallery from './pages/VisualizersGallery'
 import Library from './pages/Library'
 import Wave from './pages/Wave'
 import UserVizPage from './pages/UserVizPage'
-import SystemAudioTest from './pages/SystemAudioTest'
 import PlayerOverlay from './components/player/PlayerOverlay'
 import MiniPlayer from './components/MiniPlayer'
 import {
@@ -42,7 +42,7 @@ export default function App() {
   const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
   const exportCancelledRef = useRef(false)
 
-  // авто-подбор визы при смене трека в режиме настроения
+  // подбор визы под муд
   const currentTrackId = useLibraryStore((s) => s.currentTrackId)
   const currentPlaylistMood = useAudioStore((s) => s.currentPlaylistMood)
   const clearPlaylistQueue = useAudioStore((s) => s.clearPlaylistQueue)
@@ -51,15 +51,29 @@ export default function App() {
 
   useEffect(() => {
     if (!currentPlaylistMood || !currentTrackId) return
+    const store = useAudioStore.getState()
+    const session = store.moodSessions[currentPlaylistMood] ?? EMPTY_MOOD_SESSION
     const pool = getAllVisualizersInfoSnapshot()
-    const picked = pickVizForMood(currentPlaylistMood, currentTrackId, pool)
-    if (picked) setSelectedVizId(picked)
+    const result = pickVizForMood(currentPlaylistMood, currentTrackId, pool, {
+      avoided: session.avoidedVizIds,
+      lastPickedForTrack: session.lastPickedForTrack,
+    })
+    if (result.vizId) {
+      store.updateMoodSession(currentPlaylistMood, {
+        currentVizId: result.vizId,
+        avoidedVizIds: result.avoided,
+        lastPickedForTrack: result.lastPickedForTrack,
+      })
+      setSelectedVizId(result.vizId)
+    }
   }, [currentTrackId, currentPlaylistMood, setSelectedVizId])
 
   useEffect(() => {
     if (!currentPlaylistMood) return
     if (!selectedVizId) return
-    if (selectedVizId === getLastAutoPickedViz()) return
+    const session = useAudioStore.getState().moodSessions[currentPlaylistMood]
+    if (selectedVizId === session?.currentVizId) return
+    useAudioStore.getState().updateMoodSession(currentPlaylistMood, { currentVizId: selectedVizId })
     clearPlaylistQueue()
   }, [selectedVizId, currentPlaylistMood, clearPlaylistQueue])
 
@@ -164,7 +178,6 @@ export default function App() {
   }
 
   function cancelExport() {
-    // отмены сигнала у runRecording нет спрятать оверлей
     exportCancelledRef.current = true
     setExportProgress(null)
   }
@@ -179,7 +192,6 @@ export default function App() {
       {currentTab === 'library' && <Library />}
       {currentTab === 'wave' && <Wave />}
       {currentTab === 'user-viz' && <UserVizPage />}
-      {currentTab === 'system-test' && <SystemAudioTest />}
       <PlayerOverlay />
       <MiniPlayer />
       <ExportModal
