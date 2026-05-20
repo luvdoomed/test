@@ -81,6 +81,8 @@ desktop.ini
 .env
 .env.local
 .env.*.local
+server/data/
+server/node_modules/
 *.pem
 *.key
 
@@ -95,3 +97,8 @@ desktop.ini
 *.swp
 *.swo
 
+.vercel
+
+# rust build artifacts
+target/
+src-tauri/target/

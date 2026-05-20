@@ -360,7 +360,7 @@ export function VibeVisualizer() {
     const dpr = Math.min(window.devicePixelRatio || 1, MAX_DPR)
     console.log('[Vibe] maskHeight:', Math.round(H * MASK_HEIGHT_RATIO), 'px |', 'canvas:', W, 'x', H, '| ratio:', MASK_HEIGHT_RATIO, '| factor:', MASK_FACTOR.toFixed(3))
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false })
+    const renderer = new THREE.WebGLRenderer({ antialias: false, alpha: false, preserveDrawingBuffer: true })
     renderer.setSize(W, H)
     renderer.setPixelRatio(dpr)
     container.appendChild(renderer.domElement)

@@ -74,7 +74,7 @@ export async function analyzeOffline(
 
     fft.realTransform(out, frame)
 
-    // магнитуда, дБ, нормализация [0,1] как в audioEngine.tick
+    // магнитуда, дБ нормализация [0,1] как в audioEngine.tick
     const snapshot = new Float32Array(BINS)
     let sum = 0
     for (let k = 0; k < BINS; k++) {

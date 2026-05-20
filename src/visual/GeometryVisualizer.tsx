@@ -28,7 +28,7 @@ interface GeoShape {
   baseX: number
   baseY: number
   individualPhase: number
-  size: number        // базовый размер
+  size: number
   kind: ShapeKind
   nested: boolean
   rotation: number
