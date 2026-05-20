@@ -83,6 +83,7 @@ desktop.ini
 .env.*.local
 server/data/
 server/node_modules/
+backups/*.bundle
 *.pem
 *.key
 
