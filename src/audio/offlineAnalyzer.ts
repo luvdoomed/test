@@ -32,7 +32,6 @@ export async function analyzeOffline(
   const totalFrames = Math.max(1, Math.ceil(audioBuffer.duration * fps))
   const hopSize = sampleRate / fps
 
-  // моно микс — среднее по каналам
   const mono = new Float32Array(length)
   if (channels === 1) {
     mono.set(audioBuffer.getChannelData(0))
@@ -74,7 +73,6 @@ export async function analyzeOffline(
 
     fft.realTransform(out, frame)
 
-    // магнитуда, дБ, нормализация [0,1] как в audioEngine.tick
     const snapshot = new Float32Array(BINS)
     let sum = 0
     for (let k = 0; k < BINS; k++) {

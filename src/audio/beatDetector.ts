@@ -28,7 +28,6 @@ export class BeatDetector {
     }
     bassEnergy /= BASS_BINS
 
-    // детектируем только когда cooldown истёк и история заполнена
     if (this.holdCounter === 0 && this.energyHistory.length >= this.historySize) {
       let weightedSum = 0
       let totalWeight = 0
@@ -59,7 +58,6 @@ export class BeatDetector {
     this.threshold = value
   }
 
-  // сброс внутреннего состояния для повторного прогона на офлайн анализе
   reset(): void {
     this.energyHistory = []
     this.holdCounter = 0
