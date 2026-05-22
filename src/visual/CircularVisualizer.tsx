@@ -209,7 +209,6 @@ export function CircularVisualizer() {
         ctx.stroke()
         ctx.restore()
 
-        // спавн искр на пиках деформации
         if (curIsPlaying) {
           for (let i = 0; i < POINTS; i += 4) {
             if (pts[i].amp > 0.25 && Math.random() < 0.15 * sparkRateMul) {

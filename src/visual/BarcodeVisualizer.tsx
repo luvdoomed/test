@@ -104,7 +104,6 @@ export function BarcodeVisualizer() {
       ctx.globalCompositeOperation = 'screen'
       ctx.globalAlpha = 0.6
 
-      // ось: вдоль длинной, поперёк короткой
       const mainAxisLen = isVertical ? H : W
       const crossCenter = (isVertical ? W : H) / 2
       const totalSpan = barCount * barStep
@@ -125,7 +124,6 @@ export function BarcodeVisualizer() {
             ? `hsla(${hue + 120}, ${sat}%, ${lum}%, 1)`
             : `hsla(${hue + 240}, ${sat}%, ${lum}%, 1)`
 
-        // зеркальное отражение от центра короткой оси
         if (isVertical) {
           ctx.fillRect(crossCenter - barH / 2, startMain + i * barStep, barH, barWidth)
         } else {

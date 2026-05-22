@@ -1,5 +1,4 @@
 import type { ReactElement } from 'react'
-import type { VizItem } from './components/Layout/Sidebar'
 import { ParticlesVisualizer } from './visual/ParticlesVisualizer'
 import { StarfieldVisualizer } from './visual/GalaxyVisualizer'
 import { CircularVisualizer } from './visual/CircularVisualizer'
@@ -11,10 +10,17 @@ import { GeometryVisualizer } from './visual/GeometryVisualizer'
 import { WitchscopeVisualizer } from './visual/WitchscopeVisualizer'
 import { VibeVisualizer } from './visual/VibeVisualizer'
 import { FaceVisualizer } from './visual/FaceVisualizer'
-import { KaraokeVisualizer } from './visual/KaraokeVisualizer'
-import { BeatGameVisualizer } from './visual/BeatGameVisualizer'
 import { HaloVisualizer } from './visual/HaloVisualizer'
 import { CosmicVisualizer } from './visual/CosmicVisualizer'
+import UserVizDispatch from './userViz/UserVizDispatch'
+import { isUserVizId } from './userViz/userVizStore'
+
+export interface VizItem {
+  key: string
+  label: string
+  icon: string
+  category: string
+}
 
 export type VisualizerMode =
   | 'cosmic'
@@ -29,8 +35,6 @@ export type VisualizerMode =
   | 'witchscope'
   | 'vibe'
   | 'face'
-  | 'karaoke'
-  | 'beatgame'
   | 'halo'
 
 export const VIZ_ITEMS: VizItem[] = [
@@ -46,13 +50,14 @@ export const VIZ_ITEMS: VizItem[] = [
   { key: 'witchscope', label: 'Ведьма', icon: '◌', category: 'Эффекты' },
   { key: 'vibe', label: 'Вайб', icon: '✽', category: 'Эффекты' },
   { key: 'face', label: 'Лицо', icon: '☺', category: 'Эффекты' },
-  { key: 'karaoke', label: 'Караоке', icon: '♫', category: 'Плеер' },
-  { key: 'beatgame', label: 'Игра', icon: '◎', category: 'Плеер' },
   { key: 'halo', label: 'Halo', icon: '◯', category: 'Эффекты' },
 ]
 
-export function renderVisualizer(mode: VisualizerMode): ReactElement {
-  switch (mode) {
+export function renderVisualizer(mode: string): ReactElement {
+  if (isUserVizId(mode)) {
+    return <UserVizDispatch vizId={mode} />
+  }
+  switch (mode as VisualizerMode) {
     case 'cosmic': return <CosmicVisualizer />
     case 'circular': return <CircularVisualizer />
     case 'particles': return <ParticlesVisualizer />
@@ -65,8 +70,7 @@ export function renderVisualizer(mode: VisualizerMode): ReactElement {
     case 'witchscope': return <WitchscopeVisualizer />
     case 'vibe': return <VibeVisualizer />
     case 'face': return <FaceVisualizer />
-    case 'karaoke': return <KaraokeVisualizer />
-    case 'beatgame': return <BeatGameVisualizer />
     case 'halo': return <HaloVisualizer />
+    default: return <CosmicVisualizer />
   }
 }

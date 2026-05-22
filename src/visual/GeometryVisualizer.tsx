@@ -28,7 +28,7 @@ interface GeoShape {
   baseX: number
   baseY: number
   individualPhase: number
-  size: number        // базовый размер
+  size: number
   kind: ShapeKind
   nested: boolean
   rotation: number
@@ -278,7 +278,6 @@ export function GeometryVisualizer() {
           })
         }
 
-        // непрерывный спавн: треблдиапазон [232..929]
         const freqPerBand = Math.floor(697 / SPARK_BANDS) // ~87 бинов на полосу
         for (let b = 0; b < SPARK_BANDS; b++) {
           const freqStart = 232 + b * freqPerBand
@@ -292,7 +291,6 @@ export function GeometryVisualizer() {
           }
         }
 
-        // на бит: 6-8 искр в случайных полосах
         if (beat) {
           const beatCount = Math.floor(Math.random() * 3) + 6
           for (let k = 0; k < beatCount; k++) {

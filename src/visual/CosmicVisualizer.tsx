@@ -97,7 +97,6 @@ const FRAGMENT_SHADER = /* glsl */ `
 
     O *= (1.0 + iAudioRMS * 0.5);
 
-    // тонмаппинг
     O = tanh(O * O / 400.0);
 
     gl_FragColor = vec4(O.rgb, 1.0);
@@ -165,7 +164,6 @@ function CosmicScene() {
       rmsRaw /= audioData.length
     }
 
-    // сглаживание не зависит от fps
     const smoothK = 1 - Math.pow(0.0001, delta)
     smoothedBassRef.current += (bassRaw - smoothedBassRef.current) * smoothK
     smoothedTrebleRef.current += (trebleRaw - smoothedTrebleRef.current) * smoothK
@@ -173,7 +171,6 @@ function CosmicScene() {
 
     rotationStepRef.current += delta * 0.15
 
-    // на бит: импульс 15° и сдвиг палитры
     if (beat && !lastBeatRef.current) {
       rotationStepRef.current += Math.PI / 12
       paletteIndexRef.current = (paletteIndexRef.current + 1) % PALETTE_COUNT

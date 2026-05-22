@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { useAudioStore } from '../store/audioStore'
 import { useVisualizerParams } from '../presets/useVisualizerParams'
 
@@ -246,11 +246,9 @@ export function CardVisualizer() {
     h: window.innerHeight,
   }))
 
-  useEffect(() => {
-    const onResize = () => setDims({ w: window.innerWidth, h: window.innerHeight })
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  const measuredRef = useRef(false)
+  const containerDimsRef = useRef({ w: 0, h: 0 })
+  containerDimsRef.current = dims
 
   const W = dims.w
   const H = dims.h
@@ -261,19 +259,19 @@ export function CardVisualizer() {
 
   const cardW = isVertical
     ? Math.min(W * 0.85, 520)
-    : Math.min(CARD_W_BASE * Math.max(scl, 0.5), W * 0.9)
+    : Math.min(CARD_W_BASE * scl, W * 0.9)
   const cardH = isVertical
     ? Math.min(H * 0.65, 560)
-    : Math.min(CARD_H_BASE * Math.max(scl, 0.5), H * 0.3)
+    : Math.min(CARD_H_BASE * scl, H * 0.3)
   const coverSize = isVertical
     ? Math.min(cardW * 0.65, cardH * 0.55)
-    : Math.min(120 * Math.max(scl, 0.5), cardH - 40)
-  const coverMargin = Math.round(20 * Math.max(scl, 0.5))
-  const titleFontSize = Math.round(Math.max(14, 22 * Math.max(scl, 0.6)))
-  const artistFontSize = Math.round(Math.max(10, 13 * Math.max(scl, 0.6)))
-  const timeFontSize = Math.round(Math.max(10, 14 * Math.max(scl, 0.6)))
-  const placeholderFontSize = Math.round(Math.max(24, 40 * Math.max(scl, 0.6)))
-  const waveHeight = Math.round(Math.max(36, 60 * Math.max(scl, 0.6)))
+    : Math.min(120 * scl, cardH - 40)
+  const coverMargin = Math.round(20 * scl)
+  const titleFontSize = Math.round(22 * scl)
+  const artistFontSize = Math.round(13 * scl)
+  const timeFontSize = Math.round(14 * scl)
+  const placeholderFontSize = Math.round(40 * scl)
+  const waveHeight = Math.round(60 * scl)
 
   const cardDimsRef = useRef({ w: cardW, h: cardH, scl, shakeScl })
   cardDimsRef.current = { w: cardW, h: cardH, scl, shakeScl }
@@ -285,6 +283,26 @@ export function CardVisualizer() {
   const velYRef = useRef(0)
   const targetXRef = useRef(W / 2)
   const targetYRef = useRef(H / 2)
+
+  useLayoutEffect(() => {
+    if (!rootRef.current) return
+    const measure = () => {
+      const rect = rootRef.current!.getBoundingClientRect()
+      if (rect.width <= 0 || rect.height <= 0) return
+      if (!measuredRef.current) {
+        posXRef.current = rect.width / 2
+        posYRef.current = rect.height / 2
+        targetXRef.current = rect.width / 2
+        targetYRef.current = rect.height / 2
+        measuredRef.current = true
+      }
+      setDims({ w: rect.width, h: rect.height })
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(rootRef.current)
+    return () => ro.disconnect()
+  }, [])
 
   const shakeXRef = useRef(0)
   const shakeYRef = useRef(0)
@@ -324,6 +342,7 @@ export function CardVisualizer() {
     function drawKaleido() {
       if (!canvas || !ctx) return
       rafId = requestAnimationFrame(drawKaleido)
+      if (!measuredRef.current) return
 
       const { energy, isPlaying } = useAudioStore.getState()
       const w = canvas.width
@@ -434,6 +453,7 @@ export function CardVisualizer() {
     function draw() {
       if (!canvas || !ctx) return
       rafRef.current = requestAnimationFrame(draw)
+      if (!measuredRef.current) return
 
       const { audioData, beat: isBeat, energy, isPlaying } = useAudioStore.getState()
       const pp = paramsRef.current
@@ -596,6 +616,7 @@ export function CardVisualizer() {
     function drawOverlay() {
       if (!overlay || !ctx) return
       rafId = requestAnimationFrame(drawOverlay)
+      if (!measuredRef.current) return
 
       const { beat: isBeat, energy, isPlaying } = useAudioStore.getState()
       const audioNow = useAudioStore.getState().audioData
@@ -684,11 +705,14 @@ export function CardVisualizer() {
 
       if (isPlaying) timeRef.current += 0.016
       const t = timeRef.current
-      const screenW = window.innerWidth
-      const screenH = window.innerHeight
+      const screenW = containerDimsRef.current.w
+      const screenH = containerDimsRef.current.h
 
-      targetXRef.current = screenW / 2 + Math.sin(t * 0.15) * 60 * sScl
-      targetYRef.current = screenH / 2 + Math.cos(t * 0.12) * 40 * sScl
+      const driftAmpX = screenW * 0.025
+      const driftAmpY = screenH * 0.025
+
+      targetXRef.current = screenW / 2 + Math.sin(t * 0.15) * driftAmpX * sScl
+      targetYRef.current = screenH / 2 + Math.cos(t * 0.12) * driftAmpY * sScl
 
       posXRef.current += (targetXRef.current - posXRef.current) * 0.008
       posYRef.current += (targetYRef.current - posYRef.current) * 0.008
@@ -955,8 +979,8 @@ export function CardVisualizer() {
   if (trackChanged) prevTrackRef.current = trackInfo.title
 
   return (
-    <div ref={rootRef} style={{
-      position: 'fixed',
+    <div ref={rootRef} className="card-visualizer" style={{
+      position: 'absolute',
       inset: 0,
       overflow: 'hidden',
       willChange: 'filter',
@@ -982,6 +1006,7 @@ export function CardVisualizer() {
 
       <canvas
         ref={kaleidoRef}
+        className="viz-host-fullbleed"
         style={{
           position: 'absolute',
           inset: 0,
@@ -994,6 +1019,7 @@ export function CardVisualizer() {
       {/* оверлей частиц и градиента */}
       <canvas
         ref={overlayRef}
+        className="viz-host-fullbleed"
         style={{
           position: 'absolute',
           inset: 0,
@@ -1011,7 +1037,7 @@ export function CardVisualizer() {
         width: cardW,
         height: cardH,
         background: 'rgba(10,10,20,0.75)',
-        borderRadius: Math.round(20 * Math.max(scl, 0.5)),
+        borderRadius: Math.round(20 * scl),
         backdropFilter: 'blur(20px) saturate(1.8)',
         border: '1px solid rgba(255,255,255,0.08)',
         boxShadow: '0 2px 4px rgba(0,0,0,0.8), 0 8px 16px rgba(0,0,0,0.6), 0 20px 40px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.06), inset 0 1px 0 rgba(255,255,255,0.1), inset 0 -1px 0 rgba(0,0,0,0.3)',
@@ -1042,7 +1068,7 @@ export function CardVisualizer() {
               style={{
                 width: coverSize,
                 height: coverSize,
-                borderRadius: Math.round(12 * Math.max(scl, 0.5)),
+                borderRadius: Math.round(12 * scl),
                 objectFit: 'cover',
               }}
             />
@@ -1050,7 +1076,7 @@ export function CardVisualizer() {
             <div style={{
               width: coverSize,
               height: coverSize,
-              borderRadius: Math.round(12 * Math.max(scl, 0.5)),
+              borderRadius: Math.round(12 * scl),
               background: 'rgba(255,255,255,0.05)',
               display: 'flex',
               alignItems: 'center',
@@ -1072,7 +1098,7 @@ export function CardVisualizer() {
           flexDirection: 'column',
           justifyContent: 'center',
           paddingLeft: isVertical ? coverMargin : 0,
-          paddingRight: isVertical ? coverMargin : Math.round(16 * Math.max(scl, 0.5)),
+          paddingRight: isVertical ? coverMargin : Math.round(16 * scl),
           textAlign: isVertical ? 'center' : 'left',
           alignItems: isVertical ? 'center' : 'stretch',
         }}>
@@ -1082,7 +1108,7 @@ export function CardVisualizer() {
               color: 'rgba(255,255,255,0.5)',
               textTransform: 'uppercase',
               letterSpacing: 2,
-              marginBottom: Math.round(2 * Math.max(scl, 0.5)),
+              marginBottom: Math.round(2 * scl),
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -1096,7 +1122,7 @@ export function CardVisualizer() {
             fontSize: titleFontSize,
             fontWeight: 700,
             color: hasTrack ? '#fff' : 'rgba(255,255,255,0.3)',
-            marginBottom: Math.round(12 * Math.max(scl, 0.5)),
+            marginBottom: Math.round(12 * scl),
             overflow: 'hidden',
             textOverflow: 'ellipsis',
             whiteSpace: 'nowrap',
@@ -1105,7 +1131,14 @@ export function CardVisualizer() {
           }}>
             {hasTrack ? trackInfo.title : 'Загрузи трек'}
           </div>
-          <canvas ref={canvasRef} style={{ width: '100%', height: waveHeight }} />
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+              height: waveHeight,
+              ['--card-wave-height' as string]: `${waveHeight}px`,
+            }}
+          />
         </div>
 
         <div style={{
@@ -1122,10 +1155,10 @@ export function CardVisualizer() {
 
         <div style={{
           position: 'absolute',
-          bottom: -Math.round(14 * Math.max(scl, 0.5)),
+          bottom: -Math.round(14 * scl),
           left: 0,
           width: '100%',
-          height: Math.max(2, Math.round(2 * Math.max(scl, 0.7))),
+          height: Math.max(2, Math.round(2 * scl)),
           background: 'rgba(255,255,255,0.15)',
           borderRadius: 1,
           overflow: 'hidden',
