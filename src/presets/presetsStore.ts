@@ -24,15 +24,11 @@ export interface Preset {
 }
 
 interface PresetsState {
-  isDrawerOpen: boolean
   activeVisualizerId: string
   currentParams: Record<string, VisualizerParams>
   savedPresets: Preset[]
   builtinPresets: Preset[]
 
-  openDrawer: () => void
-  closeDrawer: () => void
-  toggleDrawer: () => void
   setActiveVisualizerId: (id: string) => void
 
   setParam: (visualizerId: string, paramId: string, value: ParamValue) => void
@@ -51,7 +47,6 @@ interface PersistedShape {
   savedPresets: Preset[]
 }
 
-// загрузка из localStorage
 function hydrate(): PersistedShape {
   if (typeof localStorage === 'undefined') {
     return { currentParams: {}, savedPresets: [] }
@@ -74,6 +69,9 @@ function persist(shape: PersistedShape): void {
   if (typeof localStorage === 'undefined') return
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(shape))
+    void import('../services/cloudSync').then(({ scheduleCloudPush }) => {
+      scheduleCloudPush('presets')
+    })
   } catch (err) {
     console.warn('[presets] не удалось записать localStorage:', err)
   }
@@ -86,15 +84,11 @@ function makeId(): string {
 const initial = hydrate()
 
 export const usePresetsStore = create<PresetsState>((set, get) => ({
-  isDrawerOpen: false,
   activeVisualizerId: '',
   currentParams: initial.currentParams,
   savedPresets: initial.savedPresets,
   builtinPresets: [],
 
-  openDrawer: () => set({ isDrawerOpen: true }),
-  closeDrawer: () => set({ isDrawerOpen: false }),
-  toggleDrawer: () => set((s) => ({ isDrawerOpen: !s.isDrawerOpen })),
   setActiveVisualizerId: (id) => set({ activeVisualizerId: id }),
 
   setParam: (visualizerId, paramId, value) => {
