@@ -81,6 +81,11 @@ desktop.ini
 .env
 .env.local
 .env.*.local
+server/data/
+server/node_modules/
+backups/*.bundle
+backups/transfer-for-friend/
+backups/loomi-full-for-friend.zip
 *.pem
 *.key
 
@@ -95,3 +100,8 @@ desktop.ini
 *.swp
 *.swo
 
+.vercel
+
+# rust build artifacts
+target/
+src-tauri/target/
