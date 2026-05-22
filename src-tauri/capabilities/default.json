@@ -70,21 +70,9 @@
       ]
     },
     {
-      "identifier": "fs:allow-rename",
+      "identifier":     "fs:allow-rename",
       "allow": [
         { "path": "$APPDATA/**" }
-      ]
-    },
-    "shell:default",
-    {
-      "identifier": "shell:allow-execute",
-      "allow": [
-        {
-          "name": "ffmpeg",
-          "cmd": "ffmpeg",
-          "args": true,
-          "sidecar": false
-        }
       ]
     }
   ]

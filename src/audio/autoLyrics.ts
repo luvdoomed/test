@@ -42,11 +42,11 @@ export type RankedLyricsFetchResult =
 
 interface AutoLyricsOptions {
   forceRetry?: boolean
-  /** заменить уже загруженный текст (ручной поиск) */
+  
   forceReplace?: boolean
-  /** искать только по тегам (ручная коррекция), без имени файла */
+  
   tagsOnly?: boolean
-  /** применять подпись из каталога даже если имя файла не совпадает */
+  
   trustManualMeta?: boolean
 }
 
@@ -150,7 +150,6 @@ export function autoLyricsResultHint(r: AutoLyricsResult): string | null {
   }
 }
 
-/** фоновая подстановка lrc из lrclib, если нет текста и не приложен .lrc */
 export async function tryAutoAttachLyricsFromCatalog(
   durationSec: number | undefined,
   opts?: AutoLyricsOptions,
@@ -258,7 +257,6 @@ export async function tryAutoAttachLyricsFromCatalog(
   }
 }
 
-/** применить ручные метаданные и повторить поиск текста */
 export async function applyManualMetaAndSearchLyrics(
   artist: string,
   title: string,
@@ -291,7 +289,6 @@ export async function applyManualMetaAndSearchLyrics(
   })
 }
 
-/** список кандидатов LRCLIB с оценкой совпадения для UI */
 export async function fetchRankedLyricsCandidatesForTrack(
   durationSec: number | undefined,
   opts?: { tagsOnly?: boolean },
@@ -310,7 +307,6 @@ export async function fetchRankedLyricsCandidatesForTrack(
   return { status: 'ok', items: rankLyricsCandidates(res.items, matchCtx) }
 }
 
-/** только подпись в плеере, если текст уже есть из тегов / кэша */
 export async function applyCatalogLabelsIfPossible(durationSec: number | undefined): Promise<void> {
   const snap = useAudioStore.getState()
   if (snap.catalogLabelsFromDiskCache) return

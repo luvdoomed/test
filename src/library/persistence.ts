@@ -25,9 +25,9 @@ export interface PersistedTrack {
   title: string
   artist: string
   album: string
-  /** имя файла при добавлении (не путь tracks/uuid.mp3) — для lrclib и разбора меты */
+  
   originalFileName: string | null
-  /** размер исходного файла в байтах; у старых записей нет */
+  
   sourceFileSize?: number | null
   audioPath: string
   coverPath: string | null
@@ -110,7 +110,6 @@ export async function saveTrackFiles(
   return { audioPath: audioRel, coverPath: coverRel }
 }
 
-/** сохранить обложку на диск (каталог, клон с соседа, после синхронизации) */
 export async function saveCoverBlob(coverBlob: Blob, trackId: string): Promise<string> {
   await ensureLibraryDirs()
   const coverExt = coverExtFor(coverBlob.type)

@@ -47,7 +47,6 @@ interface PersistedShape {
   savedPresets: Preset[]
 }
 
-// загрузка из localStorage
 function hydrate(): PersistedShape {
   if (typeof localStorage === 'undefined') {
     return { currentParams: {}, savedPresets: [] }

@@ -19,7 +19,7 @@ export interface CloudLibraryItemPayload {
   addedAt: string
   features?: unknown
   moodWeights?: unknown
-  /** есть ли локальный файл на устройстве, с которого пушили */
+  
   hasLocalAudio?: boolean
 }
 

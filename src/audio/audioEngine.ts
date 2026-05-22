@@ -19,7 +19,6 @@ export class AudioEngine {
   private beatDetector = new BeatDetector()
   private buffer: AudioBuffer | null = null
   private originalBytes: Uint8Array | null = null
-  private originalExt = ''
   private startedAt = 0
   private pauseOffset = 0
   private playing = false
@@ -119,7 +118,6 @@ export class AudioEngine {
     if (myLoadId !== this.loadCounter) return
 
     this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
-    this.originalExt = file.name.split('.').pop()?.toLowerCase() ?? ''
 
     store.setSourceFileName(file.name)
     store.setSourceFileSize(file.size)
@@ -185,7 +183,6 @@ export class AudioEngine {
       (displayFileName && displayFileName.trim()) ||
       audioPath.split(/[/\\]/).pop() ||
       'track'
-    const ext = filename.split('.').pop()?.toLowerCase() ?? ''
     const mime = audioMimeFromPath(audioPath)
 
     const arrayBuffer = bytes.buffer.slice(
@@ -194,7 +191,6 @@ export class AudioEngine {
     ) as ArrayBuffer
 
     this.originalBytes = new Uint8Array(arrayBuffer.slice(0))
-    this.originalExt = ext
 
     store.setSourceFileName(filename)
     store.setSourceFileSize(bytes.byteLength)
@@ -367,7 +363,7 @@ export class AudioEngine {
     this.stopLoop()
   }
 
-  /** буфер и метаданные сброшены (трек убран из библиотеки) */
+  
   resetLoadedTrack(): void {
     this.loadCounter += 1
     this.disposeSource()
@@ -375,7 +371,6 @@ export class AudioEngine {
     this.playing = false
     this.buffer = null
     this.originalBytes = null
-    this.originalExt = ''
 
     const store = useAudioStore.getState()
     const cover = store.trackInfo.cover
@@ -428,14 +423,6 @@ export class AudioEngine {
 
   getAudioBuffer(): AudioBuffer | null {
     return this.buffer
-  }
-
-  getOriginalAudioBytes(): Uint8Array | null {
-    return this.originalBytes
-  }
-
-  getOriginalAudioExt(): string {
-    return this.originalExt
   }
 
   setVolume(value: number): void {

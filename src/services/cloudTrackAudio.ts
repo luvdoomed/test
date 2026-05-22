@@ -21,7 +21,6 @@ function audioExtFromMime(mime: string): string {
   return 'mp3'
 }
 
-/** скачать аудио из облака в локальную библиотеку */
 export async function downloadCloudAudioToDevice(trackId: string): Promise<void> {
   const token = useAuthStore.getState().token
   if (!token) throw new Error('войди в аккаунт')
@@ -59,7 +58,6 @@ export async function downloadCloudAudioToDevice(trackId: string): Promise<void>
   scheduleCloudPush('audio-downloaded')
 }
 
-/** загрузить локальный файл трека в облако (лимит 500 МБ) */
 export async function uploadLocalAudioToCloud(trackId: string): Promise<void> {
   const token = useAuthStore.getState().token
   if (!token) throw new Error('войди в аккаунт')

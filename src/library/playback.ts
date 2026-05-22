@@ -35,7 +35,6 @@ export async function loadTrack(track: LibraryTrack): Promise<void> {
   useLibraryStore.getState().syncTrackDisplayFromAudio(track.id)
 }
 
-/** автостарт только если уже есть название и синхронный текст */
 export function autoPlayIfLyricsReady(): void {
   if (shouldAutoPlayAfterPrepare()) audioEngine.play()
 }

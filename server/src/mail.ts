@@ -20,7 +20,6 @@ function createTransporter() {
   })
 }
 
-/** @returns 'sent' если ушло по SMTP, иначе код только в консоли сервера */
 export async function sendPasswordResetEmail(to: string, code: string): Promise<'sent' | 'console'> {
   const appName = process.env.APP_NAME ?? 'Loomi'
   const from = process.env.SMTP_FROM ?? `${appName} <noreply@localhost>`
@@ -46,7 +45,6 @@ ${code}
   return 'sent'
 }
 
-/** Проверка SMTP при старте API (лог в консоль, не блокирует запуск). */
 export async function verifySmtpOnStartup(): Promise<void> {
   if (!isSmtpConfigured()) return
   try {

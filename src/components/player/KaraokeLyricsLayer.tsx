@@ -8,11 +8,9 @@ import { karaokeOverlayFallbackPalette } from '../../visual/karaokeVizPalette'
 
 const IDLE_MS = 2000
 
-/** как у слоя караоке поверх визуализатора */
 const KARAOKE_LINE_FS_ACTIVE = 'clamp(15px, 2.8vw, 28px)'
 const KARAOKE_LINE_FS_INACTIVE = 'clamp(12px, 2.2vw, 18px)'
 
-/** совпадает с theme.css body */
 const KARAOKE_LYRICS_FONT = "'Inter Tight', system-ui, sans-serif"
 
 export type KaraokeLyricsLayerVariant = 'overlay' | 'standalone'
@@ -22,7 +20,6 @@ interface KaraokeLyricsLayerProps {
   palette?: KaraokePalette | null
 }
 
-/** синхронный текст: полный экран или слой поверх другого визуализатора */
 export function KaraokeLyricsLayer({ variant, palette = null }: KaraokeLyricsLayerProps) {
   const lrcLines = useAudioStore((s) => s.lrcLines)
   const currentTime = useAudioStore((s) => s.currentTime)
@@ -110,7 +107,7 @@ export function KaraokeLyricsLayer({ variant, palette = null }: KaraokeLyricsLay
 
   const isOverlay = variant === 'overlay'
   const pal = isOverlay ? palette ?? karaokeOverlayFallbackPalette : null
-  /** отдельное караоке без палитры пресета — те же цвета/тени, что в overlay */
+  
   const lyricsPal = pal ?? karaokeOverlayFallbackPalette
 
   const scrollPaddingTop = isOverlay ? 'min(22%, 140px)' : '28vh'

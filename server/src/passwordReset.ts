@@ -8,7 +8,6 @@ export function hashResetToken(token: string): string {
   return createHash('sha256').update(token, 'utf8').digest('hex')
 }
 
-/** 10 символов, удобно вводить вручную */
 export function generateResetCode(): string {
   return randomBytes(8).toString('base64url').replace(/[-_]/g, 'x').slice(0, 10).toUpperCase()
 }

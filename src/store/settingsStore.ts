@@ -9,9 +9,7 @@ export interface AppSettings {
   libraryView: LibraryView
   karaokeOnLyricsLoaded: boolean
   autoSearchLyrics: boolean
-  /** 0…1 */
   defaultVolume: number
-  exportIncludeKaraoke: boolean
 }
 
 const DEFAULTS: AppSettings = {
@@ -19,7 +17,6 @@ const DEFAULTS: AppSettings = {
   karaokeOnLyricsLoaded: false,
   autoSearchLyrics: true,
   defaultVolume: 1,
-  exportIncludeKaraoke: false,
 }
 
 function clampVolume(v: number): number {
@@ -38,7 +35,6 @@ function readStoredSettings(): AppSettings {
       karaokeOnLyricsLoaded: Boolean(o.karaokeOnLyricsLoaded),
       autoSearchLyrics: o.autoSearchLyrics !== false,
       defaultVolume: clampVolume(o.defaultVolume ?? DEFAULTS.defaultVolume),
-      exportIncludeKaraoke: Boolean(o.exportIncludeKaraoke),
     }
   } catch {
     return { ...DEFAULTS }
@@ -51,7 +47,7 @@ function persistSettings(state: AppSettings) {
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
     void import('../services/cloudSync').then((m) => m.scheduleCloudPush('settings'))
   } catch {
-    /* квота / приватный режим */
+    
   }
 }
 
@@ -61,7 +57,6 @@ function pickAppSettings(s: SettingsStore): AppSettings {
     karaokeOnLyricsLoaded: s.karaokeOnLyricsLoaded,
     autoSearchLyrics: s.autoSearchLyrics,
     defaultVolume: s.defaultVolume,
-    exportIncludeKaraoke: s.exportIncludeKaraoke,
   }
 }
 
@@ -70,7 +65,6 @@ interface SettingsStore extends AppSettings {
   setKaraokeOnLyricsLoaded: (v: boolean) => void
   setAutoSearchLyrics: (v: boolean) => void
   setDefaultVolume: (v: number) => void
-  setExportIncludeKaraoke: (v: boolean) => void
 }
 
 const initial = readStoredSettings()
@@ -101,21 +95,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     persistSettings({ ...pickAppSettings(get()), defaultVolume: vol })
     audioEngine.setVolume(vol)
   },
-
-  setExportIncludeKaraoke: (v) => {
-    set({ exportIncludeKaraoke: v })
-    persistSettings({ ...pickAppSettings(get()), exportIncludeKaraoke: v })
-  },
 }))
 
-/** включить overlay, если в настройках так задано и текст уже есть */
 export function maybeEnableKaraokeOverlay(): void {
   if (!useSettingsStore.getState().karaokeOnLyricsLoaded) return
   if (useAudioStore.getState().lrcLines.length === 0) return
   useUIStore.getState().setKaraokeOverlay(true)
 }
 
-/** синхронизация uiStore и громкости при старте приложения */
 export function applyStoredSettingsOnStartup(): void {
   const s = useSettingsStore.getState()
   useUIStore.getState().setLibraryView(s.libraryView)

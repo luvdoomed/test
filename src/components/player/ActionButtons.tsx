@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { SlidersHorizontal, Mic2, Download } from 'lucide-react'
+import { SlidersHorizontal, Mic2 } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 
 interface ActionButtonsProps {
@@ -8,12 +8,11 @@ interface ActionButtonsProps {
 }
 
 export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsProps) {
-  const setExportOpen = useUIStore((s) => s.setExportOpen)
   const karaokeOverlay = useUIStore((s) => s.karaokeOverlay)
   const toggleKaraokeOverlay = useUIStore((s) => s.toggleKaraokeOverlay)
 
   return (
-    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <ActionBtn icon={<SlidersHorizontal size={14} />} label="Параметры" onClick={onOpenParams} />
       <ActionBtn
         icon={<Mic2 size={14} />}
@@ -22,12 +21,6 @@ export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsP
         active={karaokeOverlay}
         disabled={!hasTrack}
         onClick={() => toggleKaraokeOverlay()}
-      />
-      <ActionBtn
-        icon={<Download size={14} />}
-        label="Экспорт"
-        disabled={!hasTrack}
-        onClick={() => setExportOpen(true)}
       />
     </div>
   )

@@ -235,11 +235,10 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
               <span>
                 {unplayableCount} {pluralTrack(unplayableCount)} без MP3 — добавь в библиотеку или
               </span>
-              <Cloud size={11} strokeWidth={2} title="Аудио в облаке" aria-label="Аудио в облаке" />
+              <Cloud size={11} strokeWidth={2} aria-label="Аудио в облаке" />
               <CloudDownload
                 size={11}
                 strokeWidth={2}
-                title="Скачать из облака"
                 aria-label="Скачать из облака"
               />
             </span>

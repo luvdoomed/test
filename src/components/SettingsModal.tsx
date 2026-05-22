@@ -1,7 +1,6 @@
 import { useEffect, type CSSProperties } from 'react'
 import { X } from 'lucide-react'
 import { useSettingsStore } from '../store/settingsStore'
-import { isTauri } from '../utils/platform'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -53,8 +52,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
   const setAutoSearchLyrics = useSettingsStore((s) => s.setAutoSearchLyrics)
   const defaultVolume = useSettingsStore((s) => s.defaultVolume)
   const setDefaultVolume = useSettingsStore((s) => s.setDefaultVolume)
-  const exportIncludeKaraoke = useSettingsStore((s) => s.exportIncludeKaraoke)
-  const setExportIncludeKaraoke = useSettingsStore((s) => s.setExportIncludeKaraoke)
 
   useEffect(() => {
     if (!isOpen) return
@@ -138,17 +135,6 @@ export default function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
               />
             </div>
           </Section>
-
-          {isTauri() ? (
-            <Section title="Экспорт видео">
-              <ToggleRow
-                label="Включать караоке в экспорт"
-                hint="Сохраняет предпочтение. Композитинг текста в видео будет добавлен в следующих версиях."
-                checked={exportIncludeKaraoke}
-                onChange={setExportIncludeKaraoke}
-              />
-            </Section>
-          ) : null}
 
           <Section title="Справка">
             <div

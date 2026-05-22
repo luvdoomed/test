@@ -10,7 +10,6 @@ import { GeometryVisualizer } from './visual/GeometryVisualizer'
 import { WitchscopeVisualizer } from './visual/WitchscopeVisualizer'
 import { VibeVisualizer } from './visual/VibeVisualizer'
 import { FaceVisualizer } from './visual/FaceVisualizer'
-import { KaraokeVisualizer } from './visual/KaraokeVisualizer'
 import { HaloVisualizer } from './visual/HaloVisualizer'
 import { CosmicVisualizer } from './visual/CosmicVisualizer'
 import UserVizDispatch from './userViz/UserVizDispatch'
@@ -36,7 +35,6 @@ export type VisualizerMode =
   | 'witchscope'
   | 'vibe'
   | 'face'
-  | 'karaoke'
   | 'halo'
 
 export const VIZ_ITEMS: VizItem[] = [
@@ -52,7 +50,6 @@ export const VIZ_ITEMS: VizItem[] = [
   { key: 'witchscope', label: 'Ведьма', icon: '◌', category: 'Эффекты' },
   { key: 'vibe', label: 'Вайб', icon: '✽', category: 'Эффекты' },
   { key: 'face', label: 'Лицо', icon: '☺', category: 'Эффекты' },
-  { key: 'karaoke', label: 'Караоке', icon: '♫', category: 'Плеер' },
   { key: 'halo', label: 'Halo', icon: '◯', category: 'Эффекты' },
 ]
 
@@ -73,7 +70,6 @@ export function renderVisualizer(mode: string): ReactElement {
     case 'witchscope': return <WitchscopeVisualizer />
     case 'vibe': return <VibeVisualizer />
     case 'face': return <FaceVisualizer />
-    case 'karaoke': return <KaraokeVisualizer />
     case 'halo': return <HaloVisualizer />
     default: return <CosmicVisualizer />
   }

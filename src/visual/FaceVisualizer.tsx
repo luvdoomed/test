@@ -269,7 +269,6 @@ export function FaceVisualizer() {
             const motionAmount = Math.min(1, Math.abs(velX) + Math.abs(velY))
             const chromaShift = (0.5 + motionAmount * 1.5 + high * 2) * chromaScale * chromaMul
 
-            // motion blur — доп. проход со смещением по velocity
             const motionPasses = motionAmount > 0.25 ? [
                 { dx: -velX * 0.25, dy: -velY * 0.25, alphaMul: 0.2 },
             ] : []
@@ -318,7 +317,6 @@ export function FaceVisualizer() {
                     ctx.restore()
                 }
 
-                // chromatic aberration 3 прохода
                 for (const p of passes) {
                     ctx.save()
                     ctx.shadowBlur = p.alphaMul === 1.0 ? (3 + freqAmp * 8) : 0
@@ -337,7 +335,6 @@ export function FaceVisualizer() {
                     ctx.restore()
                 }
 
-                // корона 3 слоя свечения на больших пиках
                 if (pulse > 0.85 && Math.random() < 0.06) {
                     const coronaSlots = [
                         { scale: 1.06, blur: 8, opacity: 0.25 },

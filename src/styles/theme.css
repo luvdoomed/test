@@ -235,61 +235,6 @@ body::after {
   color: var(--fg);
 }
 
-.export-modal__title {
-  font-size: 20px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  margin-bottom: 18px;
-  color: var(--fg);
-}
-
-.export-modal__group {
-  margin-bottom: 16px;
-}
-
-.export-modal__group-title {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--fg-mute);
-  margin-bottom: 8px;
-}
-
-.export-modal__opts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-.opt-btn {
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-soft);
-  color: var(--fg-soft);
-  font: 500 13px 'Inter Tight', system-ui, sans-serif;
-  cursor: pointer;
-}
-
-.opt-btn:not(.opt-btn--active):hover {
-  color: var(--fg);
-  border-color: var(--border-active);
-}
-
-.opt-btn--active {
-  background: var(--fg) !important;
-  color: var(--bg) !important;
-  border-color: var(--fg) !important;
-}
-
-.export-modal__actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-  margin-top: 20px;
-}
-
 .btn {
   padding: 10px 18px;
   border-radius: 8px;
@@ -319,38 +264,9 @@ body::after {
 }
 
 /* цвет и фон должны меняться мгновенно — иначе текст «исчезает» при смене состояния */
-.opt-btn,
 .btn {
   transition: border-color 0.15s ease, transform 0.15s ease, opacity 0.15s ease, box-shadow 0.15s ease !important;
   transition-property: border-color, transform, opacity, box-shadow !important;
-}
-
-.export-modal__progress {
-  margin-top: 8px;
-}
-
-.export-modal__progress-text {
-  display: flex;
-  justify-content: space-between;
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12px;
-  color: var(--fg-soft);
-  margin-bottom: 8px;
-}
-
-.export-modal__progress-bar {
-  height: 6px;
-  background: var(--bg-elev);
-  border-radius: 9999px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.export-modal__progress-fill {
-  height: 100%;
-  background: var(--fg);
-  border-radius: 9999px;
-  transition: width 0.2s ease;
 }
 
 /* профиль: вход / регистрация */

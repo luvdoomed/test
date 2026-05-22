@@ -1,7 +1,4 @@
-/**
- * LRCLIB — каталог синхронных текстов (https://lrclib.net).
- * Уходит только строка запроса по метаданным, аудио не отправляется.
- */
+
 
 interface LrclibTrack {
   duration?: number
@@ -16,7 +13,6 @@ export type LrclibFetchResult =
   | { status: 'none' }
   | { status: 'network' }
 
-/** обрезка feat / ft для совпадений с каталогом */
 function shortenArtist(raw: string): string {
   const s = raw.trim()
   if (!s) return ''
@@ -67,7 +63,6 @@ function memoTrimOldest<K, V>(map: Map<K, V>, max: number) {
   }
 }
 
-/** один запрос по подписи из тегов (artist + title + album + duration) */
 export async function fetchGetCachedTrackRecord(params: {
   artist: string
   title: string
@@ -239,7 +234,6 @@ export interface LrclibCandidate {
   trackName?: string
 }
 
-/** строки для плеера: из полей api или из подписи «исполнитель — трек · N с» */
 export function catalogLabelsFromCandidate(c: LrclibCandidate): {
   artist?: string
   title?: string
@@ -282,7 +276,6 @@ function trackRecordToSyncedCandidate(item: LrclibTrack): LrclibCandidate | null
   }
 }
 
-/** быстрый путь: синхронный текст по точной подписи из тегов */
 export async function fetchGetCachedSyncedCandidate(params: {
   artist: string
   title: string
@@ -318,11 +311,10 @@ export interface LyricsMatchContext {
   hintTitle: string
   filenameArtist?: string
   filenameTitle?: string
-  /** не подставлять текст только по длительности — нужен явный выбор */
+  
   strictAutoPick?: boolean
 }
 
-/** меньше = лучше; используется для автоподбора и ранжирования списка */
 function scoreLyricsCandidateInternal(c: LrclibCandidate, ctx: LyricsMatchContext): number {
   const dur = ctx.durationSec
   let score = 0
@@ -362,13 +354,12 @@ function durationDeltaSec(c: LrclibCandidate, durationSec?: number): number | nu
 }
 
 export interface RankedLrclibCandidate extends LrclibCandidate {
-  /** 0–100, больше = лучше совпадение */
+  
   matchScore: number
   durationDeltaSec: number | null
   isRecommended: boolean
 }
 
-/** ранжированный список для UI выбора альтернатив */
 export function rankLyricsCandidates(
   items: LrclibCandidate[],
   ctx: LyricsMatchContext,
@@ -396,7 +387,6 @@ export function rankLyricsCandidates(
   }))
 }
 
-/** один кандидат при автоподстановке: длительность + похожесть на имя файла / теги */
 export function pickBestLyricsCandidate(
   items: LrclibCandidate[],
   ctx: LyricsMatchContext,
@@ -420,7 +410,6 @@ export function pickBestLyricsCandidate(
   return null
 }
 
-/** лучший кандидат для автоподстановки + запасной первый ряд при ±8 с по длительности */
 export function resolveBestSyncedLyricsCandidate(
   items: LrclibCandidate[],
   ctx: LyricsMatchContext,
@@ -514,7 +503,6 @@ async function searchSyncedLyricsCandidatesUncached(
   return { status: 'ok', items }
 }
 
-/** несколько запросов search → уникальные варианты с синхронным текстом */
 export async function searchSyncedLyricsCandidates(
   queries: string[],
   durationSec?: number,

@@ -53,7 +53,6 @@ export default function MyCanvasViz({
     }
   })
 
-  // setup RAF один раз — иначе мы будем пересоздавать петлю на каждом обновлении звука
   useEffect(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -145,7 +144,6 @@ interface AudioSnapshot {
   isPlaying: boolean
 }
 
-// Cube читает свежий звук из ref — каждый кадр useFrame достанет актуальные значения
 function Cube({ audioRef }: { audioRef: { current: AudioSnapshot } }) {
   const meshRef = useRef<THREE.Mesh>(null)
   const matRef = useRef<THREE.MeshStandardMaterial>(null)

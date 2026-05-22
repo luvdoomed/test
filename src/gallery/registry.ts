@@ -15,5 +15,4 @@ export const GALLERY: VizPreview[] = [
   { id: 'sphere',     name: 'Сфера',      category: 'effects',    subcategory: '3D',         badge: null,      moods: ['calm', 'melancholic', 'sad'],         draw: P.drawSpherePreview },
   { id: 'face',       name: 'Лицо',       category: 'atmosphere', subcategory: 'Портрет',    badge: null,      moods: ['sad', 'melancholic', 'calm'],         draw: P.drawFacePreview },
   { id: 'card',       name: 'Карточка',   category: 'atmosphere', subcategory: 'Обложка',    badge: null,      moods: ['upbeat', 'calm', 'melancholic'],      draw: P.drawCardPreview },
-  { id: 'karaoke',    name: 'Караоке',    category: 'atmosphere', subcategory: 'Текст',      badge: 'new',     moods: ['upbeat', 'calm', 'sad'],              draw: P.drawKaraokePreview },
 ]

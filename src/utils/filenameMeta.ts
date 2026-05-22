@@ -1,10 +1,9 @@
-/** пробует вытащить «исполнитель — название» из имени файла */
+
 
 function collapseSpaces(s: string): string {
   return s.replace(/\s+/g, ' ').trim()
 }
 
-/** скобки с доменами загрузчиков и обрезка краев */
 function stripSpamSegments(base: string): string {
   return collapseSpaces(
     base.replace(/\s*\([^)]*\.(?:cc|ru|net|org|com|io|tv|pw)[^)]*\)/gi, ''),
@@ -15,7 +14,6 @@ function trimEdgeNoise(base: string): string {
   return collapseSpaces(base.replace(/^[_\s\-–—]+|[_\s\-–—]+$/g, ''))
 }
 
-/** слэги vkboost / skysound: нижнее подчёркивание и мусорные скобки */
 function cleanSegment(s: string): string {
   const z = trimEdgeNoise(stripSpamSegments(s))
   return collapseSpaces(z.replace(/_/g, ' '))
@@ -28,7 +26,6 @@ export function parseArtistTitleFromFilename(fileName: string): {
   const rawBase = fileName.replace(/\.[^/.]+$/i, '').trim()
   if (!rawBase) return null
 
-  // копия в appdata как tracks/<uuid>.mp3 — не воспринимать как «артист — трек»
   if (
     /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawBase.replace(/\s+/g, ''))
   ) {
@@ -112,10 +109,6 @@ function tokenOverlapTitle(a: string, b: string): number {
   return Math.min(1, Math.max(pa, pb) * 0.85 + Math.min(pa, pb) * 0.15)
 }
 
-/**
- * не подменять подпись трека каталогом, если имя файла явно другое
- * (Face - PAWS ≠ Elvis / Pads, Paws and Claws).
- */
 export function catalogLabelsPlausibleForFile(
   sourceFileName: string | null | undefined,
   catalogArtist: string | undefined,
@@ -145,7 +138,6 @@ export function catalogLabelsPlausibleForFile(
   return true
 }
 
-/** теги/имя не годятся для автоподстановки без явного выбора пользователя */
 export function metadataWeakForAutoLyrics(opts: {
   tagArtist: string
   tagTitle: string
@@ -177,13 +169,11 @@ export function metadataWeakForAutoLyrics(opts: {
   return false
 }
 
-/** строка для полнотекстового поиска lrclib из имени без расширения */
 export function filenameAsSearchHint(fileName: string): string {
   const stem = trimEdgeNoise(stripSpamSegments(fileName.replace(/\.[^/.]+$/i, '')))
   return collapseSpaces(stem.replace(/_/g, ' '))
 }
 
-/** набор запросов: сначала имя файла (типичные загрузки), потом теги */
 export function buildLrclibSearchQueries(opts: {
   tagArtist: string
   tagTitle: string
@@ -222,7 +212,6 @@ export function buildLrclibSearchQueries(opts: {
   return out
 }
 
-/** запросы только по явным тегам (после ручной коррекции метаданных) */
 export function buildLrclibSearchQueriesFromTags(opts: {
   tagArtist: string
   tagTitle: string
@@ -258,7 +247,6 @@ export function buildLrclibSearchQueriesFromTags(opts: {
   return out
 }
 
-/** упрощённые варианты названия для LRCLIB (live, скобки, суффиксы) */
 export function titleSearchVariants(title: string): string[] {
   const out: string[] = []
   const add = (s: string) => {
@@ -291,7 +279,6 @@ function escapeRegExp(s: string): string {
   return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }
 
-/** убирает из title суффикс/префикс «… — артист», если совпадает с полем artist */
 export function stripRedundantArtistFromTitle(title: string, artist: string): string {
   const a = artist.trim()
   let t = title.trim()
@@ -309,7 +296,6 @@ export function stripRedundantArtistFromTitle(title: string, artist: string): st
   return t
 }
 
-/** подстановка отображаемых title/artist из имени файла, когда теги слабые (как в lrclib) */
 export function mergeTrackDisplayFromFilename(
   fileName: string,
   info: { title: string; artist: string; album: string; cover: string },
@@ -349,7 +335,6 @@ export function mergeTrackDisplayFromFilename(
       const forwardMatch = norm(ta) === norm(pa) && norm(tt) === norm(pt)
       const swappedMatch = norm(ta) === norm(pt) && norm(tt) === norm(pa)
 
-      // tag title = stem файла: артист в тегах совпадает с одной из частей «a — b»
       if (titleIsRawStem && ta && norm(tt) === norm(fallbackTitle)) {
         if (norm(ta) === norm(pt)) {
           return finish({ ...info, artist: ta, title: pa })

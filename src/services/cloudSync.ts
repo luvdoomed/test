@@ -123,7 +123,6 @@ async function refreshAuthStorage(): Promise<void> {
   }
 }
 
-/** сразу отправить состояние в облако (без debounce) */
 export async function flushCloudPush(token: string): Promise<void> {
   if (pushTimer != null) {
     clearTimeout(pushTimer)
@@ -133,7 +132,6 @@ export async function flushCloudPush(token: string): Promise<void> {
   await refreshAuthStorage()
 }
 
-/** удалить облачное аудио и метаданные треков с сервера */
 export async function purgeTracksFromCloud(token: string, trackIds: string[]): Promise<void> {
   if (trackIds.length === 0) return
   for (const trackId of trackIds) {
@@ -152,7 +150,6 @@ export async function purgeTracksFromCloud(token: string, trackIds: string[]): P
     )
 }
 
-/** после удаления из библиотеки — сразу чистим облако и обновляем квоту в профиле */
 export async function syncCloudAfterTracksRemoved(trackIds: string[]): Promise<void> {
   const { useAuthStore } = await import('../store/authStore')
   const token = useAuthStore.getState().token
@@ -161,7 +158,6 @@ export async function syncCloudAfterTracksRemoved(trackIds: string[]): Promise<v
   await flushCloudPush(token)
 }
 
-/** отложенная отправка в облако (debounce) */
 export function scheduleCloudPush(_reason?: string): void {
   void import('../store/authStore').then(({ useAuthStore }) => {
     if (!useAuthStore.getState().token) return
@@ -185,7 +181,6 @@ export async function pushCloudState(token: string): Promise<void> {
     karaokeOnLyricsLoaded: useSettingsStore.getState().karaokeOnLyricsLoaded,
     autoSearchLyrics: useSettingsStore.getState().autoSearchLyrics,
     defaultVolume: useSettingsStore.getState().defaultVolume,
-    exportIncludeKaraoke: useSettingsStore.getState().exportIncludeKaraoke,
   }
   await putSettings(token, settings)
 
@@ -270,7 +265,6 @@ export async function pullCloudSnapshot(token: string): Promise<void> {
       karaokeOnLyricsLoaded: Boolean(s.karaokeOnLyricsLoaded),
       autoSearchLyrics: s.autoSearchLyrics !== false,
       defaultVolume: s.defaultVolume ?? 1,
-      exportIncludeKaraoke: Boolean(s.exportIncludeKaraoke),
     }
     useSettingsStore.setState(local)
     useUIStore.getState().setLibraryView(local.libraryView)

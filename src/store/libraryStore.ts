@@ -26,7 +26,7 @@ import { useAudioStore } from './audioStore'
 export interface LibraryTrack {
   id: string
   file?: File
-  /** как на диске пользователя при добавлении; для копии tracks/uuid.mp3 обязателен для lrclib */
+  
   originalFileName: string | null
   name: string
   artist: string
@@ -36,7 +36,7 @@ export interface LibraryTrack {
   addedAt: number
   audioPath: string | null
   coverPath: string | null
-  /** размер исходного файла при добавлении; у старых треков может не быть */
+  
   sourceFileSize?: number | null
   features?: TrackFeatures
   moodWeights?: MoodWeights
@@ -44,12 +44,11 @@ export interface LibraryTrack {
   analyzeFailed?: boolean
 }
 
-/** результат addTrack: добавлен новый или найден уже существующий */
 export interface AddTrackResult {
   track: LibraryTrack
-  /** false если файл совпал с треком уже в библиотеке */
+  
   added: boolean
-  /** true если MP3 привязан к записи из облака без локального файла */
+  
   linkedCloudSlot?: boolean
 }
 
@@ -68,7 +67,7 @@ interface LibraryStore {
   getNextTrack: () => LibraryTrack | null
   getPrevTrack: () => LibraryTrack | null
   applyEnrichedCover: (trackId: string, coverUrl: string) => void
-  /** строка библиотеки по id = метаданные плеера (после lrclib / кэша) */
+  
   syncTrackDisplayFromAudio: (trackId?: string | null) => void
 }
 
@@ -109,7 +108,6 @@ async function parseFileMetadata(file: File): Promise<ParsedMetadata> {
       coverObjectUrl = URL.createObjectURL(coverBlob)
     }
   } catch {
-    // parse failed; keep fallbacks
   }
 
   return { title, artist, album, duration, coverBlob, coverObjectUrl }
@@ -126,8 +124,6 @@ interface MergedDisplayMeta {
   cover: string
 }
 
-/** повторная загрузка того же файла — один трек в библиотеке */
-/** трек из облака без локального файла — привязать загруженный MP3 */
 function findCloudOnlySlot(
   tracks: LibraryTrack[],
   file: File,
@@ -278,7 +274,6 @@ function normAlbumKeyPart(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ')
 }
 
-/** тот же альбом и уже есть картинка: приоритет обложке из файла на диске, затем более раннему addedAt */
 function pickAlbumCoverDonor(tracks: LibraryTrack[], artist: string, album: string): LibraryTrack | undefined {
   const na = normAlbumKeyPart(artist)
   const nb = normAlbumKeyPart(album)
@@ -305,7 +300,6 @@ async function cloneCoverFromDonorToTrack(trackId: string, donor: LibraryTrack):
   }
 }
 
-/** одна обложка на альбом: без своего coverPath берём с соседа; каталог заменяем на файл с диска у соседа */
 function reconcileAlbumArtForTrack(trackId: string): void {
   const { tracks } = useLibraryStore.getState()
   const tr = tracks.find((t) => t.id === trackId)
@@ -331,7 +325,6 @@ function reconcileAlbumArtForTrack(trackId: string): void {
 
 let unifyAlbumCoversTimer: ReturnType<typeof setTimeout> | null = null
 
-/** после enrich по трекам одна обложка альбома из iTunes entity=album */
 function queueUnifyAlbumCoversInLibrary(): void {
   if (unifyAlbumCoversTimer != null) clearTimeout(unifyAlbumCoversTimer)
   unifyAlbumCoversTimer = setTimeout(() => {
@@ -727,7 +720,6 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
 const catalogCoverInflight = new Map<string, Promise<void>>()
 const catalogCoverFinished = new Set<string>()
 
-/** обложка из каталога для строки библиотеки без встроенной картинки */
 export async function enrichLibraryTrackCoverFromCatalog(
   trackId: string,
   artist: string,

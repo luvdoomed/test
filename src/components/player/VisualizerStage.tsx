@@ -15,7 +15,7 @@ export default function VisualizerStage({ vizId, isFullscreen }: VisualizerStage
   const hasTrack = trackTitle !== ''
   const karaokeOverlay = useUIStore((s) => s.karaokeOverlay)
 
-  const showKaraokeLayer = karaokeOverlay && hasTrack && vizId !== 'karaoke'
+  const showKaraokeLayer = karaokeOverlay && hasTrack
   const karaokePalette = useMemo(() => getKaraokePalette(vizId), [vizId])
 
   const emptyHint = !hasTrack ? (

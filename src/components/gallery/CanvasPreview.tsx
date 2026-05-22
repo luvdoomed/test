@@ -49,30 +49,16 @@ export default function CanvasPreview({ draw, isHovered }: CanvasPreviewProps) {
     const ro = new ResizeObserver(resize)
     ro.observe(container)
 
-    let paused = false
-
     function loop() {
-      // во время экспорта 15 превью × rAF каждый кадр забивают тик и тормозят запись
-      if (paused) { raf = 0; return }
       tRef.current += hoveredRef.current ? 1.6 : 1
       if (ctx) drawRef.current(ctx, cssW, cssH, tRef.current, hoveredRef.current)
       raf = requestAnimationFrame(loop)
     }
     raf = requestAnimationFrame(loop)
 
-    const onExportStart = () => { paused = true }
-    const onExportEnd = () => {
-      paused = false
-      if (!raf) raf = requestAnimationFrame(loop)
-    }
-    window.addEventListener('mvapp-export-start', onExportStart)
-    window.addEventListener('mvapp-export-end', onExportEnd)
-
     return () => {
       cancelAnimationFrame(raf)
       ro.disconnect()
-      window.removeEventListener('mvapp-export-start', onExportStart)
-      window.removeEventListener('mvapp-export-end', onExportEnd)
     }
   }, [])
 

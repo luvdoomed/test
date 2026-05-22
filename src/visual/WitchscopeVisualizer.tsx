@@ -172,7 +172,6 @@ export function WitchscopeVisualizer() {
       const TAIL = TWO_PI * 1.1
       const SEG_ARC_LEN = SEG_ARC * 0.8
 
-      // shadowBlur один раз выше, не в цикле
       for (let i = 0; i < SEGMENT_COUNT; i++) {
         const freq = audioData[Math.floor((i / SEGMENT_COUNT) * (audioData.length || 1024))] ?? 0
         const a = i * SEG_ARC
@@ -508,7 +507,6 @@ export function WitchscopeVisualizer() {
         if (energy > 0.08) {
           shakeStateRef.current.trauma = Math.min(1, shakeStateRef.current.trauma + 0.8)
         }
-        // ударная волна на сильном бите, максимум две активные
         if (energy > 0.06 && shockwaveRef.current.length < 2) {
           const ang = progressRef.current
           shockwaveRef.current.push({
@@ -600,7 +598,6 @@ export function WitchscopeVisualizer() {
 
       drawShockwaves(ctx)
 
-      // motion blur: 2 прохода, скип на низкой скорости
       const velMag = Math.abs(velXRef.current) + Math.abs(velYRef.current)
 
       const renderRingPass = (mainPass: boolean) => {

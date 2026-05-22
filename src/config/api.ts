@@ -1,4 +1,4 @@
-/** базовый URL API (см. .env.example: VITE_API_URL) */
+
 export function getApiBaseUrl(): string {
   const raw = import.meta.env.VITE_API_URL as string | undefined
   const base = (raw ?? 'http://127.0.0.1:8787').replace(/\/$/, '')

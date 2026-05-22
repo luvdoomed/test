@@ -21,7 +21,6 @@
     "@tauri-apps/plugin-dialog": "^2.7.0",
     "@tauri-apps/plugin-fs": "^2.5.0",
     "@tauri-apps/plugin-opener": "^2",
-    "@tauri-apps/plugin-shell": "^2.3.5",
     "@types/three": "^0.183.1",
     "fft.js": "^4.0.4",
     "framer-motion": "^12.38.0",

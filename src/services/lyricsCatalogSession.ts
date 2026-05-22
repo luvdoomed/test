@@ -1,4 +1,4 @@
-/** сессия: не дергать lrclib повторно для того же файла; mutex на время запроса */
+
 
 const finished = new Set<string>()
 const probing = new Set<string>()
@@ -10,7 +10,6 @@ export function tryBeginLrclibProbe(trackKey: string): boolean {
   return true
 }
 
-/** finished только если попытка завершена (не обрыв сети — иначе можно повторить) */
 export function endLrclibProbe(trackKey: string, markFinished: boolean): void {
   probing.delete(trackKey)
   if (markFinished) finished.add(trackKey)

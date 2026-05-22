@@ -23,7 +23,7 @@ interface AudioState {
   trackInfo: TrackInfo
   isPlaying: boolean
   volume: number
-  /** Распарсенные строки .lrc (пусто, если текст не загружен). */
+  
   lrcLines: LrcLine[]
   playlistQueue: string[]
   currentPlaylistMood: MoodId | null

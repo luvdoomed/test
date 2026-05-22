@@ -41,7 +41,6 @@ function findLibraryTrackIdForCover(
   return undefined
 }
 
-/** обложка в плеер + так же в строку библиотеки (отдельный blob:url, чтобы revoke плеера не ломал список) */
 export async function enrichNowPlayingCover(
   artist: string,
   title: string,

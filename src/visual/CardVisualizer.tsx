@@ -284,8 +284,6 @@ export function CardVisualizer() {
   const targetXRef = useRef(W / 2)
   const targetYRef = useRef(H / 2)
 
-  // синхронный замер хост-контейнера до первой отрисовки
-  // на первом валидном замере засеиваем позицию, чтобы lerp не уносил карточку из (window/2)
   useLayoutEffect(() => {
     if (!rootRef.current) return
     const measure = () => {
@@ -710,7 +708,6 @@ export function CardVisualizer() {
       const screenW = containerDimsRef.current.w
       const screenH = containerDimsRef.current.h
 
-      // дрейф пропорционален размеру хоста
       const driftAmpX = screenW * 0.025
       const driftAmpY = screenH * 0.025
 

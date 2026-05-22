@@ -1,4 +1,4 @@
-/** обложки через публичный iTunes Search API (без ключа, пригодно для WebView) */
+
 
 interface ItunesSongResult {
   artistName?: string
@@ -130,7 +130,6 @@ async function resolveCoverBlobUrlInner(params: {
   }
 }
 
-/** один альбом при слегка разных строках в тегах */
 export function albumsLikelySame(a: string, b: string): boolean {
   const x = a.trim()
   const y = b.trim()
@@ -156,7 +155,6 @@ function normTokens(s: string): string[] {
   return c.split(/\s+/).filter((w) => w.length >= 2)
 }
 
-/** доля совпадения значимых токенов между строками */
 function tokenOverlap(a: string, b: string): number {
   const ta = normTokens(a)
   const tb = new Set(normTokens(b))
@@ -238,7 +236,6 @@ async function resolveAlbumArtBlobUrlInner(params: {
   }
 }
 
-/** обложка релиза по артисту и альбому (не по названию трека) */
 export async function resolveAlbumArtBlobUrl(params: {
   artist: string
   album: string

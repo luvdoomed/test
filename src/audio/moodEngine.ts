@@ -23,7 +23,6 @@ export const MOOD_GRADIENTS: Record<MoodId, string> = {
   melancholic: 'linear-gradient(135deg, #6a4c93, #8e7cc3)',
 }
 
-// плавный переход 0..1 при пересечении порога t с шириной w
 const smoothAbove = (v: number, t: number, w: number): number => {
   if (v <= t - w) return 0
   if (v >= t + w) return 1
@@ -54,7 +53,6 @@ export function computeMoodWeights(f: TrackFeatures): MoodWeights {
       weight: 1.0,
     },
     { score: smoothAbove(f.flatnessMean, 0.04, 0.02), weight: 0.6 },
-    // верхняя граница: не слишком шумно
     { score: smoothBelow(f.flatnessMean, 0.20, 0.05), weight: 0.4 },
   ])
 
@@ -75,7 +73,6 @@ export function computeMoodWeights(f: TrackFeatures): MoodWeights {
     { score: smoothBelow(f.centroidMean, 2300, 500),  weight: 0.9 },
     { score: smoothBelow(f.flatnessMean, 0.06, 0.02), weight: 0.7 },
     { score: smoothBelow(f.zcrMean, 0.07, 0.03),      weight: 0.5 },
-    // присутствует, не полная тишина
     { score: smoothAbove(f.rmsMean, 0.08, 0.04),      weight: 0.4 },
   ])
 

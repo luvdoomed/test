@@ -7,7 +7,7 @@ interface Payload {
   trackKey: string
   raw: string
   savedAt: number
-  /** подпись lrclib для плеера без повторного запроса */
+  
   catalogArtist?: string
   catalogTitle?: string
 }
@@ -65,7 +65,6 @@ function evictIfNeeded(): void {
   for (let j = 0; j < drop; j++) localStorage.removeItem(entries[j].lsKey)
 }
 
-/** lrc и опционально подпись каталога с прошлого сеанса */
 export function readLyricsDiskCache(fileName: string, byteSize: number): LyricsDiskCacheEntry | null {
   const p = readPayload(fileName, byteSize)
   if (!p) return null
@@ -80,7 +79,7 @@ export function clearLyricsDiskCache(fileName: string, byteSize: number): void {
   try {
     localStorage.removeItem(storageKey(trackKey))
   } catch {
-    /* квота или приватный режим */
+    
   }
 }
 
@@ -107,6 +106,6 @@ export function writeLyricsDiskCache(
     evictIfNeeded()
     void import('./cloudSync').then((m) => m.scheduleCloudPush('lrc'))
   } catch {
-    /* квота или приватный режим */
+    
   }
 }

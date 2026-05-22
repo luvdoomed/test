@@ -112,7 +112,6 @@ export function audioBytesUsed(userId: string): number {
   return row.n
 }
 
-/** lrc / обложки / аудио без строки в library_items */
 export function purgeOrphanTrackAttachments(userId: string): void {
   const sub = 'SELECT track_id FROM library_items WHERE user_id = ?'
   db.prepare(

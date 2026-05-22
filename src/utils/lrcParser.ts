@@ -1,4 +1,4 @@
-/** строка текста с таймкодом, секунды от начала трека */
+
 export interface LrcLine {
   time: number
   text: string
@@ -51,7 +51,6 @@ export function parseLrc(raw: string): LrcLine[] {
   return out
 }
 
-/** индекс активной строки для времени t (последняя строка с time <= t) */
 export function findActiveLrcIndex(lines: LrcLine[], t: number): number {
   if (lines.length === 0) return -1
   let lo = 0

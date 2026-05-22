@@ -14,10 +14,10 @@ export interface AuthUser {
 interface AuthState {
   token: string | null
   user: AuthUser | null
-  /** blob URL для отображения; не в localStorage */
+  
   avatarObjectUrl: string | null
   storage: cloudApi.StorageInfo | null
-  /** trackId с аудио в облаке (из последнего snapshot) */
+  
   cloudAudioTrackIds: string[]
   syncStatus: 'idle' | 'syncing' | 'ok' | 'error'
   syncMessage: string | null
@@ -127,7 +127,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       const me = await cloudApi.fetchMe(stored.token)
       set({ user: me.user, storage: me.storage })
       await loadAvatarIntoStore(stored.token, Boolean(me.user.hasAvatar))
-      // сначала пушим локальную библиотеку (в т.ч. пустую после удаления), потом pull
       await flushCloudPush(stored.token)
       await pullCloudSnapshot(stored.token)
       const meAfter = await cloudApi.fetchMe(stored.token)

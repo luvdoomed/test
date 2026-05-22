@@ -12,9 +12,8 @@ interface UIStore {
   selectedVizId: string | null
   searchQuery: string
   isFullscreen: boolean
-  exportOpen: boolean
   libraryView: LibraryView
-  /** текст поверх текущего пресета (не только сцена «караоке») */
+  
   karaokeOverlay: boolean
   profileOpen: boolean
   settingsOpen: boolean
@@ -26,7 +25,6 @@ interface UIStore {
   setSearchQuery: (q: string) => void
   setSelectedVizId: (id: string | null) => void
   setFullscreen: (v: boolean) => void
-  setExportOpen: (v: boolean) => void
   setLibraryView: (v: LibraryView) => void
   setKaraokeOverlay: (v: boolean) => void
   toggleKaraokeOverlay: () => void
@@ -43,7 +41,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   selectedVizId: null,
   searchQuery: '',
   isFullscreen: false,
-  exportOpen: false,
   libraryView: 'list',
   karaokeOverlay: false,
   profileOpen: false,
@@ -56,7 +53,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
   setSelectedVizId: (id) => set({ selectedVizId: id }),
   setFullscreen: (v) => set({ isFullscreen: v }),
-  setExportOpen: (v) => set({ exportOpen: v }),
   setLibraryView: (v) => set({ libraryView: v }),
   setKaraokeOverlay: (v) => set({ karaokeOverlay: v }),
   toggleKaraokeOverlay: () => set((s) => ({ karaokeOverlay: !s.karaokeOverlay })),

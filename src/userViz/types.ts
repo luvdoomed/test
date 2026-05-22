@@ -15,11 +15,11 @@ export interface UserVizProps {
   beat: boolean
   energy: number
   currentTime: number
-  /** синхронизированный текст из LRCLIB / .lrc (пустой массив, если текста нет) */
+  
   lrcLines: LrcLine[]
-  /** индекс активной строки; -1 если текста нет или ещё не начался */
+  
   activeLineIndex: number
-  /** текст активной строки или пустая строка */
+  
   activeLineText: string
   isPlaying: boolean
 }

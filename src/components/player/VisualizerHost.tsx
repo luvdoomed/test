@@ -7,7 +7,6 @@ interface VisualizerHostProps {
   style?: CSSProperties
 }
 
-// contain + isolation = visualizer-локальный containing block для position:fixed
 export default function VisualizerHost({ vizId, className, style }: VisualizerHostProps) {
   return (
     <div

@@ -308,30 +308,6 @@ export function drawCardPreview(ctx: Ctx, w: number, h: number, t: number, isHov
   ctx.restore()
 }
 
-export function drawKaraokePreview(ctx: Ctx, w: number, h: number, t: number, isHovered: boolean) {
-  fillBg(ctx, w, h)
-  const amp = fakeAmplitude(t, isHovered)
-  const lines = 5
-  const pad = w * 0.12
-  const lineH = 8
-  for (let i = 0; i < lines; i++) {
-    const yc = h * 0.22 + i * (h * 0.14)
-    const widthFrac = 0.5 + 0.4 * Math.abs(Math.sin(i * 1.7 + 1.2))
-    const lw = (w - pad * 2) * widthFrac
-    const isActive = i === 2
-    const glow = isActive ? 0.6 + amp * 0.3 : 0.2
-    ctx.fillStyle = strokeColor(glow)
-    roundRect(ctx, pad, yc - lineH / 2, lw, lineH, 3)
-    ctx.fill()
-    if (isActive) {
-      const fill = (Math.sin(t * 0.03) * 0.5 + 0.5) * lw
-      ctx.fillStyle = strokeColor(0.95)
-      roundRect(ctx, pad, yc - lineH / 2, fill, lineH, 3)
-      ctx.fill()
-    }
-  }
-}
-
 function roundRect(ctx: Ctx, x: number, y: number, w: number, h: number, r: number) {
   const rr = Math.min(r, w / 2, h / 2)
   ctx.beginPath()

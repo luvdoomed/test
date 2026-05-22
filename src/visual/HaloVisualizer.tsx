@@ -12,7 +12,6 @@ import { LayerMaterial, Fresnel, Displace } from 'lamina'
 import { useRef } from 'react'
 import * as THREE from 'three'
 import { useAudioStore } from '../store/audioStore'
-import { AudioInvalidator } from './_AudioInvalidator'
 
 const CAMERA_CONFIG = { position: [0, 0, 5] as [number, number, number], fov: 45 }
 const BG_COLOR = '#000000'
@@ -52,7 +51,6 @@ function Blob() {
       bassRaw /= 20
     }
 
-    // экспоненциальное сглаживание независимое от fps
     const bassK = 1 - Math.pow(0.0001, delta)
     smoothedBassRef.current =
       smoothedBassRef.current + (bassRaw - smoothedBassRef.current) * bassK
@@ -67,12 +65,10 @@ function Blob() {
       displaceRef.current.offset.y = tRef.current * 0.7
       displaceRef.current.offset.z = tRef.current * 0.5
 
-      // сила деформации растёт с басом и битом
       displaceRef.current.strength =
         DISPLACE_STRENGTH + smoothedBassRef.current * 0.5 + beatPulseRef.current * 0.4
     }
 
-    // на бит шарик слегка раздувается и возвращается
     if (meshRef.current) {
       const scaleTarget =
         1 + beatPulseRef.current * 0.15 + smoothedBassRef.current * 0.08
@@ -114,11 +110,9 @@ function Blob() {
 }
 
 export function HaloVisualizer() {
-  const composerRef = useRef<{ render: (d?: number) => void } | null>(null)
   return (
     <div style={{ width: '100%', height: '100%', background: BG_COLOR }}>
-      <Canvas camera={CAMERA_CONFIG} gl={{ preserveDrawingBuffer: true }}>
-        <AudioInvalidator composerRef={composerRef} />
+      <Canvas camera={CAMERA_CONFIG}>
         <color attach="background" args={BG_COLOR_ARGS} />
         <ambientLight intensity={1} />
 
@@ -131,7 +125,7 @@ export function HaloVisualizer() {
           <Blob />
         </Float>
 
-        <EffectComposer ref={composerRef as any}>
+        <EffectComposer>
           <Bloom
             intensity={2.5}
             luminanceThreshold={0.1}

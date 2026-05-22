@@ -1,4 +1,4 @@
-/** палитра слоя караоке: нейтральное затемнение, без перекраски визуализатора */
+
 export interface KaraokePalette {
   bottomGradient: string
   activeLineColor: string
@@ -49,7 +49,7 @@ function mergePalette(...parts: Partial<KaraokePalette>[]): KaraokePalette {
   return Object.assign({}, darkBase, ...parts)
 }
 
-/** нейтральная подложка под любой пресет (включая user-*) */
+
 export function getKaraokePalette(vizId: string): KaraokePalette {
   const isUserViz = vizId.startsWith('user-')
   const patch = overrides[vizId] ?? (isUserViz ? heavierFooter : {})
