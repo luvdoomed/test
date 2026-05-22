@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "music-visualization-app",
+  "productName": "Loomi",
   "version": "0.1.0",
   "identifier": "com.musicvisualizer.app",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Music Visualizer",
+        "title": "Loomi",
         "width": 800,
         "height": 600
       }

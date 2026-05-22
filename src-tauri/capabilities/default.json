@@ -12,6 +12,9 @@
     "dialog:default",
     "dialog:allow-save",
     "fs:default",
+    "fs:allow-appdata-read-recursive",
+    "fs:allow-appdata-write-recursive",
+    "fs:allow-appdata-meta-recursive",
     {
       "identifier": "fs:allow-write-file",
       "allow": [
@@ -20,19 +23,56 @@
         { "path": "$DOWNLOAD/**" },
         { "path": "$VIDEO/**" },
         { "path": "$DOCUMENT/**" },
+        { "path": "$TEMP/**" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-file",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [
+        { "path": "$HOME/**" },
+        { "path": "$DESKTOP/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$TEMP/**" },
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [
+        { "path": "$APPDATA/**" }
+      ]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [
+        { "path": "$APPDATA/**" },
         { "path": "$TEMP/**" }
       ]
     },
-    "shell:default",
     {
-      "identifier": "shell:allow-execute",
+      "identifier":     "fs:allow-rename",
       "allow": [
-        {
-          "name": "ffmpeg",
-          "cmd": "ffmpeg",
-          "args": true,
-          "sidecar": false
-        }
+        { "path": "$APPDATA/**" }
       ]
     }
   ]
