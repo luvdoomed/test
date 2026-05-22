@@ -1,6 +1,8 @@
 import { create } from 'zustand'
-import type { VibeProfile } from '../profiler/profiler'
 import type { LrcLine } from '../utils/lrcParser'
+import type { MoodId } from '../audio/moodEngine'
+import { audioEngine } from '../audio/audioEngine'
+import { enrichNowPlayingCover } from '../audio/enrichNowPlayingCover'
 
 interface TrackInfo {
   title: string
@@ -10,11 +12,6 @@ interface TrackInfo {
 }
 
 type Section = 'verse' | 'chorus' | 'bridge' | 'unknown'
-
-export interface SuggestedVisualizer {
-  id: string
-  distance: number
-}
 
 interface AudioState {
   audioData: Float32Array
@@ -26,11 +23,15 @@ interface AudioState {
   trackInfo: TrackInfo
   isPlaying: boolean
   volume: number
-  autoMode: boolean
-  trackProfile: VibeProfile | null
-  suggestedVisualizers: SuggestedVisualizer[]
-  /** Распарсенные строки .lrc (пусто, если текст не загружен). */
+  
   lrcLines: LrcLine[]
+  playlistQueue: string[]
+  currentPlaylistMood: MoodId | null
+
+  sourceFileName: string | null
+  sourceFileSize: number | null
+  trackPrepareBusy: boolean
+  catalogLabelsFromDiskCache: boolean
 
   setAudioData: (data: Float32Array) => void
   setBeat: (beat: boolean) => void
@@ -41,10 +42,19 @@ interface AudioState {
   setTrackInfo: (info: TrackInfo) => void
   setIsPlaying: (playing: boolean) => void
   setVolume: (volume: number) => void
-  setAutoMode: (enabled: boolean) => void
-  setTrackProfile: (profile: VibeProfile | null) => void
-  setSuggestedVisualizers: (list: SuggestedVisualizer[]) => void
   setLrcLines: (lines: LrcLine[]) => void
+  setPlaylistQueue: (trackIds: string[], mood: MoodId | null) => void
+  clearPlaylistQueue: () => void
+
+  setSourceFileName: (name: string | null) => void
+  setSourceFileSize: (size: number | null) => void
+  applyCatalogTrackLabels: (
+    artist: string | undefined,
+    title: string | undefined,
+    album?: string | undefined,
+  ) => void
+  setTrackPrepareBusy: (v: boolean) => void
+  setCatalogLabelsFromDiskCache: (v: boolean) => void
 }
 
 export const useAudioStore = create<AudioState>((set) => ({
@@ -57,10 +67,14 @@ export const useAudioStore = create<AudioState>((set) => ({
   trackInfo: { title: '', artist: '', album: '', cover: '' },
   isPlaying: false,
   volume: 1,
-  autoMode: false,
-  trackProfile: null,
-  suggestedVisualizers: [],
   lrcLines: [],
+  playlistQueue: [],
+  currentPlaylistMood: null,
+
+  sourceFileName: null,
+  sourceFileSize: null,
+  trackPrepareBusy: false,
+  catalogLabelsFromDiskCache: false,
 
   setAudioData: (data) => set({ audioData: data }),
   setBeat: (beat) => set({ beat }),
@@ -71,8 +85,42 @@ export const useAudioStore = create<AudioState>((set) => ({
   setTrackInfo: (info) => set({ trackInfo: info }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setVolume: (volume) => set({ volume }),
-  setAutoMode: (enabled) => set({ autoMode: enabled }),
-  setTrackProfile: (profile) => set({ trackProfile: profile }),
-  setSuggestedVisualizers: (list) => set({ suggestedVisualizers: list }),
   setLrcLines: (lines) => set({ lrcLines: lines }),
+  setPlaylistQueue: (trackIds, mood) => set({ playlistQueue: trackIds, currentPlaylistMood: mood }),
+  clearPlaylistQueue: () => set({ playlistQueue: [], currentPlaylistMood: null }),
+
+  setSourceFileName: (name) => set({ sourceFileName: name }),
+  setSourceFileSize: (size) => set({ sourceFileSize: size }),
+  applyCatalogTrackLabels: (artist, title, album) => {
+    set((s) => {
+      const a = artist?.trim()
+      const t = title?.trim()
+      const al = album?.trim()
+      if (!a && !t && !al) return {}
+      return {
+        trackInfo: {
+          ...s.trackInfo,
+          ...(a ? { artist: a } : {}),
+          ...(t ? { title: t } : {}),
+          ...(al ? { album: al } : {}),
+        },
+      }
+    })
+    queueMicrotask(() => {
+      void import('./libraryStore').then(({ useLibraryStore }) => {
+        useLibraryStore.getState().syncTrackDisplayFromAudio()
+      })
+      const st = useAudioStore.getState()
+      if (st.trackInfo.cover) return
+      const tit = st.trackInfo.title.trim()
+      if (!tit) return
+      const dur = audioEngine.getDuration()
+      void enrichNowPlayingCover(st.trackInfo.artist, st.trackInfo.title, dur > 0 ? dur : undefined, {
+        fileName: st.sourceFileName,
+        fileSize: st.sourceFileSize,
+      })
+    })
+  },
+  setTrackPrepareBusy: (v) => set({ trackPrepareBusy: v }),
+  setCatalogLabelsFromDiskCache: (v) => set({ catalogLabelsFromDiskCache: v }),
 }))
