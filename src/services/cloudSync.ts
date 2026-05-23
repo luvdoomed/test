@@ -38,11 +38,7 @@ import {
   isPersistenceAvailable,
   type PersistedTrack,
 } from '../library/persistence'
-import { writeFile } from '@tauri-apps/plugin-fs'
-import { BaseDirectory } from '@tauri-apps/plugin-fs'
-
-const ROOT = 'Loomi'
-const APPDATA = BaseDirectory.AppData
+import { idbSet } from '../utils/idb'
 
 let pushTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -208,7 +204,7 @@ export async function pushCloudState(token: string): Promise<void> {
     try {
       let coverBytes: Uint8Array | null = null
       let mime = 'image/jpeg'
-      if (t.coverPath && isPersistenceAvailable()) {
+      if (t.coverPath) {
         coverBytes = await loadCoverBytes(t.coverPath)
         mime = t.coverPath.endsWith('.png')
           ? 'image/png'
@@ -313,7 +309,7 @@ export async function pullCloudSnapshot(token: string): Promise<void> {
       const ext = coverExtForMime(coverRow.mime)
       coverPath = `covers/${item.id}.${ext}`
       const bytes = base64ToBytes(coverRow.dataBase64)
-      await writeFile(`${ROOT}/${coverPath}`, bytes, { baseDir: APPDATA })
+      await idbSet(`cover:${item.id}`, bytes)
     }
 
     const local = localById.get(item.id)
