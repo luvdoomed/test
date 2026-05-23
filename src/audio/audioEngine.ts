@@ -8,6 +8,7 @@ import { tryAutoAttachLyricsFromCatalog, applyCatalogLabelsIfPossible } from './
 import { readLyricsDiskCache, writeLyricsDiskCache } from '../services/lyricsDiskCache'
 import { mergeTrackDisplayFromFilename, catalogLabelsPlausibleForFile, metadataWeakForAutoLyrics } from '../utils/filenameMeta'
 import { useSettingsStore, maybeEnableKaraokeOverlay } from '../store/settingsStore'
+import { processSystemAudioFrame } from './systemAudioCapture'
 
 export class AudioEngine {
   audioContext: AudioContext
@@ -24,8 +25,13 @@ export class AudioEngine {
   private playing = false
   private rafId = 0
   private loadCounter = 0
+  private systemModeStartTime = 0
 
   onTrackEnd: (() => void) | null = null
+
+  markSystemStart(): void {
+    this.systemModeStartTime = performance.now()
+  }
 
   private disposeSource(): void {
     if (!this.source) return
@@ -431,6 +437,18 @@ export class AudioEngine {
   }
 
   tick(): void {
+    const storeFirst = useAudioStore.getState()
+    if (storeFirst.audioMode === 'system') {
+      const { audioData, energy } = processSystemAudioFrame()
+      const beat = this.beatDetector.detect(audioData)
+      const elapsedSec = (performance.now() - this.systemModeStartTime) / 1000
+      storeFirst.setAudioData(audioData)
+      storeFirst.setEnergy(energy)
+      storeFirst.setBeat(beat)
+      storeFirst.setCurrentTime(elapsedSec)
+      return
+    }
+
     this.analyser.getFloatFrequencyData(this.dataArray)
 
     const normalized = new Float32Array(this.dataArray.length)

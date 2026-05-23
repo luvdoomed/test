@@ -172,6 +172,9 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       })
       try {
         await startSystemCapture()
+        audioEngine.markSystemStart()
+        audioEngine.stopLoop()
+        audioEngine.startLoop()
       } catch (err) {
         console.error('[audioMode] startSystemCapture failed:', err)
         set({ audioMode: 'file' })
@@ -179,6 +182,7 @@ export const useAudioStore = create<AudioState>((set, get) => ({
       }
     } else {
       await stopSystemCapture()
+      audioEngine.stopLoop()
       set({
         audioMode: 'file',
         audioData: new Float32Array(1024),
