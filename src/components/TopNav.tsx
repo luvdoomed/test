@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Search, Sun, Moon, Monitor, Settings } from 'lucide-react'
+import { Search, Sun, Moon, Monitor, Settings, User } from 'lucide-react'
 import { useUIStore, type Tab } from '../store/uiStore'
 import { useThemeStore } from '../store/themeStore'
 import { useAudioStore } from '../store/audioStore'
@@ -25,6 +25,8 @@ export default function TopNav() {
   const mode = useThemeStore((s) => s.mode)
   const cycleMode = useThemeStore((s) => s.cycleMode)
   const audioMode = useAudioStore((s) => s.audioMode)
+  const setProfileOpen = useUIStore((s) => s.setProfileOpen)
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   const searchRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -160,7 +162,10 @@ export default function TopNav() {
           <IconButton onClick={cycleMode} title={`Тема: ${mode}`}>
             <ThemeIcon size={14} />
           </IconButton>
-          <IconButton onClick={() => {}} title="Настройки">
+          <IconButton onClick={() => setProfileOpen(true)} title="Профиль и синхронизация">
+            <User size={14} />
+          </IconButton>
+          <IconButton onClick={() => setSettingsOpen(true)} title="Настройки">
             <Settings size={14} />
           </IconButton>
         </div>
