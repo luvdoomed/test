@@ -63,28 +63,32 @@ interface ParsedMetadata {
 
 async function parseFileMetadata(file: File): Promise<ParsedMetadata> {
   const fallbackName = file.name.replace(/\.[^/.]+$/, '')
-  let title = fallbackName
-  let artist = 'Unknown'
-  let album = ''
-  let duration = 0
   let coverBlob: Blob | null = null
   let coverObjectUrl: string | null = null
 
-  try {
-    const metadata = await mm.parseBlob(file)
-    if (metadata.common.title) title = metadata.common.title
-    if (metadata.common.artist) artist = metadata.common.artist
-    if (metadata.common.album) album = metadata.common.album
-    if (metadata.format.duration) duration = metadata.format.duration
-    const picture = metadata.common.picture?.[0]
-    if (picture) {
-      coverBlob = new Blob([picture.data as BlobPart], { type: picture.format })
-      coverObjectUrl = URL.createObjectURL(coverBlob)
-    }
-  } catch {
+  let metadata: Awaited<ReturnType<typeof mm.parseBlob>> | undefined
+  try { metadata = await mm.parseBlob(file) } catch {}
+
+  const picture = metadata?.common.picture?.[0]
+  if (picture) {
+    coverBlob = new Blob([picture.data as BlobPart], { type: picture.format })
+    coverObjectUrl = URL.createObjectURL(coverBlob)
   }
 
-  return { title, artist, album, duration, coverBlob, coverObjectUrl }
+  return {
+    title: metadata?.common.title || fallbackName,
+    artist: metadata?.common.artist || 'Unknown',
+    album: metadata?.common.album || '',
+    duration: metadata?.format.duration || 0,
+    coverBlob,
+    coverObjectUrl,
+  }
+}
+
+function updateTrack(id: string, patch: Partial<LibraryTrack>): void {
+  useLibraryStore.setState((s) => ({
+    tracks: s.tracks.map((t) => (t.id === id ? { ...t, ...patch } : t)),
+  }))
 }
 
 function trackToPersisted(t: LibraryTrack): PersistedTrack {
@@ -118,12 +122,9 @@ let analyzeChain: Promise<void> = Promise.resolve()
 function enqueueAnalysis(trackId: string): void {
   analyzeChain = analyzeChain.then(async () => {
     const exists = useLibraryStore.getState().tracks.find((t) => t.id === trackId)
-    if (!exists) return
-    if (exists.features) return
+    if (!exists || exists.features) return
 
-    useLibraryStore.setState((s) => ({
-      tracks: s.tracks.map((t) => (t.id === trackId ? { ...t, isAnalyzing: true } : t)),
-    }))
+    updateTrack(trackId, { isAnalyzing: true })
 
     let ctx: AudioContext | null = null
     try {
@@ -132,26 +133,13 @@ function enqueueAnalysis(trackId: string): void {
       ctx = new AC()
       const audioBuffer = await ctx.decodeAudioData(arrayBuf)
       const features = await analyzeMeyda(audioBuffer)
-      const moodWeights = computeMoodWeights(features)
-      useLibraryStore.setState((s) => ({
-        tracks: s.tracks.map((t) =>
-          t.id === trackId
-            ? { ...t, features, moodWeights, isAnalyzing: false, analyzeFailed: false }
-            : t,
-        ),
-      }))
+      updateTrack(trackId, { features, moodWeights: computeMoodWeights(features), isAnalyzing: false, analyzeFailed: false })
       void persistCurrentManifest()
     } catch (err) {
       console.warn('[library] анализ упал для', exists.name, err)
-      useLibraryStore.setState((s) => ({
-        tracks: s.tracks.map((t) =>
-          t.id === trackId ? { ...t, isAnalyzing: false, analyzeFailed: true } : t,
-        ),
-      }))
+      updateTrack(trackId, { isAnalyzing: false, analyzeFailed: true })
     } finally {
-      if (ctx) {
-        try { await ctx.close() } catch {}
-      }
+      if (ctx) try { await ctx.close() } catch {}
     }
   })
 }
@@ -224,37 +212,23 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   removeTrack: async (id) => {
     const target = get().tracks.find((t) => t.id === id)
     if (!target) return
-    if (target.cover && target.cover.startsWith('blob:')) {
-      URL.revokeObjectURL(target.cover)
-    }
+    if (target.cover?.startsWith('blob:')) URL.revokeObjectURL(target.cover)
     set((s) => ({
       tracks: s.tracks.filter((t) => t.id !== id),
       currentTrackId: s.currentTrackId === id ? null : s.currentTrackId,
     }))
-    if (isPersistenceAvailable()) {
-      try {
-        await deleteTrackFiles(id)
-      } catch (err) {
-        console.warn('[library] не удалось удалить файлы трека:', err)
-      }
-    }
+    if (isPersistenceAvailable()) await deleteTrackFiles(id)
     void persistCurrentManifest()
   },
 
   clearAll: async () => {
     const all = get().tracks
     for (const t of all) {
-      if (t.cover && t.cover.startsWith('blob:')) URL.revokeObjectURL(t.cover)
+      if (t.cover?.startsWith('blob:')) URL.revokeObjectURL(t.cover)
     }
     set({ tracks: [], currentTrackId: null })
     if (isPersistenceAvailable()) {
-      for (const t of all) {
-        try {
-          await deleteTrackFiles(t.id)
-        } catch (err) {
-          console.warn('[library] clearAll: не удалось удалить', t.id, err)
-        }
-      }
+      for (const t of all) await deleteTrackFiles(t.id)
     }
     void persistCurrentManifest()
   },
@@ -262,13 +236,7 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
   setCurrentTrack: (id) => set({ currentTrackId: id }),
 
   setTrackFeatures: (trackId, features) =>
-    set((s) => ({
-      tracks: s.tracks.map((t) =>
-        t.id === trackId
-          ? { ...t, features, moodWeights: computeMoodWeights(features), isAnalyzing: false }
-          : t,
-      ),
-    })),
+    updateTrack(trackId, { features, moodWeights: computeMoodWeights(features), isAnalyzing: false }),
 
   loadLibraryFromDisk: async () => {
     if (!isPersistenceAvailable()) return
@@ -323,19 +291,16 @@ export const useLibraryStore = create<LibraryStore>((set, get) => ({
     await persistCurrentManifest()
   },
 
-  getNextTrack: () => {
-    const { tracks, currentTrackId } = get()
-    if (tracks.length === 0) return null
-    const idx = currentTrackId ? tracks.findIndex((t) => t.id === currentTrackId) : -1
-    const next = idx === -1 ? 0 : (idx + 1) % tracks.length
-    return tracks[next]
-  },
-
-  getPrevTrack: () => {
-    const { tracks, currentTrackId } = get()
-    if (tracks.length === 0) return null
-    const idx = currentTrackId ? tracks.findIndex((t) => t.id === currentTrackId) : -1
-    const prev = idx === -1 ? tracks.length - 1 : (idx - 1 + tracks.length) % tracks.length
-    return tracks[prev]
-  },
+  getNextTrack: () => navTrack(get(), 1),
+  getPrevTrack: () => navTrack(get(), -1),
 }))
+
+function navTrack(state: { tracks: LibraryTrack[]; currentTrackId: string | null }, direction: 1 | -1): LibraryTrack | null {
+  const { tracks, currentTrackId } = state
+  if (tracks.length === 0) return null
+  const idx = currentTrackId ? tracks.findIndex((t) => t.id === currentTrackId) : -1
+  const next = idx === -1
+    ? (direction === 1 ? 0 : tracks.length - 1)
+    : (idx + direction + tracks.length) % tracks.length
+  return tracks[next]
+}

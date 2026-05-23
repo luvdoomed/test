@@ -1,15 +1,15 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Maximize2, Minimize2, ChevronLeft, ChevronRight } from 'lucide-react'
+import { X, Maximize2, Minimize2, ChevronLeft, ChevronRight, Library } from 'lucide-react'
 import { useUIStore } from '../../store/uiStore'
 import { useAudioStore } from '../../store/audioStore'
 import { audioEngine } from '../../audio/audioEngine'
 import { usePresetsStore } from '../../presets/presetsStore'
 import { GALLERY } from '../../gallery/registry'
+import { CATEGORY_LABELS } from '../../gallery/types'
 import { useAllVisualizersInfo } from '../../gallery/all'
 import VisualizerStage from './VisualizerStage'
 import TrackInfo from './TrackInfo'
-import TrackDropZone from './TrackDropZone'
 import Transport from './Transport'
 import Scrubber from './Scrubber'
 import VolumeControl from './VolumeControl'
@@ -25,6 +25,12 @@ export default function PlayerOverlay() {
   const closeOverlay = useUIStore((s) => s.closeOverlay)
   const setFullscreen = useUIStore((s) => s.setFullscreen)
   const cycleVisualizer = useUIStore((s) => s.cycleVisualizer)
+  const setTab = useUIStore((s) => s.setTab)
+
+  function goToLibrary() {
+    closeOverlay()
+    setTab('library')
+  }
 
   const trackTitle = useAudioStore((s) => s.trackInfo.title)
   const hasTrack = trackTitle !== ''
@@ -238,7 +244,7 @@ export default function PlayerOverlay() {
                                 marginBottom: 6,
                               }}
                             >
-                              {viz.category} · {viz.subcategory}
+                              {CATEGORY_LABELS[viz.category] ?? viz.category} · {viz.subcategory}
                             </div>
                             <h2
                               style={{
@@ -273,7 +279,34 @@ export default function PlayerOverlay() {
                           </button>
                         </div>
 
-                        {hasTrack ? <TrackInfo /> : <TrackDropZone />}
+                        {hasTrack ? (
+                          <TrackInfo />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={goToLibrary}
+                            className="hov-icon-btn t-color-border"
+                            style={{
+                              width: '100%',
+                              padding: '14px 16px',
+                              borderRadius: 12,
+                              border: '1px solid var(--border)',
+                              background: 'var(--bg-soft)',
+                              color: 'var(--fg)',
+                              fontSize: 13,
+                              fontWeight: 500,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              gap: 8,
+                              cursor: 'pointer',
+                              fontFamily: 'inherit',
+                            }}
+                          >
+                            <Library size={14} />
+                            Выбрать трек из библиотеки
+                          </button>
+                        )}
 
                         <div style={{ borderTop: '1px solid var(--border)' }} />
 
@@ -375,12 +408,7 @@ function NavBtn({ onClick, title, children }: NavBtnProps) {
         padding: '4px 6px',
         borderRadius: 4,
       }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--fg)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--fg-mute)'
-      }}
+      className="hov-fg t-color-border"
     >
       {children}
     </button>

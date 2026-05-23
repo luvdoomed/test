@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import type { LrcLine } from '../utils/lrcParser'
 import type { MoodId } from '../audio/moodEngine'
 import { audioEngine } from '../audio/audioEngine'
 import { startSystemCapture, stopSystemCapture } from '../audio/systemAudioCapture'
@@ -39,7 +38,6 @@ interface AudioState {
   trackInfo: TrackInfo
   isPlaying: boolean
   volume: number
-  lrcLines: LrcLine[]
   playlistQueue: string[]
   currentPlaylistMood: MoodId | null
   audioMode: AudioMode
@@ -52,7 +50,6 @@ interface AudioState {
   setTrackInfo: (info: TrackInfo) => void
   setIsPlaying: (playing: boolean) => void
   setVolume: (volume: number) => void
-  setLrcLines: (lines: LrcLine[]) => void
   setPlaylistQueue: (trackIds: string[], mood: MoodId | null) => void
   clearPlaylistQueue: () => void
   setAudioMode: (mode: AudioMode) => Promise<void>
@@ -67,7 +64,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   trackInfo: { title: '', artist: '', album: '', cover: '' },
   isPlaying: false,
   volume: 1,
-  lrcLines: [],
   playlistQueue: [],
   currentPlaylistMood: null,
   audioMode: 'file',
@@ -80,7 +76,6 @@ export const useAudioStore = create<AudioState>((set, get) => ({
   setTrackInfo: (info) => set({ trackInfo: info }),
   setIsPlaying: (playing) => set({ isPlaying: playing }),
   setVolume: (volume) => set({ volume }),
-  setLrcLines: (lines) => set({ lrcLines: lines }),
   setPlaylistQueue: (trackIds, mood) => set({ playlistQueue: trackIds, currentPlaylistMood: mood }),
   clearPlaylistQueue: () => set({ playlistQueue: [], currentPlaylistMood: null }),
 

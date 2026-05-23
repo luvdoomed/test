@@ -28,26 +28,6 @@ export const PARAM_SCHEMAS: Record<string, ParamSchema[]> = {
     { id: 'smoothing', label: 'Сглаживание', type: 'range', min: 0, max: 0.95, step: 0.01, default: 0.8 },
     { id: 'hueSpeed', label: 'Скорость оттенка', type: 'range', min: 0, max: 5, step: 0.01, default: 1 },
   ],
-  face: [
-    { id: 'faceSize', label: 'Размер лица', type: 'range', min: 0.3, max: 1.5, step: 0.01, default: 1 },
-    { id: 'dotSize', label: 'Размер точек', type: 'range', min: 0.3, max: 3, step: 0.01, default: 1 },
-    { id: 'beatZoom', label: 'Зум по биту', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-    { id: 'rayLength', label: 'Длина лучей', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-  ],
-  vibe: [
-    { id: 'exposure', label: 'Яркость', type: 'range', min: 0.3, max: 2, step: 0.01, default: 1 },
-    { id: 'bloomStrength', label: 'Свечение', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-    { id: 'glow', label: 'Ореол маски', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-    { id: 'shakeIntensity', label: 'Тряска', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-    { id: 'resolutionScale', label: 'Разрешение', type: 'range', min: 0.5, max: 2, step: 0.1, default: 2 },
-  ],
-  witchscope: [
-    { id: 'ringSize', label: 'Размер кольца', type: 'range', min: 0.3, max: 2, step: 0.01, default: 1 },
-    { id: 'trailFade', label: 'Шлейф', type: 'range', min: 0.05, max: 0.5, step: 0.01, default: 0.15 },
-    { id: 'scanSpeed', label: 'Скорость скана', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-    { id: 'beamMax', label: 'Макс. лучей', type: 'range', min: 0, max: 8, step: 1, default: 4 },
-    { id: 'glow', label: 'Свечение', type: 'range', min: 0, max: 3, step: 0.01, default: 1 },
-  ],
   tunnelbars: [
     { id: 'barHeight', label: 'Высота полос', type: 'range', min: 0.2, max: 2, step: 0.01, default: 1 },
     { id: 'ringSize', label: 'Размер круга', type: 'range', min: 0.3, max: 2, step: 0.01, default: 1 },

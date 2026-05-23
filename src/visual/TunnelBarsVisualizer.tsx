@@ -95,8 +95,19 @@ export function TunnelBarsVisualizer() {
     resize()
     window.addEventListener('resize', resize)
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function draw() {
       if (!canvas || !ctx) return
+
+      const now = performance.now()
+      const elapsed = now - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(draw)
+        return
+      }
+      lastFrameTime = now - (elapsed % FRAME_INTERVAL)
 
       const { audioData, beat, isPlaying, trackInfo, currentTime } = useAudioStore.getState()
       const pp = paramsRef.current

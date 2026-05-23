@@ -253,49 +253,16 @@ const TEMPLATES: Record<TemplateKind, { name: string; src: string }> = {
   webgl: { name: 'loomi-webgl-template.tsx', src: TEMPLATE_WEBGL },
 }
 
-async function saveViaTauri(name: string, src: string): Promise<boolean> {
-  try {
-    const { isTauri } = await import('../utils/platform')
-    if (!isTauri()) return false
-    const [{ save }, { writeTextFile, BaseDirectory }] = await Promise.all([
-      import('@tauri-apps/plugin-dialog'),
-      import('@tauri-apps/plugin-fs'),
-    ])
-    const target = await save({
-      defaultPath: name,
-      filters: [{ name: 'TSX', extensions: ['tsx'] }],
-    })
-    if (!target) return true
-    try {
-      await writeTextFile(target, src)
-    } catch (err) {
-      console.warn('[userViz] writeTextFile (absolute) упал, пробую через AppData:', err)
-      const fallbackRel = `Loomi/${name}`
-      await writeTextFile(fallbackRel, src, { baseDir: BaseDirectory.AppData })
-      alert(`Не удалось сохранить в выбранную папку. Файл записан в AppData/${fallbackRel}.`)
-    }
-    return true
-  } catch (err) {
-    console.warn('[userViz] Tauri save упал, фолбэк на blob:', err)
-    return false
-  }
-}
-
-function saveViaBlob(name: string, src: string): void {
-  const blob = new Blob([src], { type: 'text/plain;charset=utf-8' })
+export function downloadTemplate(kind: TemplateKind): void {
+  const t = TEMPLATES[kind]
+  const blob = new Blob([t.src], { type: 'text/plain;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = name
+  a.download = t.name
   a.rel = 'noopener'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
   setTimeout(() => URL.revokeObjectURL(url), 1000)
-}
-
-export async function downloadTemplate(kind: TemplateKind): Promise<void> {
-  const t = TEMPLATES[kind]
-  const saved = await saveViaTauri(t.name, t.src)
-  if (!saved) saveViaBlob(t.name, t.src)
 }

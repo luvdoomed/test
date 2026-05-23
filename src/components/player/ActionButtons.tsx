@@ -1,39 +1,16 @@
-import { useState, type ReactNode } from 'react'
-import { SlidersHorizontal, Mic2, Download } from 'lucide-react'
-import { useUIStore } from '../../store/uiStore'
-import { useAudioStore } from '../../store/audioStore'
+import { type ReactNode } from 'react'
+import { SlidersHorizontal } from 'lucide-react'
+import { useHover } from '../../utils/useHover'
 
 interface ActionButtonsProps {
   hasTrack: boolean
   onOpenParams: () => void
 }
 
-export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsProps) {
-  const setExportOpen = useUIStore((s) => s.setExportOpen)
-  const setSelectedVizId = useUIStore((s) => s.setSelectedVizId)
-  const audioMode = useAudioStore((s) => s.audioMode)
-
-  const systemMode = audioMode === 'system'
-  const exportDisabled = !hasTrack || systemMode
-  const karaokeDisabled = !hasTrack || systemMode
-
+export default function ActionButtons({ hasTrack: _hasTrack, onOpenParams }: ActionButtonsProps) {
   return (
-    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+    <div className="grid" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
       <ActionBtn icon={<SlidersHorizontal size={14} />} label="Параметры" onClick={onOpenParams} />
-      <ActionBtn
-        icon={<Mic2 size={14} />}
-        label="Караоке"
-        disabled={karaokeDisabled}
-        title={systemMode ? 'Доступно только для файлов' : undefined}
-        onClick={() => setSelectedVizId('karaoke')}
-      />
-      <ActionBtn
-        icon={<Download size={14} />}
-        label="Экспорт"
-        disabled={exportDisabled}
-        title={systemMode ? 'Запись доступна только для файлов' : undefined}
-        onClick={() => setExportOpen(true)}
-      />
     </div>
   )
 }
@@ -48,7 +25,7 @@ interface ActionBtnProps {
 }
 
 function ActionBtn({ icon, label, active = false, disabled = false, title, onClick }: ActionBtnProps) {
-  const [hover, setHover] = useState(false)
+  const { hover, bind } = useHover()
   let bg = 'var(--bg-soft)'
   let color = 'var(--fg-soft)'
   let border = 'var(--border)'
@@ -67,8 +44,8 @@ function ActionBtn({ icon, label, active = false, disabled = false, title, onCli
       onClick={onClick}
       disabled={disabled}
       title={title}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
+      {...bind}
+      className="t-button"
       style={{
         padding: '10px 12px',
         borderRadius: 8,
@@ -82,7 +59,6 @@ function ActionBtn({ icon, label, active = false, disabled = false, title, onCli
         gap: 8,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
-        transition: 'color 0.15s, border-color 0.15s, background 0.15s',
         fontFamily: 'inherit',
       }}
     >

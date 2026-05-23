@@ -28,6 +28,7 @@ export default function VolumeControl() {
         type="button"
         onClick={toggleMute}
         title={muted ? 'Включить звук' : 'Выключить звук'}
+        className="hov-fg t-color-border"
         style={{
           width: 24,
           height: 24,
@@ -39,12 +40,6 @@ export default function VolumeControl() {
           justifyContent: 'center',
           cursor: 'pointer',
           flexShrink: 0,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = 'var(--fg)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = 'var(--fg-soft)'
         }}
       >
         {muted ? <VolumeX size={16} /> : <Volume2 size={16} />}

@@ -223,9 +223,21 @@ export function GeometryVisualizer() {
     resize()
     window.addEventListener('resize', resize)
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function draw() {
       if (!canvas || !ctx) return
-      const { beat, isPlaying, audioData } = useAudioStore.getState()
+
+      const now = performance.now()
+      const elapsed = now - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(draw)
+        return
+      }
+      lastFrameTime = now - (elapsed % FRAME_INTERVAL)
+
+      const { beat, audioData } = useAudioStore.getState()
       const W = canvas.width
       const H = canvas.height
       const sync = syncRef.current
@@ -247,38 +259,36 @@ export function GeometryVisualizer() {
       ctx.fillStyle = '#000000'
       ctx.fillRect(0, 0, W, H)
 
-      if (isPlaying) {
-        sync.time += 1
+      sync.time += 1
 
-        sync.globalOffsetX += Math.sin(sync.time * 0.02) * 0.3
-        sync.globalOffsetY += Math.cos(sync.time * 0.015) * 0.15
+      sync.globalOffsetX += Math.sin(sync.time * 0.02) * 0.3
+      sync.globalOffsetY += Math.cos(sync.time * 0.015) * 0.15
 
-        if (beat) {
-          sync.globalOffsetX += (Math.random() - 0.5) * 40 * sizeScale
-          sync.globalOffsetY += (Math.random() - 0.5) * 20 * sizeScale
-          sync.beatScale = 1 + (BEAT_SCALE - 1) * pp.beatPunch
-          sync.flashAlpha = FLASH_ALPHA * pp.beatPunch
-          sync.beatFlash = 1.0 * pp.beatPunch
-          sync.beatFlashTimer = 2
-          sync.glitchTimer = 6
-          sync.lineBrightness = 0.18
-          sync.cameraScaleBurst += 0.1 * pp.beatPunch
-        }
-
-        sync.globalOffsetX *= LERP_BACK
-        sync.globalOffsetY *= LERP_BACK
-
-        sync.beatScale = 1 + (sync.beatScale - 1) * SCALE_DECAY
-
-        sync.flashAlpha *= 0.92
-        sync.beatFlash *= 0.75
-        sync.cameraScaleBurst *= 0.92
-        if (sync.beatFlashTimer > 0) sync.beatFlashTimer--
-        if (sync.glitchTimer > 0) sync.glitchTimer--
-        sync.lineBrightness += (0.08 - sync.lineBrightness) * 0.06
+      if (beat) {
+        sync.globalOffsetX += (Math.random() - 0.5) * 40 * sizeScale
+        sync.globalOffsetY += (Math.random() - 0.5) * 20 * sizeScale
+        sync.beatScale = 1 + (BEAT_SCALE - 1) * pp.beatPunch
+        sync.flashAlpha = FLASH_ALPHA * pp.beatPunch
+        sync.beatFlash = 1.0 * pp.beatPunch
+        sync.beatFlashTimer = 2
+        sync.glitchTimer = 6
+        sync.lineBrightness = 0.18
+        sync.cameraScaleBurst += 0.1 * pp.beatPunch
       }
 
-      if (isPlaying && audioData.length >= 128) {
+      sync.globalOffsetX *= LERP_BACK
+      sync.globalOffsetY *= LERP_BACK
+
+      sync.beatScale = 1 + (sync.beatScale - 1) * SCALE_DECAY
+
+      sync.flashAlpha *= 0.92
+      sync.beatFlash *= 0.75
+      sync.cameraScaleBurst *= 0.92
+      if (sync.beatFlashTimer > 0) sync.beatFlashTimer--
+      if (sync.glitchTimer > 0) sync.glitchTimer--
+      sync.lineBrightness += (0.08 - sync.lineBrightness) * 0.06
+
+      if (audioData.length >= 128) {
         const sparks = sparksRef.current
 
         const spawnSpark = (): void => {
@@ -398,7 +408,7 @@ export function GeometryVisualizer() {
         const x = s.baseX + sync.globalOffsetX + indX
         const y = s.baseY + sync.globalOffsetY + indY
 
-        if (isPlaying) s.rotation += s.rotSpeed
+        s.rotation += s.rotSpeed
 
         drawShape(ctx, s.kind, x, y, drawSize, s.rotation, 0.9, glow)
         if (s.nested && (s.kind === 'square' || s.kind === 'diamond')) {

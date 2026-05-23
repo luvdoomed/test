@@ -86,8 +86,19 @@ export function CircularVisualizer() {
     resize()
     window.addEventListener('resize', resize)
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function draw() {
       if (!canvas || !ctx) return
+
+      const now = performance.now()
+      const elapsed = now - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(draw)
+        return
+      }
+      lastFrameTime = now - (elapsed % FRAME_INTERVAL)
 
       const W = canvas.width
       const H = canvas.height
@@ -99,7 +110,6 @@ export function CircularVisualizer() {
       const data = audioDataRef.current
       const curBeat = beatRef.current
       const curEnergy = energyRef.current
-      const curIsPlaying = isPlayingRef.current
 
       timeFrame++
 
@@ -113,7 +123,7 @@ export function CircularVisualizer() {
       ctx.fillStyle = 'rgba(4,8,6,0.22)'
       ctx.fillRect(0, 0, W, H)
 
-      const beatHit = curBeat && !prevBeat && curIsPlaying
+      const beatHit = curBeat && !prevBeat
       prevBeat = curBeat
       if (beatHit) {
         shake.trauma = Math.min(1, shake.trauma + (curEnergy > 0.05 ? 1.2 : 0.7))
@@ -137,14 +147,10 @@ export function CircularVisualizer() {
       shake.vy += (tY - shake.y) * 0.4; shake.vy *= 0.55; shake.y += shake.vy
       shake.vr += (tR - shake.rot) * 0.4; shake.vr *= 0.55; shake.rot += shake.vr
 
-      if (curIsPlaying) {
-        const tt = timeFrame
-        drift.x += (Math.sin(tt * 0.011) * 18 * shakeScale + Math.sin(tt * 0.027) * 7 * shakeScale - drift.x) * 0.06
-        drift.y += (Math.cos(tt * 0.009) * 14 * shakeScale + Math.sin(tt * 0.023) * 5 * shakeScale - drift.y) * 0.06
-        drift.rot += (Math.sin(tt * 0.007) * 0.015 - drift.rot) * 0.06
-      } else {
-        drift.x *= 0.92; drift.y *= 0.92; drift.rot *= 0.92
-      }
+      const tt = timeFrame
+      drift.x += (Math.sin(tt * 0.011) * 18 * shakeScale + Math.sin(tt * 0.027) * 7 * shakeScale - drift.x) * 0.06
+      drift.y += (Math.cos(tt * 0.009) * 14 * shakeScale + Math.sin(tt * 0.023) * 5 * shakeScale - drift.y) * 0.06
+      drift.rot += (Math.sin(tt * 0.007) * 0.015 - drift.rot) * 0.06
 
       ctx.save()
       ctx.translate(cx, cy)
@@ -174,7 +180,7 @@ export function CircularVisualizer() {
           smArr[i] = smArr[i] * 0.5 + raw * 0.5
         }
 
-        if (curIsPlaying) rotations[r] += cfg.rotSpeed * rotSpeedMul
+        rotations[r] += cfg.rotSpeed * rotSpeedMul
         const rot = rotations[r]
 
         const pts: { x: number; y: number; amp: number }[] = []
@@ -210,20 +216,18 @@ export function CircularVisualizer() {
         ctx.restore()
 
         // искры на пиках деформации
-        if (curIsPlaying) {
-          for (let i = 0; i < POINTS; i += 4) {
-            if (pts[i].amp > 0.25 && Math.random() < 0.15 * sparkRateMul) {
-              const angle = (i / POINTS) * TWO_PI + rot
-              sparks.push({
-                x: pts[i].x,
-                y: pts[i].y,
-                vx: Math.cos(angle) * (1 + Math.random() * 2),
-                vy: Math.sin(angle) * (1 + Math.random() * 2),
-                size: 1 + Math.random() * 1.5,
-                life: 20 + Math.random() * 15,
-                maxLife: 35,
-              })
-            }
+        for (let i = 0; i < POINTS; i += 4) {
+          if (pts[i].amp > 0.25 && Math.random() < 0.15 * sparkRateMul) {
+            const angle = (i / POINTS) * TWO_PI + rot
+            sparks.push({
+              x: pts[i].x,
+              y: pts[i].y,
+              vx: Math.cos(angle) * (1 + Math.random() * 2),
+              vy: Math.sin(angle) * (1 + Math.random() * 2),
+              size: 1 + Math.random() * 1.5,
+              life: 20 + Math.random() * 15,
+              maxLife: 35,
+            })
           }
         }
       }

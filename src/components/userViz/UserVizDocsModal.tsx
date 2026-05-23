@@ -1,9 +1,25 @@
-import { useEffect } from 'react'
-import { createPortal } from 'react-dom'
+import { type CSSProperties, type ReactNode } from 'react'
 import { X } from 'lucide-react'
+import Modal from '../Modal'
 
 interface UserVizDocsModalProps {
   onClose: () => void
+}
+
+const MONO_LABEL: CSSProperties = {
+  fontFamily: "'JetBrains Mono', monospace",
+  fontSize: 10,
+  letterSpacing: '0.16em',
+  textTransform: 'uppercase',
+  color: 'var(--fg-mute)',
+}
+
+const UL_STYLE: CSSProperties = {
+  paddingLeft: 18,
+  marginTop: 6,
+  display: 'flex',
+  flexDirection: 'column',
+  gap: 4,
 }
 
 const EXAMPLE_CODE = `import { useEffect, useRef } from 'react'
@@ -46,47 +62,8 @@ export default function MyViz({ audioData, beat, energy, currentTime }) {
 }`
 
 export default function UserVizDocsModal({ onClose }: UserVizDocsModalProps) {
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
-
-  const content = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 75,
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 720,
-          maxHeight: '86vh',
-          background: 'var(--bg)',
-          borderRadius: 18,
-          border: '1px solid var(--border)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-        }}
-      >
+  return (
+    <Modal onClose={onClose} zIndex={75} cardStyle={{ maxWidth: 720, maxHeight: '86vh' }}>
         <div
           style={{
             padding: '20px 24px 16px',
@@ -97,18 +74,7 @@ export default function UserVizDocsModal({ onClose }: UserVizDocsModalProps) {
           }}
         >
           <div>
-            <div
-              style={{
-                fontFamily: "'JetBrains Mono', monospace",
-                fontSize: 10,
-                letterSpacing: '0.16em',
-                textTransform: 'uppercase',
-                color: 'var(--fg-mute)',
-                marginBottom: 4,
-              }}
-            >
-              Документация
-            </div>
+            <div style={{ ...MONO_LABEL, marginBottom: 4 }}>Документация</div>
             <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: '-0.015em' }}>
               Как написать свой визуализатор
             </div>
@@ -146,31 +112,25 @@ export default function UserVizDocsModal({ onClose }: UserVizDocsModalProps) {
             lineHeight: 1.55,
           }}
         >
-          <section>
-            <SectionTitle>Что приходит в компонент</SectionTitle>
-            <p>
-              Любой виз получает четыре пропа от плеера:
-            </p>
-            <ul style={{ paddingLeft: 18, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Section title="Что приходит в компонент">
+            <p>Любой виз получает четыре пропа от плеера:</p>
+            <ul style={UL_STYLE}>
               <li><Code>audioData: Float32Array(1024)</Code> — нормализованный FFT-спектр.</li>
               <li><Code>beat: boolean</Code> — true на 10 кадров после удара.</li>
               <li><Code>energy: number</Code> — средняя энергия. Реальный диапазон 0.01–0.12 (не 0..1!).</li>
               <li><Code>currentTime: number</Code> — секунды воспроизведения.</li>
             </ul>
-          </section>
+          </Section>
 
-          <section>
-            <SectionTitle>Главное правило · stale closure</SectionTitle>
+          <Section title="Главное правило · stale closure">
             <p style={{ marginBottom: 6 }}>
               Аудио-пропы обновляются каждый кадр. Если зачитать их прямо в
               {' '}<Code>useEffect</Code> с зависимостями <Code>[audioData, energy]</Code>{' '}
               — эффект будет пересоздаваться каждые ~16мс, и <Code>requestAnimationFrame</Code>
               {' '}успеет отмениться раньше, чем нарисует кадр. Виз застынет статичной картинкой.
             </p>
-            <p style={{ marginBottom: 6 }}>
-              Правильный паттерн:
-            </p>
-            <ul style={{ paddingLeft: 18, marginTop: 4, marginBottom: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <p style={{ marginBottom: 6 }}>Правильный паттерн:</p>
+            <ul style={{ ...UL_STYLE, marginTop: 4, marginBottom: 6 }}>
               <li>держи свежий снимок аудио в <Code>useRef</Code>;</li>
               <li>обновляй <Code>audioRef.current</Code> в отдельном <Code>useEffect</Code> без массива зависимостей;</li>
               <li>запускай RAF-цикл один раз в <Code>useEffect(..., [])</Code> и читай <Code>audioRef.current</Code> на каждом кадре.</li>
@@ -178,10 +138,9 @@ export default function UserVizDocsModal({ onClose }: UserVizDocsModalProps) {
             <p>
               Тот же приём работает для R3F: в <Code>useFrame</Code> читай из <Code>audioRef.current</Code>, а не из пропов.
             </p>
-          </section>
+          </Section>
 
-          <section>
-            <SectionTitle>Минимальный пример</SectionTitle>
+          <Section title="Минимальный пример">
             <pre
               style={{
                 margin: 0,
@@ -198,62 +157,48 @@ export default function UserVizDocsModal({ onClose }: UserVizDocsModalProps) {
             >
 {EXAMPLE_CODE}
             </pre>
-          </section>
+          </Section>
 
-          <section>
-            <SectionTitle>Что доступно</SectionTitle>
-            <ul style={{ paddingLeft: 18, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Section title="Что доступно">
+            <ul style={UL_STYLE}>
               <li>React и все его хуки (useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect, useReducer).</li>
-              <li>Canvas 2D через <Code>useRef</Code> и <Code>getContext('2d')</Code>.</li>
-              <li>WebGL — <Code>canvas.getContext('webgl')</Code>.</li>
-              <li>Three.js через <Code>@react-three/fiber</Code> (Canvas, useFrame).</li>
+              <li>Canvas 2D — <Code>getContext('2d')</Code>.</li>
+              <li>WebGL и GLSL-шейдеры — <Code>getContext('webgl')</Code> или <Code>webgl2</Code>.</li>
+              <li>Three.js: чистый <Code>three</Code> или <Code>@react-three/fiber</Code> с хелперами <Code>@react-three/drei</Code>, постпроцесс (<Code>@react-three/postprocessing</Code>, <Code>postprocessing</Code>) и слоистый материал <Code>lamina</Code>.</li>
             </ul>
-          </section>
+          </Section>
 
-          <section>
-            <SectionTitle>Советы</SectionTitle>
-            <ul style={{ paddingLeft: 18, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
+          <Section title="Советы">
+            <ul style={UL_STYLE}>
               <li>Корневой элемент должен занимать <Code>width: 100%; height: 100%</Code>.</li>
               <li>Для HiDPI умножай размер canvas на <Code>window.devicePixelRatio</Code>.</li>
               <li>Лучше реагировать на <Code>beat</Code> через ref-flash, чем на каждый перерендер.</li>
               <li>На паузе <Code>currentTime</Code> и <Code>energy</Code> не меняются — анимации замирают сами.</li>
             </ul>
-          </section>
+          </Section>
 
-          <section>
-            <SectionTitle>Ограничения v1</SectionTitle>
-            <ul style={{ paddingLeft: 18, marginTop: 6, display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <li>Можно импортировать только <Code>react</Code>, <Code>@react-three/fiber</Code> и <Code>three</Code>. Другие пакеты не подключатся.</li>
+          <Section title="Ограничения v1">
+            <ul style={UL_STYLE}>
+              <li>Импортировать можно только пакеты из списка выше. Другие не подключатся.</li>
               <li>Динамические <Code>import()</Code> не работают.</li>
               <li>Ошибки в рантайме ловятся — показывается заглушка «этот виз сломался».</li>
             </ul>
-          </section>
+          </Section>
         </div>
-      </div>
-    </div>
+    </Modal>
   )
-
-  return createPortal(content, document.body)
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <div
-      style={{
-        fontFamily: "'JetBrains Mono', monospace",
-        fontSize: 11,
-        letterSpacing: '0.14em',
-        textTransform: 'uppercase',
-        color: 'var(--fg-mute)',
-        marginBottom: 8,
-      }}
-    >
+    <section>
+      <div style={{ ...MONO_LABEL, fontSize: 11, letterSpacing: '0.14em', marginBottom: 8 }}>{title}</div>
       {children}
-    </div>
+    </section>
   )
 }
 
-function Code({ children }: { children: React.ReactNode }) {
+function Code({ children }: { children: ReactNode }) {
   return (
     <code
       style={{

@@ -158,9 +158,15 @@ function CosmicScene() {
   paramsRef.current = params
 
   const { size } = useThree()
+  const accumulatorRef = useRef(0)
+  const FRAME_INTERVAL = 1 / 60
 
   useFrame((_, delta) => {
     if (!matRef.current) return
+
+    accumulatorRef.current += delta
+    if (accumulatorRef.current < FRAME_INTERVAL) return
+    accumulatorRef.current = accumulatorRef.current % FRAME_INTERVAL
 
     const state = useAudioStore.getState()
     const audioData = state.audioData

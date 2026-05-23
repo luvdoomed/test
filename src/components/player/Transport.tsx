@@ -73,14 +73,8 @@ export default function Transport({ hasTrack }: TransportProps) {
           justifyContent: 'center',
           cursor: hasTrack ? 'pointer' : 'not-allowed',
           opacity: hasTrack ? 1 : 0.5,
-          transition: 'transform 0.15s',
         }}
-        onMouseEnter={(e) => {
-          if (hasTrack) e.currentTarget.style.transform = 'scale(1.05)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)'
-        }}
+        className="hov-scale"
       >
         {isPlaying ? <Pause size={18} fill="currentColor" /> : <Play size={18} fill="currentColor" />}
       </button>
@@ -106,6 +100,7 @@ function SideBtn({ disabled = false, title, children, onClick }: SideBtnProps) {
       title={title}
       disabled={disabled}
       onClick={onClick}
+      className="hov-fg t-color-border"
       style={{
         width: 36,
         height: 36,
@@ -118,13 +113,6 @@ function SideBtn({ disabled = false, title, children, onClick }: SideBtnProps) {
         justifyContent: 'center',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
-        transition: 'color 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        if (!disabled) e.currentTarget.style.color = 'var(--fg)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--fg-soft)'
       }}
     >
       {children}

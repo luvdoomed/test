@@ -52,7 +52,14 @@ function Blob() {
   const paramsRef = useRef(params)
   paramsRef.current = params
 
+  const accumulatorRef = useRef(0)
+  const FRAME_INTERVAL = 1 / 60
+
   useFrame((_, delta) => {
+    accumulatorRef.current += delta
+    if (accumulatorRef.current < FRAME_INTERVAL) return
+    accumulatorRef.current = accumulatorRef.current % FRAME_INTERVAL
+
     const state = useAudioStore.getState()
     const audioData = state.audioData
     const beat = state.beat

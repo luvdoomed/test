@@ -20,6 +20,7 @@ export default function EmptyLibrary({ onPick }: EmptyLibraryProps) {
       <button
         type="button"
         onClick={onPick}
+        className="hov-active-bg t-bg-border"
         style={{
           marginTop: 8,
           padding: '20px 32px',
@@ -33,16 +34,7 @@ export default function EmptyLibrary({ onPick }: EmptyLibraryProps) {
           alignItems: 'center',
           gap: 8,
           cursor: 'pointer',
-          transition: 'border-color 0.15s, background 0.15s',
           fontFamily: 'inherit',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = 'var(--border-active)'
-          e.currentTarget.style.background = 'var(--bg-soft)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.borderColor = 'var(--border-strong)'
-          e.currentTarget.style.background = 'transparent'
         }}
       >
         <Plus size={16} />

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUIStore } from '../store/uiStore'
 import { useAudioStore } from '../store/audioStore'
@@ -125,34 +125,18 @@ export default function VisualizersGallery() {
         </div>
       ) : (
         <>
-          {filteredUser.length > 0 ? (
-            <motion.div
-              layout
-              className="grid gap-4"
-              style={{
-                gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
-                marginBottom: filteredBuiltin.length > 0 ? 24 : 0,
-              }}
-            >
-              <AnimatePresence mode="popLayout">
-                {filteredUser.map((u, i) => (
-                  <motion.div
-                    key={u.id}
-                    layout
-                    exit={{ opacity: 0, scale: 0.92 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <UserGalleryCard
-                      runtime={u}
-                      isActive={u.id === selectedVizId}
-                      index={i}
-                      onClick={() => handleSelect(u.id)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          ) : null}
+          <GridSection
+            items={filteredUser}
+            marginBottom={filteredBuiltin.length > 0 ? 24 : 0}
+            renderCard={(u, i) => (
+              <UserGalleryCard
+                runtime={u}
+                isActive={u.id === selectedVizId}
+                index={i}
+                onClick={() => handleSelect(u.id)}
+              />
+            )}
+          />
 
           {filteredUser.length > 0 && filteredBuiltin.length > 0 ? (
             <div
@@ -191,34 +175,45 @@ export default function VisualizersGallery() {
             </div>
           ) : null}
 
-          {filteredBuiltin.length > 0 ? (
-            <motion.div
-              layout
-              className="grid gap-4"
-              style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))' }}
-            >
-              <AnimatePresence mode="popLayout">
-                {filteredBuiltin.map((viz, i) => (
-                  <motion.div
-                    key={viz.id}
-                    layout
-                    exit={{ opacity: 0, scale: 0.92 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    <VisualizerCard
-                      viz={viz}
-                      isActive={viz.id === selectedVizId}
-                      index={i}
-                      onClick={() => handleSelect(viz.id)}
-                    />
-                  </motion.div>
-                ))}
-              </AnimatePresence>
-            </motion.div>
-          ) : null}
+          <GridSection
+            items={filteredBuiltin}
+            renderCard={(viz, i) => (
+              <VisualizerCard
+                viz={viz}
+                isActive={viz.id === selectedVizId}
+                index={i}
+                onClick={() => handleSelect(viz.id)}
+              />
+            )}
+          />
         </>
       )}
     </main>
+  )
+}
+
+interface GridSectionProps<T> {
+  items: T[]
+  renderCard: (item: T, index: number) => ReactNode
+  marginBottom?: number
+}
+
+function GridSection<T extends { id: string }>({ items, renderCard, marginBottom = 0 }: GridSectionProps<T>) {
+  if (items.length === 0) return null
+  return (
+    <motion.div
+      layout
+      className="grid gap-4"
+      style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', marginBottom }}
+    >
+      <AnimatePresence mode="popLayout">
+        {items.map((item, i) => (
+          <motion.div key={item.id} layout exit={{ opacity: 0, scale: 0.92 }} transition={{ duration: 0.3 }}>
+            {renderCard(item, i)}
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </motion.div>
   )
 }
 
@@ -332,7 +327,7 @@ function UserGalleryCard({ runtime, isActive, index, onClick }: UserGalleryCardP
             marginBottom: 6,
           }}
         >
-          <span>{broken ? 'ошибка' : 'user'}</span>
+          <span>{broken ? 'ошибка' : 'свой'}</span>
           <span className="inline-block w-1 h-1 rounded-full bg-current opacity-60" />
           <span>{runtime.moods.map((m) => MOOD_LABELS[m]).join(', ') || '—'}</span>
         </div>

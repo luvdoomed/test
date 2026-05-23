@@ -6,10 +6,6 @@ import { ShaderSphereVisualizer } from './visual/ShaderSphereVisualizer'
 import { BarcodeVisualizer } from './visual/BarcodeVisualizer'
 import { TunnelBarsVisualizer } from './visual/TunnelBarsVisualizer'
 import { GeometryVisualizer } from './visual/GeometryVisualizer'
-import { WitchscopeVisualizer } from './visual/WitchscopeVisualizer'
-import { VibeVisualizer } from './visual/VibeVisualizer'
-import { FaceVisualizer } from './visual/FaceVisualizer'
-import { KaraokeVisualizer } from './visual/KaraokeVisualizer'
 import { HaloVisualizer } from './visual/HaloVisualizer'
 import { CosmicVisualizer } from './visual/CosmicVisualizer'
 import UserVizDispatch from './userViz/UserVizDispatch'
@@ -31,10 +27,6 @@ export type VisualizerMode =
   | 'barcode'
   | 'tunnelbars'
   | 'geometry'
-  | 'witchscope'
-  | 'vibe'
-  | 'face'
-  | 'karaoke'
   | 'halo'
 
 export const VIZ_ITEMS: VizItem[] = [
@@ -46,10 +38,6 @@ export const VIZ_ITEMS: VizItem[] = [
   { key: 'barcode', label: 'Баркод', icon: '┃', category: 'Эффекты' },
   { key: 'tunnelbars', label: 'Кино', icon: '■', category: 'Атмосфера' },
   { key: 'geometry', label: 'Геометрия', icon: '◇', category: 'Эффекты' },
-  { key: 'witchscope', label: 'Ведьма', icon: '◌', category: 'Эффекты' },
-  { key: 'vibe', label: 'Вайб', icon: '✽', category: 'Эффекты' },
-  { key: 'face', label: 'Лицо', icon: '☺', category: 'Эффекты' },
-  { key: 'karaoke', label: 'Караоке', icon: '♫', category: 'Плеер' },
   { key: 'halo', label: 'Halo', icon: '◯', category: 'Эффекты' },
 ]
 
@@ -66,10 +54,6 @@ export function renderVisualizer(mode: string): ReactElement {
     case 'barcode': return <BarcodeVisualizer />
     case 'tunnelbars': return <TunnelBarsVisualizer />
     case 'geometry': return <GeometryVisualizer />
-    case 'witchscope': return <WitchscopeVisualizer />
-    case 'vibe': return <VibeVisualizer />
-    case 'face': return <FaceVisualizer />
-    case 'karaoke': return <KaraokeVisualizer />
     case 'halo': return <HaloVisualizer />
     default: return <CosmicVisualizer />
   }

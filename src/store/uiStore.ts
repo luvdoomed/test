@@ -10,7 +10,6 @@ interface UIStore {
   selectedVizId: string | null
   searchQuery: string
   isFullscreen: boolean
-  exportOpen: boolean
   libraryView: LibraryView
   setTab: (tab: Tab) => void
   openOverlay: (vizId: string) => void
@@ -18,7 +17,6 @@ interface UIStore {
   setSearchQuery: (q: string) => void
   setSelectedVizId: (id: string | null) => void
   setFullscreen: (v: boolean) => void
-  setExportOpen: (v: boolean) => void
   setLibraryView: (v: LibraryView) => void
   cycleVisualizer: (direction: 'next' | 'prev', vizIds: string[]) => void
 }
@@ -29,7 +27,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   selectedVizId: null,
   searchQuery: '',
   isFullscreen: false,
-  exportOpen: false,
   libraryView: 'list',
   setTab: (tab) => set({ currentTab: tab }),
   openOverlay: (vizId) => set({ overlayOpen: true, selectedVizId: vizId }),
@@ -37,7 +34,6 @@ export const useUIStore = create<UIStore>((set, get) => ({
   setSearchQuery: (q) => set({ searchQuery: q }),
   setSelectedVizId: (id) => set({ selectedVizId: id }),
   setFullscreen: (v) => set({ isFullscreen: v }),
-  setExportOpen: (v) => set({ exportOpen: v }),
   setLibraryView: (v) => set({ libraryView: v }),
   cycleVisualizer: (direction, vizIds) => {
     if (vizIds.length === 0) return

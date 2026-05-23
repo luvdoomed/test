@@ -54,41 +54,16 @@ export default function TopNav() {
         className="mx-auto flex h-full items-center gap-8"
         style={{ maxWidth: 1400, padding: '0 32px' }}
       >
-        <div className="flex items-center gap-2">
-          <div
-            className="relative flex items-center justify-center"
-            style={{
-              width: 22,
-              height: 22,
-              borderRadius: 6,
-              background: 'linear-gradient(135deg, #ffffff 0%, #a1a1aa 100%)',
-            }}
-          >
-            <div
-              style={{
-                width: 14,
-                height: 14,
-                borderRadius: 3,
-                background: 'var(--bg)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <div style={{ width: 6, height: 6, borderRadius: 1, background: '#fafafa' }} />
-            </div>
-          </div>
-          <span
-            style={{
-              fontWeight: 600,
-              fontSize: 14,
-              letterSpacing: '-0.01em',
-              color: 'var(--fg)',
-            }}
-          >
-            Loomi
-          </span>
-        </div>
+        <span
+          style={{
+            fontWeight: 600,
+            fontSize: 14,
+            letterSpacing: '-0.01em',
+            color: 'var(--fg)',
+          }}
+        >
+          Loomi
+        </span>
 
         <nav className="flex items-center gap-1">
           {TABS.map((tab) => {
@@ -105,7 +80,8 @@ export default function TopNav() {
                   setTab(tab.id)
                 }}
                 title={title}
-                aria-disabled={disabled}
+                disabled={disabled}
+                className={`t-bg-color ${active ? '' : 'hov-fg'}`}
                 style={{
                   padding: '6px 12px',
                   borderRadius: 8,
@@ -113,18 +89,9 @@ export default function TopNav() {
                   fontWeight: 500,
                   background: active ? 'var(--bg-elev)' : 'transparent',
                   color: active ? 'var(--fg)' : 'var(--fg-mute)',
-                  transition: 'color 0.15s, background 0.15s',
                   border: 'none',
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   opacity: disabled ? 0.4 : 1,
-                }}
-                onMouseEnter={(e) => {
-                  if (disabled) return
-                  if (!active) e.currentTarget.style.color = 'var(--fg)'
-                }}
-                onMouseLeave={(e) => {
-                  if (disabled) return
-                  if (!active) e.currentTarget.style.color = 'var(--fg-mute)'
                 }}
               >
                 {tab.label}
@@ -214,6 +181,7 @@ function IconButton({ onClick, title, children }: IconButtonProps) {
       type="button"
       onClick={onClick}
       title={title}
+      className="hov-icon-btn t-color-border"
       style={{
         width: 32,
         height: 32,
@@ -225,15 +193,6 @@ function IconButton({ onClick, title, children }: IconButtonProps) {
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        transition: 'color 0.15s, border-color 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.color = 'var(--fg)'
-        e.currentTarget.style.borderColor = 'var(--border-active)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.color = 'var(--fg-mute)'
-        e.currentTarget.style.borderColor = 'var(--border)'
       }}
     >
       {children}

@@ -1,13 +1,11 @@
 import { useState } from 'react'
 import { Radio, Loader2 } from 'lucide-react'
 import { useAudioStore } from '../store/audioStore'
-import BlackHoleInstructionModal from './SystemAudio/BlackHoleInstructionModal'
 
 export default function SystemAudioToggle() {
   const audioMode = useAudioStore((s) => s.audioMode)
   const [isConnecting, setIsConnecting] = useState(false)
   const [hovered, setHovered] = useState(false)
-  const [blackHoleModalOpen, setBlackHoleModalOpen] = useState(false)
 
   const active = audioMode === 'system'
 
@@ -27,12 +25,7 @@ export default function SystemAudioToggle() {
     try {
       await useAudioStore.getState().setAudioMode('system')
     } catch (err) {
-      const msg = String(err)
-      if (msg.includes('BLACKHOLE_NOT_FOUND')) {
-        setBlackHoleModalOpen(true)
-      } else {
-        console.error('[system-toggle] не удалось включить системный звук:', err)
-      }
+      console.error('[system-toggle] не удалось включить системный звук:', err)
     } finally {
       setIsConnecting(false)
     }
@@ -91,10 +84,6 @@ export default function SystemAudioToggle() {
         <span>{label}</span>
       </button>
 
-      <BlackHoleInstructionModal
-        isOpen={blackHoleModalOpen}
-        onClose={() => setBlackHoleModalOpen(false)}
-      />
     </>
   )
 }

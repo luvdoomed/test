@@ -1,5 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
-import { save } from '@tauri-apps/plugin-dialog'
+import { useEffect } from 'react'
 import { useUIStore } from './store/uiStore'
 import { useThemeStore } from './store/themeStore'
 import { useAudioStore } from './store/audioStore'
@@ -7,8 +6,6 @@ import { useLibraryStore } from './store/libraryStore'
 import { useUserVizStore } from './userViz/userVizStore'
 import { audioEngine } from './audio/audioEngine'
 import { loadTrack } from './library/playback'
-import { runRecording } from './recorder/recordController'
-import { isTauri } from './utils/platform'
 import { pickVizForMood } from './audio/moodEngine'
 import { EMPTY_MOOD_SESSION } from './store/audioStore'
 import { getAllVisualizersInfoSnapshot } from './gallery/all'
@@ -19,28 +16,11 @@ import Wave from './pages/Wave'
 import UserVizPage from './pages/UserVizPage'
 import PlayerOverlay from './components/player/PlayerOverlay'
 import MiniPlayer from './components/MiniPlayer'
-import {
-  ExportModal,
-  ExportProgressOverlay,
-  type ExportSettings,
-} from './components/ExportModal'
-
-interface ExportProgress {
-  current: number
-  total: number
-  startedAt: number
-}
 
 
 export default function App() {
   const currentTab = useUIStore((s) => s.currentTab)
-  const exportOpen = useUIStore((s) => s.exportOpen)
-  const setExportOpen = useUIStore((s) => s.setExportOpen)
-  const setFullscreen = useUIStore((s) => s.setFullscreen)
   useThemeStore()
-
-  const [exportProgress, setExportProgress] = useState<ExportProgress | null>(null)
-  const exportCancelledRef = useRef(false)
 
   // подбор визы под муд
   const currentTrackId = useLibraryStore((s) => s.currentTrackId)
@@ -107,84 +87,6 @@ export default function App() {
     void loadUserVizFromDisk()
   }, [loadLibraryFromDisk, loadUserVizFromDisk])
 
-  async function onExportStart(settings: ExportSettings) {
-    setExportOpen(false)
-
-    if (!isTauri()) {
-      alert('Экспорт видео доступен только в desktop-версии. Скачай Mac/Windows app для рендера.')
-      return
-    }
-
-    const buffer = audioEngine.getAudioBuffer()
-    const audioBytes = audioEngine.getOriginalAudioBytes()
-    if (!buffer || !audioBytes) {
-      alert('Сначала загрузи трек')
-      return
-    }
-    const audioExt = audioEngine.getOriginalAudioExt()
-    const { width, height, fps } = settings
-
-    const baseName = (useAudioStore.getState().trackInfo.title || 'visualization').replace(
-      /[\\/:*?"<>|]/g,
-      '_',
-    )
-
-    let path: string | null = null
-    try {
-      path = await save({
-        defaultPath: `${baseName}.mp4`,
-        filters: [{ name: 'MP4 video', extensions: ['mp4'] }],
-      })
-    } catch (err) {
-      console.error('[export] ошибка диалога:', err)
-      return
-    }
-    if (!path) return
-
-    exportCancelledRef.current = false
-    const startedAt = Date.now()
-    setExportProgress({ current: 0, total: 1, startedAt })
-
-    setFullscreen(true)
-
-    try {
-      await new Promise((r) => setTimeout(r, 200))
-
-      await runRecording({
-        audioBuffer: buffer,
-        fps,
-        width,
-        height,
-        audioBytes,
-        audioExtension: audioExt,
-        outputPath: path,
-        onProgress: (f, total) => {
-          if (exportCancelledRef.current) return
-          setExportProgress({ current: f, total, startedAt })
-        },
-      })
-    } catch (err) {
-      console.error('[export] упал:', err)
-      const msg = String(err)
-      if (msg.includes('ffmpeg') || msg.toLowerCase().includes('no such file')) {
-        alert('Требуется ffmpeg. Установите: brew install ffmpeg (Mac) или скачайте с ffmpeg.org (Windows)')
-      } else {
-        alert(`Ошибка экспорта: ${msg}`)
-      }
-    } finally {
-      setExportProgress(null)
-      setFullscreen(false)
-    }
-  }
-
-  function cancelExport() {
-    exportCancelledRef.current = true
-    setExportProgress(null)
-  }
-
-  useAudioStore((s) => s.trackInfo.title)
-  const duration = audioEngine.getDuration()
-
   return (
     <>
       <TopNav />
@@ -194,20 +96,6 @@ export default function App() {
       {currentTab === 'user-viz' && <UserVizPage />}
       <PlayerOverlay />
       <MiniPlayer />
-      <ExportModal
-        isOpen={exportOpen}
-        onClose={() => setExportOpen(false)}
-        onStart={onExportStart}
-        trackDurationSec={duration}
-      />
-      {exportProgress ? (
-        <ExportProgressOverlay
-          current={exportProgress.current}
-          total={exportProgress.total}
-          startedAt={exportProgress.startedAt}
-          onCancel={cancelExport}
-        />
-      ) : null}
     </>
   )
 }

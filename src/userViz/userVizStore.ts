@@ -136,16 +136,13 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
     try {
       const blob = await generateUserVizPreview(compiled.component, id)
       if (blob) {
+        previewUrl = URL.createObjectURL(blob)
         if (isUserVizPersistenceAvailable()) {
           try {
             previewPath = await saveUserVizPreview(id, blob)
-            previewUrl = URL.createObjectURL(blob)
           } catch (err) {
             console.warn('[userViz] не удалось сохранить превью:', err)
-            previewUrl = URL.createObjectURL(blob)
           }
-        } else {
-          previewUrl = URL.createObjectURL(blob)
         }
       }
     } catch (err) {
@@ -175,24 +172,12 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
     const target = get().visualizers.find((v) => v.id === vizId)
     if (!target) return
     if (target.previewUrl) {
-      try {
-        URL.revokeObjectURL(target.previewUrl)
-      } catch {}
+      try { URL.revokeObjectURL(target.previewUrl) } catch {}
     }
     set((s) => ({ visualizers: s.visualizers.filter((v) => v.id !== vizId) }))
     if (isUserVizPersistenceAvailable()) {
-      try {
-        await deleteUserVizFile(target.sourcePath)
-      } catch (err) {
-        console.warn('[userViz] не удалось удалить файл:', err)
-      }
-      if (target.previewPath) {
-        try {
-          await deleteUserVizPreview(target.previewPath)
-        } catch (err) {
-          console.warn('[userViz] не удалось удалить превью:', err)
-        }
-      }
+      await deleteUserVizFile(target.sourcePath)
+      if (target.previewPath) await deleteUserVizPreview(target.previewPath)
     }
     void persistCurrentManifest()
   },
@@ -200,24 +185,16 @@ export const useUserVizStore = create<UserVizState>((set, get) => ({
   recompileVisualizer: async (vizId) => {
     const target = get().visualizers.find((v) => v.id === vizId)
     if (!target) return
+    let patch: Partial<UserVisualizerRuntime>
     try {
-      const source = await readUserVizFile(target.sourcePath)
-      const compiled = compileUserViz(source)
-      set((s) => ({
-        visualizers: s.visualizers.map((v) =>
-          v.id === vizId
-            ? { ...v, component: compiled.component, error: compiled.error }
-            : v,
-        ),
-      }))
+      const compiled = compileUserViz(await readUserVizFile(target.sourcePath))
+      patch = { component: compiled.component, error: compiled.error }
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err)
-      set((s) => ({
-        visualizers: s.visualizers.map((v) =>
-          v.id === vizId ? { ...v, component: null, error: msg } : v,
-        ),
-      }))
+      patch = { component: null, error: err instanceof Error ? err.message : String(err) }
     }
+    set((s) => ({
+      visualizers: s.visualizers.map((v) => (v.id === vizId ? { ...v, ...patch } : v)),
+    }))
   },
 
   getById: (vizId) => get().visualizers.find((v) => v.id === vizId),

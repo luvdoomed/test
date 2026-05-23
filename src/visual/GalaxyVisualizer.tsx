@@ -271,11 +271,21 @@ export function StarfieldVisualizer() {
     let camOffsetX = 0
     let camOffsetY = 0
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function animate(): void {
+      const now = performance.now()
+      const elapsed = now - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
+        rafId = requestAnimationFrame(animate)
+        return
+      }
+      lastFrameTime = now - (elapsed % FRAME_INTERVAL)
+
       ctx!.clearRect(0, 0, lw, lh)
       const energy = energyRef.current
       const beat = beatRef.current
-      const playing = isPlayingRef.current
       const minDim = Math.min(lw, lh)
       const scl = minDim / 1080
       const shakeScl = minDim / 900
@@ -294,15 +304,10 @@ export function StarfieldVisualizer() {
       const beatFront = beat && !prevBeat
       prevBeat = beat
 
-      if (playing) {
-        const targetSpeed = (BASE_SPEED + energy * MAX_ENERGY_SPEED) * speedMult
-        currentSpeed += (targetSpeed - currentSpeed) * 0.08
-      } else {
-        currentSpeed *= 0.95
-        if (currentSpeed < 0.01) currentSpeed = 0
-      }
+      const targetSpeed = (BASE_SPEED + energy * MAX_ENERGY_SPEED) * speedMult
+      currentSpeed += (targetSpeed - currentSpeed) * 0.08
 
-      if (beatFront && playing) {
+      if (beatFront) {
         shakeX = (Math.random() - 0.5) * 2 * SHAKE_STRENGTH * shakeScl
         shakeY = (Math.random() - 0.5) * 2 * SHAKE_STRENGTH * shakeScl
         beatFlash = 1
@@ -316,16 +321,14 @@ export function StarfieldVisualizer() {
       beatFlash *= 0.9
       warpFlash *= WARP_FLASH_DECAY
 
-      if (playing) {
-        nextShootingStarIn--
-        if (nextShootingStarIn <= 0) {
-          shootingStars.push(createShootingStar(lw, lh))
-          nextShootingStarIn = SHOOTING_STAR_MIN_INTERVAL + Math.floor(Math.random() * (SHOOTING_STAR_MAX_INTERVAL - SHOOTING_STAR_MIN_INTERVAL))
-        }
-        if (beatFront && Math.random() < 0.5) {
-          shootingStars.push(createShootingStar(lw, lh))
-          if (Math.random() < 0.3) shootingStars.push(createShootingStar(lw, lh))
-        }
+      nextShootingStarIn--
+      if (nextShootingStarIn <= 0) {
+        shootingStars.push(createShootingStar(lw, lh))
+        nextShootingStarIn = SHOOTING_STAR_MIN_INTERVAL + Math.floor(Math.random() * (SHOOTING_STAR_MAX_INTERVAL - SHOOTING_STAR_MIN_INTERVAL))
+      }
+      if (beatFront && Math.random() < 0.5) {
+        shootingStars.push(createShootingStar(lw, lh))
+        if (Math.random() < 0.3) shootingStars.push(createShootingStar(lw, lh))
       }
 
       globalHue = (globalHue + HUE_SHIFT_SPEED) % 360
@@ -344,11 +347,9 @@ export function StarfieldVisualizer() {
         }
       }
 
-      if (playing) {
-        driftTime++
-        camOffsetX = Math.sin(driftTime * 0.08) * 12 * shakeScl
-        camOffsetY = Math.cos(driftTime * 0.06) * 8 * shakeScl
-      }
+      driftTime++
+      camOffsetX = Math.sin(driftTime * 0.08) * 12 * shakeScl
+      camOffsetY = Math.cos(driftTime * 0.06) * 8 * shakeScl
       const cx = lw / 2 + shakeX + camOffsetX
       const cy = lh / 2 + shakeY + camOffsetY
 
@@ -396,9 +397,7 @@ export function StarfieldVisualizer() {
         const prevSX = star.prevScreenX
         const prevSY = star.prevScreenY
 
-        if (playing) {
-          star.z -= currentSpeed
-        }
+        star.z -= currentSpeed
 
         if (star.z < 1) {
           stars[i] = createStar(false, lw, lh)

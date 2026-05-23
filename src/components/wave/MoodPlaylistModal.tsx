@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { X, Play, Pause, ArrowLeft } from 'lucide-react'
+import Modal from '../Modal'
 import {
   MOOD_LABELS,
   MOOD_GRADIENTS,
@@ -16,18 +16,13 @@ import { loadTrack } from '../../library/playback'
 import { GALLERY } from '../../gallery/registry'
 import { getAllVisualizersInfoSnapshot } from '../../gallery/all'
 import { pluralTrack } from '../../utils/plural'
+import { formatDuration } from '../../utils/format'
+import PlayingIndicator from '../PlayingIndicator'
 
 interface MoodPlaylistModalProps {
   moodId: MoodId
   onClose: () => void
   onBack?: () => void
-}
-
-function fmtDuration(s: number): string {
-  if (!Number.isFinite(s) || s <= 0) return '—'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  return `${m}:${String(sec).padStart(2, '0')}`
 }
 
 export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlaylistModalProps) {
@@ -43,14 +38,6 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
 
   const moodTracks = useMemo(() => getTracksByMood(tracks, moodId), [tracks, moodId])
   const moodTrackIds = useMemo(() => moodTracks.map((t) => t.id), [moodTracks])
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-    return () => window.removeEventListener('keydown', handler)
-  }, [onClose])
 
   useEffect(() => {
     const prev = document.body.style.overflow
@@ -145,41 +132,8 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
     onClose()
   }
 
-  const content = (
-    <div
-      role="dialog"
-      aria-modal="true"
-      onClick={onClose}
-      style={{
-        position: 'fixed',
-        inset: 0,
-        zIndex: 60,
-        background: 'rgba(0,0,0,0.55)',
-        backdropFilter: 'blur(6px)',
-        WebkitBackdropFilter: 'blur(6px)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 24,
-        animation: 'moodModalFade 0.18s ease-out',
-      }}
-    >
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          width: '100%',
-          maxWidth: 680,
-          maxHeight: '82vh',
-          background: 'var(--bg)',
-          borderRadius: 18,
-          border: '1px solid var(--border)',
-          boxShadow: '0 24px 64px rgba(0,0,0,0.5)',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden',
-          animation: 'moodModalSlide 0.22s cubic-bezier(0.2, 0.8, 0.2, 1)',
-        }}
-      >
+  return (
+    <Modal onClose={onClose} zIndex={60} cardStyle={{ maxWidth: 680, maxHeight: '82vh' }}>
         <ModalHeader
           moodId={moodId}
           count={moodTracks.length}
@@ -220,19 +174,8 @@ export default function MoodPlaylistModal({ moodId, onClose, onBack }: MoodPlayl
             ))
           )}
         </div>
-      </div>
-
-      <style>{`
-        @keyframes moodModalFade { from { opacity: 0 } to { opacity: 1 } }
-        @keyframes moodModalSlide {
-          from { opacity: 0; transform: translateY(8px) scale(0.98) }
-          to { opacity: 1; transform: translateY(0) scale(1) }
-        }
-      `}</style>
-    </div>
+    </Modal>
   )
-
-  return createPortal(content, document.body)
 }
 
 interface ModalHeaderProps {
@@ -519,44 +462,9 @@ function PlaylistTrackRow({ track, isCurrent, isPlaying, onActivate }: PlaylistT
           flexShrink: 0,
         }}
       >
-        {fmtDuration(track.duration)}
+        {formatDuration(track.duration)}
       </span>
     </div>
   )
 }
 
-interface PlayingIndicatorProps {
-  color?: string
-}
-
-function PlayingIndicator({ color = 'var(--fg)' }: PlayingIndicatorProps) {
-  const barStyle = {
-    width: 2,
-    height: 12,
-    background: color,
-    borderRadius: 1,
-    transformOrigin: 'bottom',
-    display: 'inline-block',
-  }
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'flex-end',
-        gap: 2,
-        height: 12,
-        flexShrink: 0,
-      }}
-      aria-hidden="true"
-    >
-      <span style={{ ...barStyle, animation: 'eqA 0.8s ease-in-out infinite' }} />
-      <span style={{ ...barStyle, animation: 'eqB 0.8s ease-in-out infinite 0.15s' }} />
-      <span style={{ ...barStyle, animation: 'eqC 0.8s ease-in-out infinite 0.3s' }} />
-      <style>{`
-        @keyframes eqA { 0%,100% { transform: scaleY(0.4) } 50% { transform: scaleY(1) } }
-        @keyframes eqB { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(0.4) } }
-        @keyframes eqC { 0%,100% { transform: scaleY(0.5) } 50% { transform: scaleY(0.95) } }
-      `}</style>
-    </span>
-  )
-}

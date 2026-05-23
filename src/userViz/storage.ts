@@ -1,105 +1,57 @@
-import {
-  BaseDirectory,
-  mkdir,
-  exists,
-  writeTextFile,
-  readTextFile,
-  writeFile,
-  readFile,
-  remove,
-  rename,
-} from '@tauri-apps/plugin-fs'
-import { isTauri } from '../utils/platform'
+import { idbGet, idbSet, idbDel } from '../utils/idb'
 import type { UserVisualizerMeta } from './types'
 
-const ROOT = 'Loomi'
-const VIZ_DIR = `${ROOT}/visualizers`
-const MANIFEST_PATH = `${ROOT}/user-visualizers.json`
-const MANIFEST_TMP = `${ROOT}/user-visualizers.json.tmp`
-const APPDATA: BaseDirectory = BaseDirectory.AppData
+const MANIFEST_KEY = 'userviz:manifest'
+const sourceKey = (id: string) => `viz:${id}:source`
+const previewKey = (id: string) => `viz:${id}:preview`
 
 export function isUserVizPersistenceAvailable(): boolean {
-  return isTauri()
-}
-
-export async function ensureUserVizDirs(): Promise<void> {
-  if (!isUserVizPersistenceAvailable()) return
-  try {
-    if (!(await exists(ROOT, { baseDir: APPDATA }))) {
-      await mkdir(ROOT, { baseDir: APPDATA, recursive: true })
-    }
-    if (!(await exists(VIZ_DIR, { baseDir: APPDATA }))) {
-      await mkdir(VIZ_DIR, { baseDir: APPDATA, recursive: true })
-    }
-  } catch (err) {
-    console.warn('[userViz] не удалось создать каталог визуализаторов:', err)
-    throw err
-  }
+  return typeof indexedDB !== 'undefined'
 }
 
 export async function saveUserVizFile(vizId: string, tsxSource: string): Promise<string> {
-  if (!isUserVizPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
-  }
-  await ensureUserVizDirs()
-  const rel = `visualizers/${vizId}.tsx`
-  const full = `${ROOT}/${rel}`
-  await writeTextFile(full, tsxSource, { baseDir: APPDATA })
-  return rel
+  if (!isUserVizPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const key = sourceKey(vizId)
+  await idbSet(key, tsxSource)
+  return key
 }
 
 export async function readUserVizFile(sourcePath: string): Promise<string> {
-  if (!isUserVizPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
+  if (!isUserVizPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const src = await idbGet<string>(sourcePath)
+  if (typeof src !== 'string') throw new Error(`Виз не найден: ${sourcePath}`)
+  return src
+}
+
+async function deleteByKey(key: string, label: string): Promise<void> {
+  if (!isUserVizPersistenceAvailable()) return
+  try {
+    await idbDel(key)
+  } catch (err) {
+    console.warn(`[userViz] не удалось удалить ${label}`, key, err)
   }
-  const full = `${ROOT}/${sourcePath}`
-  return await readTextFile(full, { baseDir: APPDATA })
 }
 
 export async function deleteUserVizFile(sourcePath: string): Promise<void> {
-  if (!isUserVizPersistenceAvailable()) return
-  const full = `${ROOT}/${sourcePath}`
-  try {
-    if (await exists(full, { baseDir: APPDATA })) {
-      await remove(full, { baseDir: APPDATA })
-    }
-  } catch (err) {
-    console.warn('[userViz] не удалось удалить файл', sourcePath, err)
-  }
+  await deleteByKey(sourcePath, 'файл')
 }
 
 export async function saveUserVizPreview(vizId: string, jpegBlob: Blob): Promise<string> {
-  if (!isUserVizPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
-  }
-  await ensureUserVizDirs()
-  const rel = `visualizers/${vizId}.png`
-  const full = `${ROOT}/${rel}`
-  const bytes = new Uint8Array(await jpegBlob.arrayBuffer())
-  await writeFile(full, bytes, { baseDir: APPDATA })
-  return rel
+  if (!isUserVizPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const key = previewKey(vizId)
+  await idbSet(key, jpegBlob)
+  return key
 }
 
 export async function loadUserVizPreviewUrl(previewPath: string): Promise<string> {
-  if (!isUserVizPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
-  }
-  const full = `${ROOT}/${previewPath}`
-  const bytes = await readFile(full, { baseDir: APPDATA })
-  const blob = new Blob([new Uint8Array(bytes)], { type: 'image/jpeg' })
+  if (!isUserVizPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const blob = await idbGet<Blob>(previewPath)
+  if (!blob) throw new Error(`Превью не найдено: ${previewPath}`)
   return URL.createObjectURL(blob)
 }
 
 export async function deleteUserVizPreview(previewPath: string): Promise<void> {
-  if (!isUserVizPersistenceAvailable()) return
-  const full = `${ROOT}/${previewPath}`
-  try {
-    if (await exists(full, { baseDir: APPDATA })) {
-      await remove(full, { baseDir: APPDATA })
-    }
-  } catch (err) {
-    console.warn('[userViz] не удалось удалить превью', previewPath, err)
-  }
+  await deleteByKey(previewPath, 'превью')
 }
 
 function isValidMeta(v: unknown): v is UserVisualizerMeta {
@@ -119,23 +71,9 @@ function isValidMeta(v: unknown): v is UserVisualizerMeta {
 export async function loadUserVizManifest(): Promise<UserVisualizerMeta[]> {
   if (!isUserVizPersistenceAvailable()) return []
   try {
-    if (!(await exists(MANIFEST_PATH, { baseDir: APPDATA }))) return []
-    const text = await readTextFile(MANIFEST_PATH, { baseDir: APPDATA })
-    if (!text.trim()) return []
-    const parsed = JSON.parse(text)
-    if (!Array.isArray(parsed)) {
-      console.warn('[userViz] user-visualizers.json не массив')
-      return []
-    }
-    const valid: UserVisualizerMeta[] = []
-    for (const entry of parsed) {
-      if (!isValidMeta(entry)) {
-        console.warn('[userViz] пропущена битая запись:', entry)
-        continue
-      }
-      valid.push(entry)
-    }
-    return valid
+    const stored = await idbGet<UserVisualizerMeta[]>(MANIFEST_KEY)
+    if (!Array.isArray(stored)) return []
+    return stored.filter(isValidMeta)
   } catch (err) {
     console.warn('[userViz] чтение манифеста упало:', err)
     return []
@@ -148,16 +86,7 @@ export async function saveUserVizManifest(metas: UserVisualizerMeta[]): Promise<
   if (!isUserVizPersistenceAvailable()) return
   const job = async (): Promise<void> => {
     try {
-      await ensureUserVizDirs()
-      const json = JSON.stringify(metas, null, 2)
-      await writeTextFile(MANIFEST_TMP, json, { baseDir: APPDATA })
-      if (await exists(MANIFEST_PATH, { baseDir: APPDATA })) {
-        await remove(MANIFEST_PATH, { baseDir: APPDATA })
-      }
-      await rename(MANIFEST_TMP, MANIFEST_PATH, {
-        oldPathBaseDir: APPDATA,
-        newPathBaseDir: APPDATA,
-      })
+      await idbSet(MANIFEST_KEY, metas)
     } catch (err) {
       console.warn('[userViz] запись манифеста упала:', err)
       throw err

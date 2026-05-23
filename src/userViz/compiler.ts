@@ -2,6 +2,9 @@ import * as Babel from '@babel/standalone'
 import React, { type ComponentType } from 'react'
 import * as ReactThreeFiber from '@react-three/fiber'
 import * as ReactThreeDrei from '@react-three/drei'
+import * as ReactThreePost from '@react-three/postprocessing'
+import * as Postprocessing from 'postprocessing'
+import * as Lamina from 'lamina'
 import * as THREE_NS from 'three'
 import type { UserVizProps } from './types'
 
@@ -10,12 +13,16 @@ interface CompileResult {
   error: string | null
 }
 
-const MODULE_GLOBALS: Record<string, string> = {
-  react: '__react',
-  '@react-three/fiber': '__r3f',
-  '@react-three/drei': '__drei',
-  three: '__three',
+const MODULES: Record<string, { global: string; value: unknown }> = {
+  react: { global: '__react', value: React },
+  '@react-three/fiber': { global: '__r3f', value: ReactThreeFiber },
+  '@react-three/drei': { global: '__drei', value: ReactThreeDrei },
+  '@react-three/postprocessing': { global: '__rpost', value: ReactThreePost },
+  postprocessing: { global: '__post', value: Postprocessing },
+  lamina: { global: '__lamina', value: Lamina },
+  three: { global: '__three', value: THREE_NS },
 }
+const MODULE_GLOBALS = Object.fromEntries(Object.entries(MODULES).map(([k, v]) => [k, v.global]))
 
 function rewriteImports(src: string): { code: string; warnings: string[] } {
   const warnings: string[] = []
@@ -127,22 +134,11 @@ export function compileUserViz(tsxSource: string): CompileResult {
 
     const body = `"use strict";\n${code}\nreturn ${defaultName};`
 
-    const factory = new Function(
-      'React',
-      '__react',
-      '__r3f',
-      '__drei',
-      '__three',
-      body,
-    ) as (
-      R: typeof React,
-      reactNs: typeof React,
-      r3f: typeof ReactThreeFiber,
-      drei: typeof ReactThreeDrei,
-      three: typeof THREE_NS,
+    const moduleEntries = Object.values(MODULES)
+    const factory = new Function('React', ...moduleEntries.map((m) => m.global), body) as (
+      ...args: unknown[]
     ) => ComponentType<UserVizProps>
-
-    const Component = factory(React, React, ReactThreeFiber, ReactThreeDrei, THREE_NS)
+    const Component = factory(React, ...moduleEntries.map((m) => m.value))
 
     if (typeof Component !== 'function') {
       return { component: null, error: 'default export не является компонентом' }

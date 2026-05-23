@@ -206,6 +206,9 @@ export function ShaderSphereVisualizer() {
     const clock = new THREE.Clock()
     const baseCamPos = new THREE.Vector3(0, 0, 5.5)
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function onResize() {
       camera.aspect = window.innerWidth / window.innerHeight
       camera.updateProjectionMatrix()
@@ -216,11 +219,18 @@ export function ShaderSphereVisualizer() {
     window.addEventListener('resize', onResize)
 
     function animate() {
+      const now = performance.now()
+      const sinceLast = now - lastFrameTime
+      if (sinceLast < FRAME_INTERVAL) {
+        rafRef.current = requestAnimationFrame(animate)
+        return
+      }
+      lastFrameTime = now - (sinceLast % FRAME_INTERVAL)
+
       const elapsed = clock.getElapsedTime()
       const curBeat = beatRef.current
       const curEnergy = energyRef.current
       const curAudioData = audioDataRef.current
-      const curIsPlaying = isPlayingRef.current
       const pp = paramsRef.current
 
       if (pp.subdivisions !== currentSubdivisions) {
@@ -254,7 +264,7 @@ export function ShaderSphereVisualizer() {
       bass /= 14
       high /= 40
 
-      const beatHit = curBeat && !prevBeat && curIsPlaying
+      const beatHit = curBeat && !prevBeat
       prevBeat = curBeat
 
       if (beatHit) {
@@ -271,30 +281,19 @@ export function ShaderSphereVisualizer() {
       kickX *= 0.7
       kickY *= 0.7
 
-      if (curIsPlaying) {
-        shake.trauma *= 0.88
-        const tPow = shake.trauma * shake.trauma
-        const pt = performance.now() * 0.015
-        const tX = (Math.sin(pt * 2.1) + Math.sin(pt * 3.7)) * 0.5 * tPow * 0.4
-        const tY = (Math.sin(pt * 1.9) + Math.sin(pt * 3.3)) * 0.5 * tPow * 0.3
-        const tR = Math.sin(pt * 2.5) * tPow * 0.03
-        shake.vx += (tX - shake.x) * 0.4; shake.vx *= 0.55; shake.x += shake.vx
-        shake.vy += (tY - shake.y) * 0.4; shake.vy *= 0.55; shake.y += shake.vy
-        shake.vr += (tR - shake.rot) * 0.4; shake.vr *= 0.55; shake.rot += shake.vr
-      } else {
-        shake.x *= 0.9; shake.y *= 0.9
-        shake.vx *= 0.85; shake.vy *= 0.85
-        shake.vr *= 0.85; shake.rot *= 0.9
-        shake.trauma *= 0.85
-      }
+      shake.trauma *= 0.88
+      const tPow = shake.trauma * shake.trauma
+      const pt = performance.now() * 0.015
+      const tX = (Math.sin(pt * 2.1) + Math.sin(pt * 3.7)) * 0.5 * tPow * 0.4
+      const tY = (Math.sin(pt * 1.9) + Math.sin(pt * 3.3)) * 0.5 * tPow * 0.3
+      const tR = Math.sin(pt * 2.5) * tPow * 0.03
+      shake.vx += (tX - shake.x) * 0.4; shake.vx *= 0.55; shake.x += shake.vx
+      shake.vy += (tY - shake.y) * 0.4; shake.vy *= 0.55; shake.y += shake.vy
+      shake.vr += (tR - shake.rot) * 0.4; shake.vr *= 0.55; shake.rot += shake.vr
 
-      if (curIsPlaying) {
-        drift.x += (Math.sin(elapsed * 0.3) * 0.5 + Math.sin(elapsed * 0.7) * 0.2 - drift.x) * 0.04
-        drift.y += (Math.cos(elapsed * 0.25) * 0.4 + Math.sin(elapsed * 0.6) * 0.15 - drift.y) * 0.04
-        drift.rot += (Math.sin(elapsed * 0.2) * 0.03 - drift.rot) * 0.04
-      } else {
-        drift.x *= 0.94; drift.y *= 0.94; drift.rot *= 0.94
-      }
+      drift.x += (Math.sin(elapsed * 0.3) * 0.5 + Math.sin(elapsed * 0.7) * 0.2 - drift.x) * 0.04
+      drift.y += (Math.cos(elapsed * 0.25) * 0.4 + Math.sin(elapsed * 0.6) * 0.15 - drift.y) * 0.04
+      drift.rot += (Math.sin(elapsed * 0.2) * 0.03 - drift.rot) * 0.04
 
       camera.position.x = baseCamPos.x + drift.x + shake.x + kickX
       camera.position.y = baseCamPos.y + drift.y + shake.y + kickY
@@ -302,13 +301,11 @@ export function ShaderSphereVisualizer() {
       camera.rotation.z = drift.rot + shake.rot
       camera.lookAt(0, 0, 0)
 
-      if (curIsPlaying) {
-        points.rotation.y += 0.003 + curEnergy * 0.025
-        points.rotation.x += 0.001 + curEnergy * 0.008
-      }
+      points.rotation.y += 0.003 + curEnergy * 0.025
+      points.rotation.x += 0.001 + curEnergy * 0.008
       points.scale.setScalar(beatScale)
 
-      if (curIsPlaying) frozenTime = elapsed
+      frozenTime = elapsed
       material.uniforms.uTime.value = frozenTime
       material.uniforms.uEnergy.value = curEnergy
       material.uniforms.uBeat.value = beatIntensity
@@ -317,7 +314,7 @@ export function ShaderSphereVisualizer() {
       material.uniforms.uPointScale.value = 1 + beatIntensity * 0.2
       material.uniforms.uDisplace.value = pp.displaceAmount
 
-      if (curIsPlaying) stars.rotation.y += 0.0005
+      stars.rotation.y += 0.0005
 
       bloomPass.strength = (0.25 + curEnergy * 0.8 + beatIntensity * 0.15) * pp.bloomStrength
       const motionAmount = Math.abs(shake.x) + Math.abs(shake.y) + Math.abs(kickX) + Math.abs(kickY)

@@ -1,4 +1,4 @@
-import { type ChangeEvent, type DragEvent, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Upload, Download, BookOpen, X, ChevronDown, FileCode2 } from 'lucide-react'
 import { MOOD_LABELS, type MoodId } from '../audio/moodEngine'
@@ -10,6 +10,7 @@ import UserVizUploadModal from '../components/userViz/UserVizUploadModal'
 import UserVizDocsModal from '../components/userViz/UserVizDocsModal'
 import PreviewImage from '../components/gallery/PreviewImage'
 import VisualizerHost from '../components/player/VisualizerHost'
+import { useDropZone } from '../utils/useDropZone'
 
 function isTsxFile(file: File): boolean {
   return file.name.toLowerCase().endsWith('.tsx') || file.name.toLowerCase().endsWith('.ts')
@@ -31,10 +32,8 @@ export default function UserVizPage() {
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [docsOpen, setDocsOpen] = useState(false)
-  const [dragOver, setDragOver] = useState(false)
   const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
-  const dragCounter = useRef(0)
 
   function handleFile(file: File) {
     if (!isTsxFile(file)) {
@@ -50,32 +49,10 @@ export default function UserVizPage() {
     e.target.value = ''
   }
 
-  function onDragEnter(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current++
-    if (e.dataTransfer.types.includes('Files')) setDragOver(true)
-  }
-
-  function onDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-  }
-
-  function onDragLeave(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current--
-    if (dragCounter.current <= 0) {
-      dragCounter.current = 0
-      setDragOver(false)
-    }
-  }
-
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current = 0
-    setDragOver(false)
-    const file = Array.from(e.dataTransfer.files).find(isTsxFile)
+  const { dragOver, bind: dropBind } = useDropZone((files) => {
+    const file = files.find(isTsxFile)
     if (file) handleFile(file)
-  }
+  })
 
   function openUserViz(id: string) {
     useAudioStore.getState().clearPlaylistQueue()
@@ -125,10 +102,7 @@ export default function UserVizPage() {
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') inputRef.current?.click()
           }}
-          onDragEnter={onDragEnter}
-          onDragOver={onDragOver}
-          onDragLeave={onDragLeave}
-          onDrop={onDrop}
+          {...dropBind}
           style={{
             flex: 1,
             minWidth: 320,
@@ -168,6 +142,7 @@ export default function UserVizPage() {
             <button
               type="button"
               onClick={() => setTemplateMenuOpen((v) => !v)}
+              className="hov-border t-bg-border"
               style={{
                 width: '100%',
                 padding: '14px 16px',
@@ -182,13 +157,6 @@ export default function UserVizPage() {
                 gap: 8,
                 cursor: 'pointer',
                 fontFamily: 'inherit',
-                transition: 'border-color 0.15s, background 0.15s',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border-active)'
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'var(--border)'
               }}
             >
               <Download size={14} />
@@ -236,6 +204,7 @@ export default function UserVizPage() {
           <button
             type="button"
             onClick={() => setDocsOpen(true)}
+            className="hov-icon-btn t-color-border"
             style={{
               width: '100%',
               padding: '14px 16px',
@@ -250,15 +219,6 @@ export default function UserVizPage() {
               gap: 8,
               cursor: 'pointer',
               fontFamily: 'inherit',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--fg)'
-              e.currentTarget.style.borderColor = 'var(--border-active)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--fg-soft)'
-              e.currentTarget.style.borderColor = 'var(--border)'
             }}
           >
             <BookOpen size={14} />
@@ -343,6 +303,7 @@ function TemplateMenuItem({ label, onClick }: TemplateMenuItemProps) {
     <button
       type="button"
       onClick={onClick}
+      className="hov-menu-item t-bg-color"
       style={{
         width: '100%',
         padding: '9px 12px',
@@ -354,15 +315,6 @@ function TemplateMenuItem({ label, onClick }: TemplateMenuItemProps) {
         fontFamily: 'inherit',
         textAlign: 'left',
         cursor: 'pointer',
-        transition: 'background 0.15s, color 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.background = 'var(--bg-soft)'
-        e.currentTarget.style.color = 'var(--fg)'
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color = 'var(--fg-soft)'
       }}
     >
       {label}
@@ -534,6 +486,7 @@ function UserVizCard({ vizId, name, moods, error, hasComponent, onOpen, onDelete
           onDelete()
         }}
         aria-label="Удалить"
+        className="hov-danger"
         style={{
           position: 'absolute',
           top: 10,
@@ -551,12 +504,6 @@ function UserVizCard({ vizId, name, moods, error, hasComponent, onOpen, onDelete
           opacity: hover ? 1 : 0,
           transition: 'opacity 0.15s, color 0.15s',
           zIndex: 2,
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = 'rgb(239,68,68)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = 'var(--fg-mute)'
         }}
       >
         <X size={13} />

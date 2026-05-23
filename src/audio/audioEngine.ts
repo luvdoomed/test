@@ -1,7 +1,6 @@
 import * as mm from 'music-metadata-browser'
 import { useAudioStore } from '../store/audioStore'
 import { BeatDetector } from './beatDetector'
-import { parseLrc } from '../utils/lrcParser'
 import { loadTrackBytes, audioMimeFromPath } from '../library/persistence'
 import { useLibraryStore } from '../store/libraryStore'
 import { processSystemAudioFrame } from './systemAudioCapture'
@@ -87,7 +86,6 @@ export class AudioEngine {
     this.resetAnalysisState()
 
     const store = useAudioStore.getState()
-    store.setLrcLines([])
     store.setIsPlaying(false)
     store.setCurrentTime(0)
 
@@ -115,7 +113,6 @@ export class AudioEngine {
     this.resetAnalysisState()
 
     const store = useAudioStore.getState()
-    store.setLrcLines([])
     store.setIsPlaying(false)
     store.setCurrentTime(0)
 
@@ -154,70 +151,44 @@ export class AudioEngine {
   private async extractTags(file: File, loadId: number, hint?: TrackMetaHint): Promise<void> {
     const fallbackTitle = hint?.title || file.name.replace(/\.[^/.]+$/, '')
 
-    try {
-      const metadata = await mm.parseBlob(file)
-      if (loadId !== this.loadCounter) return
-      const store = useAudioStore.getState()
-      const { title, artist, album } = metadata.common
-      const picture = metadata.common.picture?.[0]
-      let cover = ''
+    let metadata: Awaited<ReturnType<typeof mm.parseBlob>> | undefined
+    try { metadata = await mm.parseBlob(file) } catch {}
 
-      if (picture) {
-        const blob = new Blob([picture.data], { type: picture.format })
-        cover = URL.createObjectURL(blob)
-      }
+    if (loadId !== this.loadCounter) return
 
-      store.setTrackInfo({
-        title: title || fallbackTitle,
-        artist: artist || hint?.artist || '',
-        album: album || hint?.album || '',
-        cover: cover || hint?.cover || '',
-      })
+    const picture = metadata?.common.picture?.[0]
+    const cover = picture
+      ? URL.createObjectURL(new Blob([picture.data], { type: picture.format }))
+      : (hint?.cover || '')
 
-      const lyricsArr = metadata.common.lyrics
-      if (lyricsArr?.length) {
-        const raw = lyricsArr.filter(Boolean).join('\n')
-        if (raw.length > 0 && /\[\d{1,2}:\d{2}/.test(raw)) {
-          const parsed = parseLrc(raw)
-          if (parsed.length > 0) {
-            store.setLrcLines(parsed)
-          }
-        }
-      }
-    } catch {
-      if (loadId !== this.loadCounter) return
-      useAudioStore.getState().setTrackInfo({
-        title: fallbackTitle,
-        artist: hint?.artist || '',
-        album: hint?.album || '',
-        cover: hint?.cover || '',
-      })
-    }
+    useAudioStore.getState().setTrackInfo({
+      title: metadata?.common.title || fallbackTitle,
+      artist: metadata?.common.artist || hint?.artist || '',
+      album: metadata?.common.album || hint?.album || '',
+      cover,
+    })
   }
 
-  play(): void {
-    if (!this.buffer || this.playing) return
-    this.disposeSource()
-
-    if (this.audioContext.state === 'suspended') {
-      void this.audioContext.resume()
-    }
-
+  private createAndStartSource(offset: number): void {
     this.source = this.audioContext.createBufferSource()
     this.source.buffer = this.buffer
     this.source.connect(this.gainNode)
-    this.source.start(0, this.pauseOffset)
-
-    this.startedAt = this.audioContext.currentTime - this.pauseOffset
-    this.playing = true
-
+    this.source.start(0, offset)
+    this.startedAt = this.audioContext.currentTime - offset
     this.source.onended = () => {
       if (!this.playing) return
       const hook = this.onTrackEnd
       this.stop()
       if (hook) hook()
     }
+  }
 
+  play(): void {
+    if (!this.buffer || this.playing) return
+    this.disposeSource()
+    if (this.audioContext.state === 'suspended') void this.audioContext.resume()
+    this.playing = true
+    this.createAndStartSource(this.pauseOffset)
     useAudioStore.getState().setIsPlaying(true)
     this.startLoop()
   }
@@ -246,26 +217,12 @@ export class AudioEngine {
   seek(time: number): void {
     if (!this.buffer) return
     const clamped = Math.max(0, Math.min(time, this.buffer.duration))
-
     if (this.playing) {
       this.disposeSource()
-
-      this.source = this.audioContext.createBufferSource()
-      this.source.buffer = this.buffer
-      this.source.connect(this.gainNode)
-      this.source.start(0, clamped)
-      this.startedAt = this.audioContext.currentTime - clamped
-
-      this.source.onended = () => {
-        if (!this.playing) return
-        const hook = this.onTrackEnd
-        this.stop()
-        if (hook) hook()
-      }
+      this.createAndStartSource(clamped)
     } else {
       this.pauseOffset = clamped
     }
-
     useAudioStore.getState().setCurrentTime(clamped)
   }
 

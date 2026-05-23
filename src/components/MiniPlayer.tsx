@@ -119,6 +119,7 @@ export default function MiniPlayer() {
         type="button"
         onClick={expand}
         title="На весь экран"
+        className="t-color-border hov-icon-btn"
         style={{
           width: 32,
           height: 32,
@@ -131,15 +132,6 @@ export default function MiniPlayer() {
           justifyContent: 'center',
           cursor: 'pointer',
           flex: '0 0 32px',
-          transition: 'color 0.15s, border-color 0.15s',
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = 'var(--fg)'
-          e.currentTarget.style.borderColor = 'var(--border-active)'
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = 'var(--fg-mute)'
-          e.currentTarget.style.borderColor = 'var(--border)'
         }}
       >
         <Maximize2 size={14} />

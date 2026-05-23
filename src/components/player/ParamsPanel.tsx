@@ -25,6 +25,7 @@ export default function ParamsPanel({ visualizerId, visualizerName, onBack }: Pa
           type="button"
           onClick={onBack}
           aria-label="Назад"
+          className="hov-icon-btn t-color-border"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -38,15 +39,6 @@ export default function ParamsPanel({ visualizerId, visualizerName, onBack }: Pa
             fontWeight: 500,
             cursor: 'pointer',
             fontFamily: 'inherit',
-            transition: 'color 0.15s, border-color 0.15s',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = 'var(--fg)'
-            e.currentTarget.style.borderColor = 'var(--border-active)'
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = 'var(--fg-soft)'
-            e.currentTarget.style.borderColor = 'var(--border)'
           }}
         >
           <ArrowLeft size={13} />
@@ -108,6 +100,7 @@ export default function ParamsPanel({ visualizerId, visualizerName, onBack }: Pa
           <button
             type="button"
             onClick={() => resetParams(visualizerId)}
+            className="hov-icon-btn t-color-border"
             style={{
               display: 'inline-flex',
               alignItems: 'center',
@@ -123,15 +116,6 @@ export default function ParamsPanel({ visualizerId, visualizerName, onBack }: Pa
               cursor: 'pointer',
               fontFamily: 'inherit',
               alignSelf: 'flex-start',
-              transition: 'color 0.15s, border-color 0.15s',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.color = 'var(--fg)'
-              e.currentTarget.style.borderColor = 'var(--border-active)'
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.color = 'var(--fg-soft)'
-              e.currentTarget.style.borderColor = 'var(--border)'
             }}
           >
             <RotateCcw size={12} />

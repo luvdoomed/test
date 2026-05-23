@@ -1,4 +1,4 @@
-import { type ChangeEvent, type DragEvent, useMemo, useRef, useState } from 'react'
+import { type ChangeEvent, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LayoutGrid, Rows3, Plus } from 'lucide-react'
 import { useUIStore } from '../store/uiStore'
@@ -10,6 +10,7 @@ import TrackListItem from '../components/library/TrackListItem'
 import TrackGridCard from '../components/library/TrackGridCard'
 import EmptyLibrary from '../components/library/EmptyLibrary'
 import { pluralTrack } from '../utils/plural'
+import { useDropZone } from '../utils/useDropZone'
 
 const ACCEPTED_EXT = ['.mp3', '.flac', '.wav']
 
@@ -33,8 +34,6 @@ export default function Library() {
   const searchQuery = useUIStore((s) => s.searchQuery)
 
   const inputRef = useRef<HTMLInputElement>(null)
-  const [dragOver, setDragOver] = useState(false)
-  const dragCounter = useRef(0)
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -56,37 +55,12 @@ export default function Library() {
     }
   }
 
+  const { dragOver, bind: dropBind } = useDropZone((files) => void ingest(files))
+
   function onPick(e: ChangeEvent<HTMLInputElement>) {
     const list = Array.from(e.target.files ?? [])
     void ingest(list)
     e.target.value = ''
-  }
-
-  function onDragEnter(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current++
-    if (e.dataTransfer.types.includes('Files')) setDragOver(true)
-  }
-
-  function onDragOver(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-  }
-
-  function onDragLeave(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current--
-    if (dragCounter.current <= 0) {
-      dragCounter.current = 0
-      setDragOver(false)
-    }
-  }
-
-  function onDrop(e: DragEvent<HTMLDivElement>) {
-    e.preventDefault()
-    dragCounter.current = 0
-    setDragOver(false)
-    const list = Array.from(e.dataTransfer.files)
-    void ingest(list)
   }
 
   async function playTrack(track: LibraryTrack) {
@@ -108,10 +82,7 @@ export default function Library() {
   return (
     <main
       className="mx-auto max-w-[1400px] px-8 pt-16 pb-32 relative z-[2]"
-      onDragEnter={onDragEnter}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
-      onDrop={onDrop}
+      {...dropBind}
     >
       <div className="flex items-start justify-between gap-8 mb-10">
         <div>

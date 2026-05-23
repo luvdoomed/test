@@ -1,5 +1,7 @@
 import { Play, Pause, X } from 'lucide-react'
 import type { LibraryTrack } from '../../store/libraryStore'
+import { formatDuration } from '../../utils/format'
+import PlayingIndicator from '../PlayingIndicator'
 
 interface TrackListItemProps {
   track: LibraryTrack
@@ -7,13 +9,6 @@ interface TrackListItemProps {
   isPlaying: boolean
   onPlay: () => void
   onRemove: () => void
-}
-
-function fmt(s: number): string {
-  if (!Number.isFinite(s) || s <= 0) return '—'
-  const m = Math.floor(s / 60)
-  const sec = Math.floor(s % 60)
-  return `${m}:${String(sec).padStart(2, '0')}`
 }
 
 export default function TrackListItem({
@@ -36,7 +31,7 @@ export default function TrackListItem({
           onPlay()
         }
       }}
-      className="group"
+      className={`group t-bg-border ${isActive ? '' : 'hov-bg-soft'}`}
       style={{
         height: 64,
         padding: 12,
@@ -47,13 +42,6 @@ export default function TrackListItem({
         background: isActive ? 'var(--bg-elev)' : 'transparent',
         border: `1px solid ${isActive ? 'var(--border-active)' : 'transparent'}`,
         cursor: 'pointer',
-        transition: 'background 0.15s, border-color 0.15s',
-      }}
-      onMouseEnter={(e) => {
-        if (!isActive) e.currentTarget.style.background = 'var(--bg-soft)'
-      }}
-      onMouseLeave={(e) => {
-        if (!isActive) e.currentTarget.style.background = 'transparent'
       }}
     >
       <button
@@ -127,7 +115,7 @@ export default function TrackListItem({
           flexShrink: 0,
         }}
       >
-        {fmt(track.duration)}
+        {formatDuration(track.duration)}
       </span>
 
       <button
@@ -160,37 +148,5 @@ export default function TrackListItem({
         <X size={14} />
       </button>
     </div>
-  )
-}
-
-function PlayingIndicator() {
-  const barStyle = {
-    width: 2,
-    height: 12,
-    background: 'var(--fg)',
-    borderRadius: 1,
-    transformOrigin: 'bottom',
-    display: 'inline-block',
-  }
-  return (
-    <span
-      style={{
-        display: 'inline-flex',
-        alignItems: 'flex-end',
-        gap: 2,
-        height: 12,
-        flexShrink: 0,
-      }}
-      aria-hidden="true"
-    >
-      <span style={{ ...barStyle, animation: 'eqA 0.8s ease-in-out infinite' }} />
-      <span style={{ ...barStyle, animation: 'eqB 0.8s ease-in-out infinite 0.15s' }} />
-      <span style={{ ...barStyle, animation: 'eqC 0.8s ease-in-out infinite 0.3s' }} />
-      <style>{`
-        @keyframes eqA { 0%,100% { transform: scaleY(0.4) } 50% { transform: scaleY(1) } }
-        @keyframes eqB { 0%,100% { transform: scaleY(1) } 50% { transform: scaleY(0.4) } }
-        @keyframes eqC { 0%,100% { transform: scaleY(0.5) } 50% { transform: scaleY(0.95) } }
-      `}</style>
-    </span>
   )
 }

@@ -1,24 +1,10 @@
-import {
-  BaseDirectory,
-  mkdir,
-  exists,
-  writeFile,
-  writeTextFile,
-  readFile,
-  readTextFile,
-  remove,
-  rename,
-} from '@tauri-apps/plugin-fs'
 import type { TrackFeatures } from '../audio/meydaAnalyzer'
 import type { MoodWeights } from '../audio/moodEngine'
-import { isTauri } from '../utils/platform'
+import { idbGet, idbSet, idbDel } from '../utils/idb'
 
-const ROOT = 'Loomi'
-const TRACKS_DIR = `${ROOT}/tracks`
-const COVERS_DIR = `${ROOT}/covers`
-const MANIFEST_PATH = `${ROOT}/library.json`
-const MANIFEST_TMP = `${ROOT}/library.json.tmp`
-const APPDATA: BaseDirectory = BaseDirectory.AppData
+const MANIFEST_KEY = 'library:manifest'
+const audioKey = (id: string) => `track:${id}:audio`
+const coverKey = (id: string) => `track:${id}:cover`
 
 export interface PersistedTrack {
   id: string
@@ -34,45 +20,7 @@ export interface PersistedTrack {
 }
 
 export function isPersistenceAvailable(): boolean {
-  return isTauri()
-}
-
-export async function ensureLibraryDirs(): Promise<void> {
-  if (!isPersistenceAvailable()) return
-  try {
-    if (!(await exists(ROOT, { baseDir: APPDATA }))) {
-      await mkdir(ROOT, { baseDir: APPDATA, recursive: true })
-    }
-    if (!(await exists(TRACKS_DIR, { baseDir: APPDATA }))) {
-      await mkdir(TRACKS_DIR, { baseDir: APPDATA, recursive: true })
-    }
-    if (!(await exists(COVERS_DIR, { baseDir: APPDATA }))) {
-      await mkdir(COVERS_DIR, { baseDir: APPDATA, recursive: true })
-    }
-  } catch (err) {
-    console.warn('[persistence] не удалось создать каталоги:', err)
-    throw err
-  }
-}
-
-function audioExtFor(file: File): string {
-  const fromName = file.name.split('.').pop()?.toLowerCase()
-  if (fromName && /^[a-z0-9]{1,5}$/.test(fromName)) return fromName
-  const fromType = file.type.split('/')[1]?.toLowerCase()
-  if (fromType === 'mpeg') return 'mp3'
-  if (fromType === 'x-flac') return 'flac'
-  if (fromType === 'wav' || fromType === 'x-wav') return 'wav'
-  if (fromType) return fromType
-  return 'mp3'
-}
-
-function coverExtFor(mime: string): string {
-  const t = mime.toLowerCase()
-  if (t.includes('png')) return 'png'
-  if (t.includes('webp')) return 'webp'
-  if (t.includes('gif')) return 'gif'
-  if (t.includes('bmp')) return 'bmp'
-  return 'jpg'
+  return typeof indexedDB !== 'undefined'
 }
 
 async function blobToBytes(blob: Blob): Promise<Uint8Array> {
@@ -85,25 +33,15 @@ export async function saveTrackFiles(
   coverBlob: Blob | null,
   trackId: string,
 ): Promise<{ audioPath: string; coverPath: string | null }> {
-  await ensureLibraryDirs()
+  const audioPath = audioKey(trackId)
+  await idbSet(audioPath, audioFile)
 
-  const audioExt = audioExtFor(audioFile)
-  const audioRel = `tracks/${trackId}.${audioExt}`
-  const audioFull = `${ROOT}/${audioRel}`
-
-  const audioBytes = await blobToBytes(audioFile)
-  await writeFile(audioFull, audioBytes, { baseDir: APPDATA })
-
-  let coverRel: string | null = null
+  let coverPath: string | null = null
   if (coverBlob) {
-    const coverExt = coverExtFor(coverBlob.type)
-    coverRel = `covers/${trackId}.${coverExt}`
-    const coverFull = `${ROOT}/${coverRel}`
-    const coverBytes = await blobToBytes(coverBlob)
-    await writeFile(coverFull, coverBytes, { baseDir: APPDATA })
+    coverPath = coverKey(trackId)
+    await idbSet(coverPath, coverBlob)
   }
-
-  return { audioPath: audioRel, coverPath: coverRel }
+  return { audioPath, coverPath }
 }
 
 function isValidPersistedTrack(v: unknown): v is PersistedTrack {
@@ -123,37 +61,25 @@ function isValidPersistedTrack(v: unknown): v is PersistedTrack {
 export async function loadLibraryManifest(): Promise<PersistedTrack[]> {
   if (!isPersistenceAvailable()) return []
   try {
-    if (!(await exists(MANIFEST_PATH, { baseDir: APPDATA }))) return []
-    const text = await readTextFile(MANIFEST_PATH, { baseDir: APPDATA })
-    if (!text.trim()) return []
-    const parsed = JSON.parse(text)
-    if (!Array.isArray(parsed)) {
-      console.warn('[persistence] library.json не массив')
-      return []
-    }
+    const stored = await idbGet<PersistedTrack[]>(MANIFEST_KEY)
+    if (!Array.isArray(stored)) return []
     const valid: PersistedTrack[] = []
-    for (const entry of parsed) {
-      if (!isValidPersistedTrack(entry)) {
-        console.warn('[persistence] пропущена битая запись:', entry)
-        continue
-      }
-      const e = entry as PersistedTrack
+    for (const entry of stored) {
+      if (!isValidPersistedTrack(entry)) continue
       valid.push({
-        id: e.id,
-        title: e.title,
-        artist: e.artist,
-        album: typeof e.album === 'string' ? e.album : '',
-        audioPath: e.audioPath,
-        coverPath: e.coverPath,
-        features: (e.features as TrackFeatures | null) ?? null,
-        moodWeights: (e.moodWeights as MoodWeights | null) ?? null,
-        addedAt: typeof e.addedAt === 'string' ? e.addedAt : new Date(Number(e.addedAt)).toISOString(),
-        durationSec: e.durationSec,
+        ...entry,
+        album: typeof entry.album === 'string' ? entry.album : '',
+        features: entry.features ?? null,
+        moodWeights: entry.moodWeights ?? null,
+        addedAt:
+          typeof entry.addedAt === 'string'
+            ? entry.addedAt
+            : new Date(Number(entry.addedAt)).toISOString(),
       })
     }
     return valid
   } catch (err) {
-    console.warn('[persistence] чтение library.json упало:', err)
+    console.warn('[persistence] чтение library manifest упало:', err)
     return []
   }
 }
@@ -164,18 +90,9 @@ export async function saveLibraryManifest(tracks: PersistedTrack[]): Promise<voi
   if (!isPersistenceAvailable()) return
   const job = async (): Promise<void> => {
     try {
-      await ensureLibraryDirs()
-      const json = JSON.stringify(tracks, null, 2)
-      await writeTextFile(MANIFEST_TMP, json, { baseDir: APPDATA })
-      if (await exists(MANIFEST_PATH, { baseDir: APPDATA })) {
-        await remove(MANIFEST_PATH, { baseDir: APPDATA })
-      }
-      await rename(MANIFEST_TMP, MANIFEST_PATH, {
-        oldPathBaseDir: APPDATA,
-        newPathBaseDir: APPDATA,
-      })
+      await idbSet(MANIFEST_KEY, tracks)
     } catch (err) {
-      console.warn('[persistence] запись library.json упала:', err)
+      console.warn('[persistence] запись library manifest упала:', err)
       throw err
     }
   }
@@ -183,59 +100,24 @@ export async function saveLibraryManifest(tracks: PersistedTrack[]): Promise<voi
   return writeChain
 }
 
-async function removeIfExists(path: string): Promise<void> {
-  if (!isPersistenceAvailable()) return
-  try {
-    if (await exists(path, { baseDir: APPDATA })) {
-      await remove(path, { baseDir: APPDATA })
-    }
-  } catch (err) {
-    console.warn('[persistence] не удалось удалить', path, err)
-  }
-}
-
-const KNOWN_AUDIO_EXTS = ['mp3', 'flac', 'wav', 'm4a', 'aac', 'ogg', 'opus']
-const KNOWN_COVER_EXTS = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'bmp']
-
 export async function deleteTrackFiles(trackId: string): Promise<void> {
   if (!isPersistenceAvailable()) return
-  for (const ext of KNOWN_AUDIO_EXTS) {
-    await removeIfExists(`${ROOT}/tracks/${trackId}.${ext}`)
-  }
-  for (const ext of KNOWN_COVER_EXTS) {
-    await removeIfExists(`${ROOT}/covers/${trackId}.${ext}`)
-  }
+  await idbDel(audioKey(trackId))
+  await idbDel(coverKey(trackId))
 }
 
 export async function loadTrackBytes(audioPath: string): Promise<Uint8Array> {
-  if (!isPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
-  }
-  const full = `${ROOT}/${audioPath}`
-  const bytes = await readFile(full, { baseDir: APPDATA })
-  return bytes
+  if (!isPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const blob = await idbGet<Blob>(audioPath)
+  if (!blob) throw new Error(`Аудио не найдено: ${audioPath}`)
+  return blobToBytes(blob)
 }
 
 export async function loadCoverObjectUrl(coverPath: string): Promise<string> {
-  if (!isPersistenceAvailable()) {
-    throw new Error('Persistence unavailable')
-  }
-  const full = `${ROOT}/${coverPath}`
-  const bytes = await readFile(full, { baseDir: APPDATA })
-  const mime = coverMimeFromPath(coverPath)
-  const blob = new Blob([bytes as BlobPart], { type: mime })
+  if (!isPersistenceAvailable()) throw new Error('Persistence unavailable')
+  const blob = await idbGet<Blob>(coverPath)
+  if (!blob) throw new Error(`Обложка не найдена: ${coverPath}`)
   return URL.createObjectURL(blob)
-}
-
-function coverMimeFromPath(path: string): string {
-  const ext = path.split('.').pop()?.toLowerCase()
-  switch (ext) {
-    case 'png': return 'image/png'
-    case 'webp': return 'image/webp'
-    case 'gif': return 'image/gif'
-    case 'bmp': return 'image/bmp'
-    default: return 'image/jpeg'
-  }
 }
 
 export function audioMimeFromPath(path: string): string {

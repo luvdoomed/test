@@ -85,6 +85,9 @@ export function BarcodeVisualizer() {
     resize()
     window.addEventListener('resize', resize)
 
+    const FRAME_INTERVAL = 1000 / 60
+    let lastFrameTime = 0
+
     function drawBarcodeLayer(
       ctx: CanvasRenderingContext2D,
       W: number, H: number,
@@ -173,7 +176,7 @@ export function BarcodeVisualizer() {
     function drawParticles(
       ctx: CanvasRenderingContext2D,
       W: number, H: number,
-      bi: number, isPlaying: boolean,
+      bi: number,
       flareScale: number,
       scl: number,
     ) {
@@ -186,12 +189,10 @@ export function BarcodeVisualizer() {
           if (p.life <= 0) continue
         }
 
-        if (isPlaying) {
-          p.x += p.vx
-          p.y += p.vy
-          if (p.x < 0 || p.x > W) p.vx *= -1
-          if (p.y < 0 || p.y > H) p.vy *= -1
-        }
+        p.x += p.vx
+        p.y += p.vy
+        if (p.x < 0 || p.x > W) p.vx *= -1
+        if (p.y < 0 || p.y > H) p.vy *= -1
 
         const beatScale = p.life === -1 ? flareScale : 1.0
         const pulseSize = (p.baseSize + bi * 6 * scl) * beatScale
@@ -230,12 +231,15 @@ export function BarcodeVisualizer() {
     function draw() {
       if (!canvas || !ctx) return
 
-      const { audioData, beat, isPlaying, energy, trackInfo } = useAudioStore.getState()
-
-      if (!isPlaying) {
+      const now = performance.now()
+      const elapsed = now - lastFrameTime
+      if (elapsed < FRAME_INTERVAL) {
         rafRef.current = requestAnimationFrame(draw)
         return
       }
+      lastFrameTime = now - (elapsed % FRAME_INTERVAL)
+
+      const { audioData, beat, energy, trackInfo } = useAudioStore.getState()
 
       const W = canvas.width
       const H = canvas.height
@@ -324,7 +328,7 @@ export function BarcodeVisualizer() {
 
       drawTrackTitle(ctx, W, H, bi, trackInfo.title)
 
-      drawParticles(ctx, W, H, bi, isPlaying, flareScaleRef.current, scl)
+      drawParticles(ctx, W, H, bi, flareScaleRef.current, scl)
 
       drawGrain(ctx, W, H)
 

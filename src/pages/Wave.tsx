@@ -261,15 +261,13 @@ interface MoodCardProps {
 
 function MoodCard({ mood, count, onOpenPlaylist }: MoodCardProps) {
   const empty = count === 0
-  const [hovered, setHovered] = useState(false)
 
   return (
     <button
       type="button"
       onClick={empty ? undefined : onOpenPlaylist}
       disabled={empty}
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
+      className="hov-lift"
       style={{
         width: '100%',
         height: 120,
@@ -284,10 +282,8 @@ function MoodCard({ mood, count, onOpenPlaylist }: MoodCardProps) {
         alignItems: 'center',
         justifyContent: 'center',
         textAlign: 'center',
-        transition: 'transform 0.15s, box-shadow 0.15s',
         fontFamily: 'inherit',
         boxShadow: empty ? 'none' : '0 6px 18px rgba(0,0,0,0.25)',
-        transform: hovered && !empty ? 'translateY(-2px)' : 'translateY(0)',
       }}
     >
       <div

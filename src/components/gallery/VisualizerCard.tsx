@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowUpRight } from 'lucide-react'
-import type { VizPreview } from '../../gallery/types'
+import { CATEGORY_LABELS, type VizPreview } from '../../gallery/types'
 import PreviewImage from './PreviewImage'
 import VisualizerHost from '../player/VisualizerHost'
 
@@ -74,7 +74,7 @@ export default function VisualizerCard({ viz, isActive, index, onClick }: Visual
         style={{ background: 'var(--card-overlay)' }}
       />
 
-      {viz.badge ? <Badge kind={viz.badge} /> : null}
+      {viz.badge ? <Badge /> : null}
 
       <div className="absolute inset-x-0 bottom-0 flex items-end justify-between gap-3" style={{ padding: 18 }}>
         <div className="flex flex-col gap-1.5 min-w-0">
@@ -88,7 +88,7 @@ export default function VisualizerCard({ viz, isActive, index, onClick }: Visual
               color: 'var(--fg-mute)',
             }}
           >
-            <span>{viz.category}</span>
+            <span>{CATEGORY_LABELS[viz.category]}</span>
             <span className="inline-block w-1 h-1 rounded-full bg-current opacity-60" />
             <span>{viz.subcategory}</span>
           </div>
@@ -127,8 +127,7 @@ export default function VisualizerCard({ viz, isActive, index, onClick }: Visual
   )
 }
 
-function Badge({ kind }: { kind: 'premium' | 'new' }) {
-  const isPremium = kind === 'premium'
+function Badge() {
   return (
     <div
       className="absolute"
@@ -142,13 +141,13 @@ function Badge({ kind }: { kind: 'premium' | 'new' }) {
         letterSpacing: '0.14em',
         textTransform: 'uppercase',
         fontWeight: 500,
-        background: isPremium ? 'var(--premium-bg)' : 'var(--bg-elev)',
-        border: `1px solid ${isPremium ? 'var(--premium-border)' : 'var(--border-strong)'}`,
-        color: isPremium ? 'var(--premium)' : 'var(--fg)',
+        background: 'var(--premium-bg)',
+        border: '1px solid var(--premium-border)',
+        color: 'var(--premium)',
         backdropFilter: 'blur(8px)',
       }}
     >
-      {kind === 'premium' ? 'премиум' : kind === 'new' ? 'новинка' : kind}
+      премиум
     </div>
   )
 }
