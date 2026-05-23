@@ -17,6 +17,24 @@ export interface PersistedTrack {
   moodWeights: MoodWeights | null
   addedAt: string
   durationSec: number
+  originalFileName?: string | null
+  sourceFileSize?: number | null
+}
+
+export async function ensureLibraryDirs(): Promise<void> {
+}
+
+export async function saveCoverBlob(coverBlob: Blob, trackId: string): Promise<string> {
+  const path = coverKey(trackId)
+  await idbSet(path, coverBlob)
+  return path
+}
+
+export async function loadCoverBytes(coverPath: string): Promise<Uint8Array | null> {
+  if (!isPersistenceAvailable()) return null
+  const blob = await idbGet<Blob>(coverPath)
+  if (!blob) return null
+  return blobToBytes(blob)
 }
 
 export function isPersistenceAvailable(): boolean {

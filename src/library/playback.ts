@@ -9,7 +9,8 @@ export async function loadTrack(track: LibraryTrack): Promise<void> {
     cover: track.cover ?? '',
   }
   if (track.audioPath) {
-    await audioEngine.loadFromPath(track.audioPath, hint)
+    await audioEngine.loadFromPath(track.audioPath, track.originalFileName ?? null)
+    void hint
     return
   }
   if (track.file) {
@@ -17,4 +18,8 @@ export async function loadTrack(track: LibraryTrack): Promise<void> {
     return
   }
   throw new Error('Трек не имеет источника аудио')
+}
+
+export function autoPlayIfLyricsReady(): void {
+  audioEngine.play()
 }

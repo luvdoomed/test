@@ -1,15 +1,19 @@
 import { useEffect } from 'react'
 import { useUIStore } from './store/uiStore'
 import { useThemeStore } from './store/themeStore'
-import { useAudioStore } from './store/audioStore'
+import { useAudioStore, EMPTY_MOOD_SESSION } from './store/audioStore'
 import { useLibraryStore } from './store/libraryStore'
 import { useUserVizStore } from './userViz/userVizStore'
 import { audioEngine } from './audio/audioEngine'
-import { loadTrack } from './library/playback'
+import { autoPlayIfLyricsReady, loadTrack } from './library/playback'
+import { applyStoredSettingsOnStartup } from './store/settingsStore'
+import { useAuthStore } from './store/authStore'
 import { pickVizForMood } from './audio/moodEngine'
-import { EMPTY_MOOD_SESSION } from './store/audioStore'
 import { getAllVisualizersInfoSnapshot } from './gallery/all'
 import TopNav from './components/TopNav'
+import ProfileModal from './components/ProfileModal'
+import SettingsModal from './components/SettingsModal'
+import LyricsSearchModal from './components/player/LyricsSearchModal'
 import VisualizersGallery from './pages/VisualizersGallery'
 import Library from './pages/Library'
 import Wave from './pages/Wave'
@@ -17,12 +21,14 @@ import UserVizPage from './pages/UserVizPage'
 import PlayerOverlay from './components/player/PlayerOverlay'
 import MiniPlayer from './components/MiniPlayer'
 
-
 export default function App() {
   const currentTab = useUIStore((s) => s.currentTab)
+  const profileOpen = useUIStore((s) => s.profileOpen)
+  const setProfileOpen = useUIStore((s) => s.setProfileOpen)
+  const settingsOpen = useUIStore((s) => s.settingsOpen)
+  const setSettingsOpen = useUIStore((s) => s.setSettingsOpen)
   useThemeStore()
 
-  // подбор визы под муд
   const currentTrackId = useLibraryStore((s) => s.currentTrackId)
   const currentPlaylistMood = useAudioStore((s) => s.currentPlaylistMood)
   const clearPlaylistQueue = useAudioStore((s) => s.clearPlaylistQueue)
@@ -70,7 +76,7 @@ export default function App() {
       void (async () => {
         try {
           await loadTrack(nextTrack)
-          audioEngine.play()
+          autoPlayIfLyricsReady()
           lib.setCurrentTrack(nextTrack.id)
         } catch (err) {
           console.warn('[wave] auto-advance не удался', err)
@@ -82,20 +88,30 @@ export default function App() {
 
   const loadLibraryFromDisk = useLibraryStore((s) => s.loadLibraryFromDisk)
   const loadUserVizFromDisk = useUserVizStore((s) => s.loadFromDisk)
+  const restoreSession = useAuthStore((s) => s.restoreSession)
   useEffect(() => {
-    void loadLibraryFromDisk()
-    void loadUserVizFromDisk()
-  }, [loadLibraryFromDisk, loadUserVizFromDisk])
+    void (async () => {
+      applyStoredSettingsOnStartup()
+      await loadLibraryFromDisk()
+      await loadUserVizFromDisk()
+      await restoreSession()
+    })()
+  }, [loadLibraryFromDisk, loadUserVizFromDisk, restoreSession])
 
   return (
     <>
       <TopNav />
-      {currentTab === 'visualizers' && <VisualizersGallery />}
-      {currentTab === 'library' && <Library />}
-      {currentTab === 'wave' && <Wave />}
-      {currentTab === 'user-viz' && <UserVizPage />}
+      <div style={{ paddingTop: 60 }}>
+        {currentTab === 'visualizers' && <VisualizersGallery />}
+        {currentTab === 'library' && <Library />}
+        {currentTab === 'wave' && <Wave />}
+        {currentTab === 'user-viz' && <UserVizPage />}
+      </div>
       <PlayerOverlay />
       <MiniPlayer />
+      <ProfileModal isOpen={profileOpen} onClose={() => setProfileOpen(false)} />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      <LyricsSearchModal />
     </>
   )
 }

@@ -95,3 +95,6 @@ export async function saveUserVizManifest(metas: UserVisualizerMeta[]): Promise<
   writeChain = writeChain.then(job, job)
   return writeChain
 }
+
+export async function ensureUserVizDirs(): Promise<void> {
+}
