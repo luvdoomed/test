@@ -60,3 +60,29 @@ export async function idbGet(key: string): Promise<Uint8Array | null> {
     }
   })
 }
+
+export async function idbSetText(key: string, value: string): Promise<void> {
+  await idbSet(key, new TextEncoder().encode(value))
+}
+
+export async function idbGetText(key: string): Promise<string | null> {
+  const bytes = await idbGet(key)
+  if (!bytes) return null
+  return new TextDecoder().decode(bytes)
+}
+
+export async function idbDelete(key: string): Promise<void> {
+  const db = await openDb()
+  await new Promise<void>((resolve, reject) => {
+    const tx = db.transaction(STORE, 'readwrite')
+    tx.oncomplete = () => {
+      db.close()
+      resolve()
+    }
+    tx.onerror = () => {
+      db.close()
+      reject(tx.error ?? new Error('IndexedDB delete failed'))
+    }
+    tx.objectStore(STORE).delete(key)
+  })
+}
