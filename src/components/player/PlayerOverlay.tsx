@@ -167,29 +167,55 @@ export default function PlayerOverlay() {
               transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
               onClick={(e) => e.stopPropagation()}
             >
-              <button
-                type="button"
-                onClick={() => closeOverlay()}
-                title="Закрыть (Esc)"
+              <div
                 style={{
                   position: 'absolute',
                   top: 12,
                   right: 12,
-                  width: 32,
-                  height: 32,
-                  borderRadius: 8,
-                  border: '1px solid var(--border)',
-                  background: 'var(--bg-soft)',
-                  color: 'var(--fg-mute)',
                   display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  cursor: 'pointer',
+                  gap: 8,
                   zIndex: 5,
                 }}
               >
-                <X size={14} />
-              </button>
+                <button
+                  type="button"
+                  onClick={() => setFullscreen(true)}
+                  title="На весь экран (F)"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-soft)',
+                    color: 'var(--fg-mute)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <Maximize2 size={14} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => closeOverlay()}
+                  title="Закрыть (Esc)"
+                  style={{
+                    width: 32,
+                    height: 32,
+                    borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-soft)',
+                    color: 'var(--fg-mute)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}
+                >
+                  <X size={14} />
+                </button>
+              </div>
 
               <div className="flex" style={{ height: 'calc(85vh - 0px)', maxHeight: 800 }}>
                 <div
@@ -257,26 +283,6 @@ export default function PlayerOverlay() {
                               {viz.name}
                             </h2>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => setFullscreen(true)}
-                            title="На весь экран (F)"
-                            style={{
-                              width: 32,
-                              height: 32,
-                              borderRadius: 8,
-                              border: '1px solid var(--border)',
-                              background: 'var(--bg-soft)',
-                              color: 'var(--fg-mute)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              cursor: 'pointer',
-                              flexShrink: 0,
-                            }}
-                          >
-                            <Maximize2 size={14} />
-                          </button>
                         </div>
 
                         {hasTrack ? (
