@@ -45,7 +45,7 @@ export default function TopNav() {
 
   return (
     <header
-      className="sticky top-0 z-50 backdrop-blur-md"
+      className="fixed inset-x-0 top-0 z-50 backdrop-blur-md"
       style={{
         height: 60,
         background: 'color-mix(in srgb, var(--bg) 70%, transparent)',
