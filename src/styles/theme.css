@@ -318,6 +318,116 @@ body::after {
   opacity: 0.9;
 }
 
+.auth-modal__title {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--fg);
+}
+
+.auth-modal__lead {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--fg-soft);
+}
+
+.auth-modal__field {
+  margin-bottom: 14px;
+}
+
+.auth-modal__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-soft);
+}
+
+.auth-modal__input-shell {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  min-height: 42px;
+  margin-top: 6px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--bg-soft);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+.auth-modal__input-shell:focus-within {
+  border-color: var(--border-active);
+  background: var(--bg-elev);
+}
+
+.auth-modal__input-shell--error {
+  border-color: rgba(239, 68, 68, 0.55);
+}
+
+.auth-modal__input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--fg);
+  padding: 10px 12px;
+  font: 500 14px 'Inter Tight', system-ui, sans-serif;
+  caret-color: var(--fg);
+}
+
+.auth-modal__input::placeholder {
+  color: var(--fg-faint);
+  opacity: 1;
+}
+
+.auth-modal__hint {
+  margin-top: 6px;
+  font-size: 11px;
+  line-height: 1.35;
+  color: var(--fg-mute);
+}
+
+.auth-modal__hint--error {
+  color: rgb(248, 113, 113);
+}
+
+.auth-modal__stack {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.auth-modal__stack--tight {
+  gap: 6px;
+}
+
+.auth-modal__muted {
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--fg-mute);
+}
+
+.auth-modal__link,
+.auth-modal__back {
+  border: 0;
+  background: transparent;
+  color: var(--fg-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.auth-modal__link:hover,
+.auth-modal__back:hover {
+  color: var(--fg);
+}
+
+.auth-modal__header-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
 /* цвет и фон должны меняться мгновенно — иначе текст «исчезает» при смене состояния */
 .opt-btn,
 .btn {
