@@ -1,16 +1,27 @@
-import { type ReactNode } from 'react'
-import { SlidersHorizontal } from 'lucide-react'
-import { useHover } from '../../utils/useHover'
+import { useState, type ReactNode } from 'react'
+import { SlidersHorizontal, Mic2 } from 'lucide-react'
+import { useUIStore } from '../../store/uiStore'
 
 interface ActionButtonsProps {
   hasTrack: boolean
   onOpenParams: () => void
 }
 
-export default function ActionButtons({ hasTrack: _hasTrack, onOpenParams }: ActionButtonsProps) {
+export default function ActionButtons({ hasTrack, onOpenParams }: ActionButtonsProps) {
+  const karaokeOverlay = useUIStore((s) => s.karaokeOverlay)
+  const toggleKaraokeOverlay = useUIStore((s) => s.toggleKaraokeOverlay)
+
   return (
-    <div className="grid" style={{ gridTemplateColumns: '1fr', gap: 8 }}>
+    <div className="grid" style={{ gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <ActionBtn icon={<SlidersHorizontal size={14} />} label="Параметры" onClick={onOpenParams} />
+      <ActionBtn
+        icon={<Mic2 size={14} />}
+        label="Караоке"
+        title="Текст поверх текущего визуализатора"
+        active={karaokeOverlay}
+        disabled={!hasTrack}
+        onClick={() => toggleKaraokeOverlay()}
+      />
     </div>
   )
 }
@@ -18,14 +29,21 @@ export default function ActionButtons({ hasTrack: _hasTrack, onOpenParams }: Act
 interface ActionBtnProps {
   icon: ReactNode
   label: string
+  title?: string
   active?: boolean
   disabled?: boolean
-  title?: string
   onClick: () => void
 }
 
-function ActionBtn({ icon, label, active = false, disabled = false, title, onClick }: ActionBtnProps) {
-  const { hover, bind } = useHover()
+function ActionBtn({
+  icon,
+  label,
+  title,
+  active = false,
+  disabled = false,
+  onClick,
+}: ActionBtnProps) {
+  const [hover, setHover] = useState(false)
   let bg = 'var(--bg-soft)'
   let color = 'var(--fg-soft)'
   let border = 'var(--border)'
@@ -41,11 +59,11 @@ function ActionBtn({ icon, label, active = false, disabled = false, title, onCli
   return (
     <button
       type="button"
+      title={title}
       onClick={onClick}
       disabled={disabled}
-      title={title}
-      {...bind}
-      className="t-button"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{
         padding: '10px 12px',
         borderRadius: 8,
@@ -59,6 +77,7 @@ function ActionBtn({ icon, label, active = false, disabled = false, title, onCli
         gap: 8,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.4 : 1,
+        transition: 'color 0.15s, border-color 0.15s, background 0.15s',
         fontFamily: 'inherit',
       }}
     >
