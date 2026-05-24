@@ -1,4 +1,4 @@
-import { type ChangeEvent, useMemo, useRef } from 'react'
+import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LayoutGrid, Rows3, Plus } from 'lucide-react'
 import { useUIStore } from '../store/uiStore'
@@ -11,6 +11,12 @@ import TrackGridCard from '../components/library/TrackGridCard'
 import EmptyLibrary from '../components/library/EmptyLibrary'
 import { pluralTrack } from '../utils/plural'
 import { useDropZone } from '../utils/useDropZone'
+import { useAuthStore } from '../store/authStore'
+import { trackNeedsLocalFile } from '../utils/trackCloud'
+import {
+  downloadCloudAudioToDevice,
+  uploadLocalAudioToCloud,
+} from '../services/cloudTrackAudio'
 
 const ACCEPTED_EXT = ['.mp3', '.flac', '.wav']
 
@@ -28,12 +34,22 @@ export default function Library() {
   const setCurrentTrack = useLibraryStore((s) => s.setCurrentTrack)
 
   const isPlaying = useAudioStore((s) => s.isPlaying)
+  const loggedIn = useAuthStore((s) => Boolean(s.token))
+  const cloudAudioTrackIds = useAuthStore((s) => s.cloudAudioTrackIds)
 
   const view = useUIStore((s) => s.libraryView)
   const setView = useUIStore((s) => s.setLibraryView)
   const searchQuery = useUIStore((s) => s.searchQuery)
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const [uploadHint, setUploadHint] = useState<string | null>(null)
+  const [cloudBusyId, setCloudBusyId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!uploadHint) return
+    const t = window.setTimeout(() => setUploadHint(null), 4500)
+    return () => clearTimeout(t)
+  }, [uploadHint])
 
   const filtered = useMemo(() => {
     const q = searchQuery.trim().toLowerCase()
@@ -75,6 +91,30 @@ export default function Library() {
     setCurrentTrack(track.id)
   }
 
+  async function cloudDownload(trackId: string) {
+    setCloudBusyId(trackId)
+    try {
+      await downloadCloudAudioToDevice(trackId)
+      setUploadHint('Аудио скачано из облака')
+    } catch (err) {
+      setUploadHint(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCloudBusyId(null)
+    }
+  }
+
+  async function cloudUpload(trackId: string) {
+    setCloudBusyId(trackId)
+    try {
+      await uploadLocalAudioToCloud(trackId)
+      setUploadHint('Аудио прикреплено к облаку')
+    } catch (err) {
+      setUploadHint(err instanceof Error ? err.message : String(err))
+    } finally {
+      setCloudBusyId(null)
+    }
+  }
+
   const subtitle = tracks.length === 0
     ? 'Пока пусто'
     : `${tracks.length} ${pluralTrack(tracks.length)} загружено`
@@ -104,6 +144,11 @@ export default function Library() {
             </span>
           </h1>
           <p className="text-base text-[var(--fg-soft)]">{subtitle}</p>
+          {uploadHint ? (
+            <p className="mt-3 text-sm max-w-xl" role="status" style={{ color: 'var(--fg-mute)' }}>
+              {uploadHint}
+            </p>
+          ) : null}
         </div>
 
         <div className="flex items-center gap-2">
@@ -168,6 +213,19 @@ export default function Library() {
                   isPlaying={isPlaying && t.id === currentTrackId}
                   onPlay={() => void playTrack(t)}
                   onRemove={() => removeTrack(t.id)}
+                  needsLocalFile={trackNeedsLocalFile(t)}
+                  hasCloudAudio={cloudAudioTrackIds.includes(t.id)}
+                  cloudBusy={cloudBusyId === t.id}
+                  onCloudDownload={
+                    loggedIn && trackNeedsLocalFile(t) && cloudAudioTrackIds.includes(t.id)
+                      ? () => void cloudDownload(t.id)
+                      : undefined
+                  }
+                  onCloudUpload={
+                    loggedIn && !trackNeedsLocalFile(t) && !cloudAudioTrackIds.includes(t.id)
+                      ? () => void cloudUpload(t.id)
+                      : undefined
+                  }
                 />
               </motion.div>
             ))}
@@ -195,6 +253,19 @@ export default function Library() {
                   isPlaying={isPlaying && t.id === currentTrackId}
                   onPlay={() => void playTrack(t)}
                   onRemove={() => removeTrack(t.id)}
+                  needsLocalFile={trackNeedsLocalFile(t)}
+                  hasCloudAudio={cloudAudioTrackIds.includes(t.id)}
+                  cloudBusy={cloudBusyId === t.id}
+                  onCloudDownload={
+                    loggedIn && trackNeedsLocalFile(t) && cloudAudioTrackIds.includes(t.id)
+                      ? () => void cloudDownload(t.id)
+                      : undefined
+                  }
+                  onCloudUpload={
+                    loggedIn && !trackNeedsLocalFile(t) && !cloudAudioTrackIds.includes(t.id)
+                      ? () => void cloudUpload(t.id)
+                      : undefined
+                  }
                 />
               </motion.div>
             ))}

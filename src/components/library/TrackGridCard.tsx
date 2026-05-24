@@ -1,6 +1,8 @@
+import { type CSSProperties } from 'react'
 import { motion } from 'framer-motion'
-import { Play, Pause, X } from 'lucide-react'
+import { Play, Pause, X, CloudDownload, CloudUpload } from 'lucide-react'
 import type { LibraryTrack } from '../../store/libraryStore'
+import TrackCloudBadge from './TrackCloudBadge'
 
 interface TrackGridCardProps {
   track: LibraryTrack
@@ -8,6 +10,11 @@ interface TrackGridCardProps {
   isPlaying: boolean
   onPlay: () => void
   onRemove: () => void
+  needsLocalFile?: boolean
+  hasCloudAudio?: boolean
+  cloudBusy?: boolean
+  onCloudDownload?: () => void
+  onCloudUpload?: () => void
 }
 
 export default function TrackGridCard({
@@ -16,6 +23,11 @@ export default function TrackGridCard({
   isPlaying,
   onPlay,
   onRemove,
+  needsLocalFile = false,
+  hasCloudAudio = false,
+  cloudBusy = false,
+  onCloudDownload,
+  onCloudUpload,
 }: TrackGridCardProps) {
   const showPause = isActive && isPlaying
 
@@ -113,16 +125,59 @@ export default function TrackGridCard({
       </div>
 
       <div className="flex flex-col min-w-0" style={{ padding: '10px 4px 0', gap: 2 }}>
-        <div
-          className="truncate"
-          style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)', letterSpacing: '-0.005em' }}
-        >
-          {track.name}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+          <div
+            className="truncate"
+            style={{ fontSize: 13, fontWeight: 500, color: 'var(--fg)', letterSpacing: '-0.005em', minWidth: 0 }}
+          >
+            {track.name}
+          </div>
+          <TrackCloudBadge needsLocalFile={needsLocalFile} hasCloudAudio={hasCloudAudio} size={11} />
         </div>
         <div className="truncate" style={{ fontSize: 12, color: 'var(--fg-soft)' }}>
           {track.artist}
         </div>
+        {(onCloudUpload || onCloudDownload) ? (
+          <div className="flex gap-1" style={{ marginTop: 4 }} onClick={(e) => e.stopPropagation()}>
+            {needsLocalFile && hasCloudAudio && onCloudDownload ? (
+              <button
+                type="button"
+                title="Скачать из облака"
+                disabled={cloudBusy}
+                onClick={() => onCloudDownload()}
+                style={cloudActionStyle}
+              >
+                <CloudDownload size={12} />
+              </button>
+            ) : null}
+            {!needsLocalFile && onCloudUpload ? (
+              <button
+                type="button"
+                title="Прикрепить к облаку"
+                disabled={cloudBusy}
+                onClick={() => onCloudUpload()}
+                style={cloudActionStyle}
+              >
+                <CloudUpload size={12} />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </div>
     </motion.div>
   )
+}
+
+const cloudActionStyle: CSSProperties = {
+  width: 26,
+  height: 26,
+  borderRadius: 6,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-soft)',
+  color: 'var(--fg-mute)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  flexShrink: 0,
 }

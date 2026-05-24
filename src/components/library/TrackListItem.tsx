@@ -1,7 +1,9 @@
-import { Play, Pause, X } from 'lucide-react'
+import { type CSSProperties } from 'react'
+import { Play, Pause, X, CloudDownload, CloudUpload } from 'lucide-react'
 import type { LibraryTrack } from '../../store/libraryStore'
 import { formatDuration } from '../../utils/format'
 import PlayingIndicator from '../PlayingIndicator'
+import TrackCloudBadge from './TrackCloudBadge'
 
 interface TrackListItemProps {
   track: LibraryTrack
@@ -9,6 +11,11 @@ interface TrackListItemProps {
   isPlaying: boolean
   onPlay: () => void
   onRemove: () => void
+  needsLocalFile?: boolean
+  hasCloudAudio?: boolean
+  cloudBusy?: boolean
+  onCloudDownload?: () => void
+  onCloudUpload?: () => void
 }
 
 export default function TrackListItem({
@@ -17,6 +24,11 @@ export default function TrackListItem({
   isPlaying,
   onPlay,
   onRemove,
+  needsLocalFile = false,
+  hasCloudAudio = false,
+  cloudBusy = false,
+  onCloudDownload,
+  onCloudUpload,
 }: TrackListItemProps) {
   const showPause = isActive && isPlaying
 
@@ -99,11 +111,42 @@ export default function TrackListItem({
             {track.name}
           </span>
           {showPause ? <PlayingIndicator /> : null}
+          <TrackCloudBadge needsLocalFile={needsLocalFile} hasCloudAudio={hasCloudAudio} />
         </div>
         <div className="truncate" style={{ fontSize: 12, color: 'var(--fg-soft)' }}>
           {track.artist}
         </div>
       </div>
+
+      {needsLocalFile && hasCloudAudio && onCloudDownload ? (
+        <button
+          type="button"
+          title="Скачать аудио из облака"
+          disabled={cloudBusy}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCloudDownload()
+          }}
+          style={cloudActionStyle}
+        >
+          <CloudDownload size={14} />
+        </button>
+      ) : null}
+
+      {!needsLocalFile && onCloudUpload ? (
+        <button
+          type="button"
+          title="Прикрепить аудио к облаку"
+          disabled={cloudBusy}
+          onClick={(e) => {
+            e.stopPropagation()
+            onCloudUpload()
+          }}
+          style={cloudActionStyle}
+        >
+          <CloudUpload size={14} />
+        </button>
+      ) : null}
 
       <span
         style={{
@@ -149,4 +192,18 @@ export default function TrackListItem({
       </button>
     </div>
   )
+}
+
+const cloudActionStyle: CSSProperties = {
+  width: 28,
+  height: 28,
+  borderRadius: 7,
+  border: '1px solid var(--border)',
+  background: 'var(--bg-soft)',
+  color: 'var(--fg-mute)',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  cursor: 'pointer',
+  flexShrink: 0,
 }
