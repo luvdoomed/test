@@ -7,6 +7,7 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Dependencies and build output
 node_modules
 dist
 dist-ssr
@@ -22,82 +23,42 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+.fleet/
+.zed/
+.history/
 
-# ai tooling
-CLAUDE.md
-claude.md
-.claude/
-.claudeignore
-.cursor/
-.cursorrules
-.aider*
-.copilot/
-.windsurf/
-.windsurfrules
-.continue/
-.codeium/
-.tabnine_*
-.specstory/
-
-# ai prompts and notes
-PROMPTS.md
-prompts.md
-NOTES.md
-notes.md
-TODO.md
-todo.md
-PLAN.md
-plan.md
-ROADMAP.md
-roadmap.md
-SCRATCH.md
-scratch.md
-*.prompt.md
-.notes/
-.scratch/
-
-# transcripts
-transcripts/
-*.transcript.txt
-.chats/
-
-# mcp configs
-.mcp.json
-mcp.json
-.claude.json
-
-# extra os and editor junk
+# OS junk
 ._*
 .Spotlight-V100
 .Trashes
 ehthumbs.db
 Thumbs.db
 desktop.ini
-.fleet/
-.zed/
-.history/
 
-# env and secrets
+# Env and secrets
 .env
 .env.local
 .env.*.local
 *.pem
 *.key
 
-# extra build cache
+# Build cache
 .cache/
 .parcel-cache/
 .eslintcache
 .turbo/
 
-# editor temp
+# Editor temp
 *.bak
 *.swp
 *.swo
 
+# Vercel
 .vercel
 
-# rust build artifacts
+# Rust build artifacts
 target/
 src-tauri/target/
+
+# Diploma docs (kept locally)
 _diploma_docs/
