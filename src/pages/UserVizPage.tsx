@@ -1,11 +1,11 @@
 import { type ChangeEvent, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Upload, Download, BookOpen, X, ChevronDown, FileCode2 } from 'lucide-react'
+import { Upload, Download, BookOpen, X, FileCode2 } from 'lucide-react'
 import { MOOD_LABELS, type MoodId } from '../audio/moodEngine'
 import { useUserVizStore } from '../userViz/userVizStore'
 import { useUIStore } from '../store/uiStore'
 import { useAudioStore } from '../store/audioStore'
-import { downloadTemplate, type TemplateKind } from '../userViz/templates'
+import { downloadTemplate } from '../userViz/templates'
 import UserVizUploadModal from '../components/userViz/UserVizUploadModal'
 import UserVizDocsModal from '../components/userViz/UserVizDocsModal'
 import PreviewImage from '../components/gallery/PreviewImage'
@@ -32,7 +32,6 @@ export default function UserVizPage() {
 
   const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [docsOpen, setDocsOpen] = useState(false)
-  const [templateMenuOpen, setTemplateMenuOpen] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function handleFile(file: File) {
@@ -66,9 +65,8 @@ export default function UserVizPage() {
     void removeVisualizer(id)
   }
 
-  function pickTemplate(kind: TemplateKind) {
-    downloadTemplate(kind)
-    setTemplateMenuOpen(false)
+  function handleDownloadTemplate() {
+    downloadTemplate()
   }
 
   return (
@@ -138,68 +136,29 @@ export default function UserVizPage() {
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, minWidth: 240 }}>
-          <div style={{ position: 'relative' }}>
-            <button
-              type="button"
-              onClick={() => setTemplateMenuOpen((v) => !v)}
-              className="hov-border t-bg-border"
-              style={{
-                width: '100%',
-                padding: '14px 16px',
-                borderRadius: 12,
-                border: '1px solid var(--border)',
-                background: 'var(--bg-soft)',
-                color: 'var(--fg)',
-                fontSize: 13,
-                fontWeight: 500,
-                display: 'flex',
-                alignItems: 'center',
-                gap: 8,
-                cursor: 'pointer',
-                fontFamily: 'inherit',
-              }}
-            >
-              <Download size={14} />
-              <span>Скачать шаблон</span>
-              <ChevronDown
-                size={14}
-                style={{
-                  marginLeft: 'auto',
-                  transition: 'transform 0.15s',
-                  transform: templateMenuOpen ? 'rotate(180deg)' : 'rotate(0)',
-                }}
-              />
-            </button>
-            <AnimatePresence>
-              {templateMenuOpen && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.12 }}
-                  style={{
-                    position: 'absolute',
-                    top: 'calc(100% + 6px)',
-                    left: 0,
-                    right: 0,
-                    background: 'var(--bg)',
-                    border: '1px solid var(--border)',
-                    borderRadius: 12,
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.4)',
-                    padding: 6,
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    zIndex: 5,
-                  }}
-                >
-                  <TemplateMenuItem label="Canvas 2D (простой)" onClick={() => pickTemplate('canvas2d')} />
-                  <TemplateMenuItem label="Three.js R3F (3D)" onClick={() => pickTemplate('r3f')} />
-                  <TemplateMenuItem label="WebGL шейдер" onClick={() => pickTemplate('webgl')} />
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
+          <button
+            type="button"
+            onClick={handleDownloadTemplate}
+            className="hov-border t-bg-border"
+            style={{
+              width: '100%',
+              padding: '14px 16px',
+              borderRadius: 12,
+              border: '1px solid var(--border)',
+              background: 'var(--bg-soft)',
+              color: 'var(--fg)',
+              fontSize: 13,
+              fontWeight: 500,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+            }}
+          >
+            <Download size={14} />
+            <span>Скачать шаблон</span>
+          </button>
 
           <button
             type="button"
@@ -290,35 +249,6 @@ export default function UserVizPage() {
 
       {docsOpen ? <UserVizDocsModal onClose={() => setDocsOpen(false)} /> : null}
     </main>
-  )
-}
-
-interface TemplateMenuItemProps {
-  label: string
-  onClick: () => void
-}
-
-function TemplateMenuItem({ label, onClick }: TemplateMenuItemProps) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="hov-menu-item t-bg-color"
-      style={{
-        width: '100%',
-        padding: '9px 12px',
-        borderRadius: 8,
-        border: 'none',
-        background: 'transparent',
-        color: 'var(--fg-soft)',
-        fontSize: 13,
-        fontFamily: 'inherit',
-        textAlign: 'left',
-        cursor: 'pointer',
-      }}
-    >
-      {label}
-    </button>
   )
 }
 

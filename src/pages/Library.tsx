@@ -1,6 +1,6 @@
 import { type ChangeEvent, useEffect, useMemo, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LayoutGrid, Rows3, Plus } from 'lucide-react'
+import { LayoutGrid, Rows3, Plus, Trash2, CheckSquare, X, Check } from 'lucide-react'
 import { useUIStore } from '../store/uiStore'
 import { useLibraryStore, type LibraryTrack } from '../store/libraryStore'
 import { useAudioStore } from '../store/audioStore'
@@ -32,6 +32,7 @@ export default function Library() {
   const addTrack = useLibraryStore((s) => s.addTrack)
   const removeTrack = useLibraryStore((s) => s.removeTrack)
   const setCurrentTrack = useLibraryStore((s) => s.setCurrentTrack)
+  const clearAll = useLibraryStore((s) => s.clearAll)
 
   const isPlaying = useAudioStore((s) => s.isPlaying)
   const loggedIn = useAuthStore((s) => Boolean(s.token))
@@ -44,6 +45,53 @@ export default function Library() {
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploadHint, setUploadHint] = useState<string | null>(null)
   const [cloudBusyId, setCloudBusyId] = useState<string | null>(null)
+  const [selectMode, setSelectMode] = useState(false)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+
+  function toggleSelected(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false)
+    setSelectedIds(new Set())
+  }
+
+  function selectAllVisible() {
+    setSelectedIds(new Set(filtered.map((t) => t.id)))
+  }
+
+  async function removeSelected() {
+    if (selectedIds.size === 0) return
+    const ok = confirm(`Удалить выбранные треки (${selectedIds.size})?`)
+    if (!ok) return
+    for (const id of selectedIds) {
+      try {
+        await removeTrack(id)
+      } catch (err) {
+        console.error('[library] не удалось удалить:', id, err)
+      }
+    }
+    exitSelectMode()
+  }
+
+  async function clearLibrary() {
+    const ok = confirm(`Очистить всю библиотеку? Удалится ${tracks.length} ${pluralTrack(tracks.length)}.`)
+    if (!ok) return
+    try {
+      await clearAll()
+      exitSelectMode()
+      setUploadHint('Библиотека очищена')
+    } catch (err) {
+      console.error('[library] clearAll упал:', err)
+      setUploadHint('Не удалось очистить библиотеку')
+    }
+  }
 
   useEffect(() => {
     if (!uploadHint) return
@@ -151,29 +199,40 @@ export default function Library() {
           ) : null}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => inputRef.current?.click()}
-            style={{
-              padding: '8px 14px',
-              borderRadius: 8,
-              border: '1px solid var(--border)',
-              background: 'var(--bg-soft)',
-              color: 'var(--fg)',
-              fontSize: 13,
-              fontWeight: 500,
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: 6,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            <Plus size={14} />
-            Добавить
-          </button>
-          <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-center gap-2 flex-wrap justify-end">
+          {!selectMode ? (
+            <>
+              <ActionButton onClick={() => inputRef.current?.click()} icon={<Plus size={14} />}>
+                Добавить
+              </ActionButton>
+              {tracks.length > 0 ? (
+                <ActionButton onClick={() => setSelectMode(true)} icon={<CheckSquare size={14} />}>
+                  Выбрать
+                </ActionButton>
+              ) : null}
+              <ViewToggle view={view} onChange={setView} />
+            </>
+          ) : (
+            <>
+              <ActionButton onClick={selectAllVisible} icon={<Check size={14} />}>
+                Выбрать все
+              </ActionButton>
+              <ActionButton
+                onClick={() => void removeSelected()}
+                icon={<Trash2 size={14} />}
+                variant="danger"
+                disabled={selectedIds.size === 0}
+              >
+                Удалить ({selectedIds.size})
+              </ActionButton>
+              <ActionButton onClick={() => void clearLibrary()} icon={<Trash2 size={14} />} variant="danger">
+                Очистить
+              </ActionButton>
+              <ActionButton onClick={exitSelectMode} icon={<X size={14} />}>
+                Отмена
+              </ActionButton>
+            </>
+          )}
         </div>
       </div>
 
@@ -206,12 +265,20 @@ export default function Library() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.96 }}
                 transition={{ duration: 0.2 }}
+                style={{ position: 'relative' }}
               >
+                {selectMode ? (
+                  <SelectCheckbox
+                    checked={selectedIds.has(t.id)}
+                    onChange={() => toggleSelected(t.id)}
+                    variant="list"
+                  />
+                ) : null}
                 <TrackListItem
                   track={t}
                   isActive={t.id === currentTrackId}
                   isPlaying={isPlaying && t.id === currentTrackId}
-                  onPlay={() => void playTrack(t)}
+                  onPlay={() => (selectMode ? toggleSelected(t.id) : void playTrack(t))}
                   onRemove={() => removeTrack(t.id)}
                   needsLocalFile={trackNeedsLocalFile(t)}
                   hasCloudAudio={cloudAudioTrackIds.includes(t.id)}
@@ -246,12 +313,20 @@ export default function Library() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.92 }}
                 transition={{ duration: 0.25 }}
+                style={{ position: 'relative' }}
               >
+                {selectMode ? (
+                  <SelectCheckbox
+                    checked={selectedIds.has(t.id)}
+                    onChange={() => toggleSelected(t.id)}
+                    variant="grid"
+                  />
+                ) : null}
                 <TrackGridCard
                   track={t}
                   isActive={t.id === currentTrackId}
                   isPlaying={isPlaying && t.id === currentTrackId}
-                  onPlay={() => void playTrack(t)}
+                  onPlay={() => (selectMode ? toggleSelected(t.id) : void playTrack(t))}
                   onRemove={() => removeTrack(t.id)}
                   needsLocalFile={trackNeedsLocalFile(t)}
                   hasCloudAudio={cloudAudioTrackIds.includes(t.id)}
@@ -365,6 +440,85 @@ function Btn({
       }}
     >
       {children}
+    </button>
+  )
+}
+
+interface ActionButtonProps {
+  onClick: () => void
+  icon: React.ReactNode
+  children: React.ReactNode
+  variant?: 'default' | 'danger'
+  disabled?: boolean
+}
+
+function ActionButton({ onClick, icon, children, variant = 'default', disabled }: ActionButtonProps) {
+  const danger = variant === 'danger'
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        padding: '8px 14px',
+        borderRadius: 8,
+        border: `1px solid ${danger ? 'rgba(239, 68, 68, 0.35)' : 'var(--border)'}`,
+        background: danger ? 'rgba(239, 68, 68, 0.08)' : 'var(--bg-soft)',
+        color: danger ? 'rgb(239, 68, 68)' : 'var(--fg)',
+        fontSize: 13,
+        fontWeight: 500,
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 6,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        fontFamily: 'inherit',
+        transition: 'background 0.15s, border-color 0.15s, opacity 0.15s',
+      }}
+    >
+      {icon}
+      {children}
+    </button>
+  )
+}
+
+interface SelectCheckboxProps {
+  checked: boolean
+  onChange: () => void
+  variant: 'list' | 'grid'
+}
+
+function SelectCheckbox({ checked, onChange, variant }: SelectCheckboxProps) {
+  const isGrid = variant === 'grid'
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        onChange()
+      }}
+      aria-label={checked ? 'Снять выбор' : 'Выбрать'}
+      style={{
+        position: 'absolute',
+        top: isGrid ? 8 : '50%',
+        left: isGrid ? 8 : 8,
+        transform: isGrid ? 'none' : 'translateY(-50%)',
+        width: 24,
+        height: 24,
+        borderRadius: 6,
+        border: `2px solid ${checked ? 'var(--fg)' : 'var(--border-strong)'}`,
+        background: checked ? 'var(--fg)' : 'rgba(0, 0, 0, 0.4)',
+        color: checked ? 'var(--bg)' : 'transparent',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        cursor: 'pointer',
+        zIndex: 5,
+        backdropFilter: 'blur(4px)',
+        transition: 'background 0.15s, border-color 0.15s',
+      }}
+    >
+      {checked ? <Check size={14} strokeWidth={3} /> : null}
     </button>
   )
 }
